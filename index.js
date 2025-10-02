@@ -18,8 +18,8 @@ const client = new Client({
 });
 
 // ===== STORAGE MAPS =====
-const invites = new Map(); // Current invite counts per guild
-const memberInvites = new Map(); // Which invite each member used
+const invites = new Map();
+const memberInvites = new Map();
 
 // ===== LOG CHANNELS =====
 const logChannels = {
@@ -32,17 +32,13 @@ const logChannels = {
     moderation: null
 };
 
-// Sale monitor instance
 let saleMonitor;
 
 // ===== HELPER FUNCTIONS =====
-
-// Load member invites from file
 function loadMemberInvites() {
     try {
         if (fs.existsSync('member-invites.json')) {
             const data = JSON.parse(fs.readFileSync('member-invites.json', 'utf8'));
-            // Convert object back to Map
             Object.entries(data).forEach(([userId, inviteData]) => {
                 memberInvites.set(userId, inviteData);
             });
@@ -53,10 +49,8 @@ function loadMemberInvites() {
     }
 }
 
-// Save member invites to file
 function saveMemberInvites() {
     try {
-        // Convert Map to object for JSON storage
         const data = Object.fromEntries(memberInvites);
         fs.writeFileSync('member-invites.json', JSON.stringify(data, null, 2));
     } catch (error) {
@@ -68,10 +62,8 @@ function saveMemberInvites() {
 client.once('ready', async () => {
     console.log(`✅ ${client.user.tag} is online!`);
     
-    // Load saved member invite data
     loadMemberInvites();
     
-    // --- Rotating Status ---
     const statuses = [
         { name: '📷 the streets', type: 3 },
         { name: '👨 customers', type: 2 },
@@ -88,7 +80,6 @@ client.once('ready', async () => {
         i = (i + 1) % statuses.length;
     }, 10000);
 
-    // Initialize log channels
     for (const [key, channelId] of Object.entries(config.logChannels)) {
         if (channelId) {
             const channel = client.channels.cache.get(channelId);
@@ -99,7 +90,6 @@ client.once('ready', async () => {
         }
     }
     
-    // Cache all invites on startup
     client.guilds.cache.forEach(async (guild) => {
         try {
             const guildInvites = await guild.invites.fetch();
@@ -110,7 +100,6 @@ client.once('ready', async () => {
         }
     });
 
-    // Initialize sale monitor
     if (config.saleChannelId) {
         saleMonitor = new SteamSaleMonitor(client, config);
         await saleMonitor.start();
@@ -121,7 +110,6 @@ client.once('ready', async () => {
 
 // ===== MEMBER JOIN =====
 client.on('guildMemberAdd', async (member) => {
-    // ===== AUTO-ASSIGN PENDING ROLES =====
     try {
         if (fs.existsSync('pending-approvals.json')) {
             const pendingApprovals = JSON.parse(fs.readFileSync('pending-approvals.json'));
@@ -139,194 +127,12 @@ client.on('guildMemberAdd', async (member) => {
                 
                 delete pendingApprovals[member.id];
                 fs.writeFileSync('pending-approvals.json', JSON.stringify(pendingApprovals, null, 2));
-                
-                return message.reply(`✅ User is not in the server. **${role.name}** will be assigned when they join.`);
-            }
-        } catch (error) {
-            console.error('Error with approve command:', error);
-            return message.reply('❌ Error processing approval. Check the user ID is valid.');
-        }
-    }
-    
-    // Steam sale monitor commands
-    if (message.content === '!checksales' && isAdmin) {
-        await message.reply('🔍 Checking for sales...');
-        if (saleMonitor) {
-            await saleMonitor.forceCheck();
-            await message.reply('✅ Sale check complete!');
-        } else {
-            await message.reply('❌ Sale monitor not initialized!');
-        }
-    }
-    
-    if (message.content === '!forcesales' && isAdmin) {
-        await message.reply('💥 Force posting ALL tracked games...');
-        if (saleMonitor) {
-            await saleMonitor.forcePostAll();
-            await message.reply('✅ Posted all tracked games!');
-        } else {
-            await message.reply('❌ Sale monitor not initialized!');
-        }
-    }
-    
-    if (message.content === '!listgames' && isAdmin) {
-        if (saleMonitor) {
-            const gameCount = saleMonitor.gameIds.length;
-            await message.reply(`📋 Currently tracking **${gameCount}** games.`);
-        } else {
-            await message.reply('❌ Sale monitor not initialized!');
-        }
-    }
-    
-    if (message.content.startsWith('!addgame ') && isAdmin) {
-        const appId = message.content.split(' ')[1];
-        if (appId && saleMonitor) {
-            saleMonitor.addGame(appId);
-            await message.reply(`✅ Added Steam App ID ${appId} to monitoring`);
-        } else {
-            await message.reply('❌ Usage: `!addgame <steam_app_id>`');
-        }
-    }
-    
-    if (message.content.startsWith('!removegame ') && isAdmin) {
-        const appId = message.content.split(' ')[1];
-        if (appId && saleMonitor) {
-            saleMonitor.removeGame(appId);
-            await message.reply(`✅ Removed Steam App ID ${appId} from monitoring`);
-        } else {
-            await message.reply('❌ Usage: `!removegame <steam_app_id>`');
-        }
-    }
-    
-    if (message.content === '!saleshelp' && isAdmin) {
-        const helpEmbed = new EmbedBuilder()
-            .setColor('#00ff00')
-            .setTitle('💊 Steam Sale Monitor Commands')
-            .setDescription('All commands require Administrator permission')
-            .addFields(
-                { name: '!checksales', value: 'Check for games currently on sale', inline: false },
-                { name: '!forcesales', value: 'Force post ALL tracked games', inline: false },
-                { name: '!listgames', value: 'Show how many games are being tracked', inline: false },
-                { name: '!addgame <app_id>', value: 'Add a Steam game to monitor', inline: false },
-                { name: '!removegame <app_id>', value: 'Remove a game from monitoring', inline: false },
-                { name: '!saleshelp', value: 'Show this help message', inline: false }
-            )
-            .setFooter({ text: 'Automatic checks run every hour' });
-        await message.reply({ embeds: [helpEmbed] });
-    }
-    
-    // Invite tracking commands
-    if (message.content === '!invitestats' && isAdmin) {
-        const stats = [];
-        const inviterCounts = new Map();
-        
-        // Count invites per inviter
-        memberInvites.forEach((data) => {
-            const inviter = data.inviter;
-            inviterCounts.set(inviter, (inviterCounts.get(inviter) || 0) + 1);
-        });
-        
-        // Sort by count
-        const sorted = Array.from(inviterCounts.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 10);
-        
-        if (sorted.length === 0) {
-            return message.reply('📊 No invite data available yet!');
-        }
-        
-        const embed = new EmbedBuilder()
-            .setColor('#00ff00')
-            .setTitle('📊 Invite Leaderboard')
-            .setDescription(`Top inviters (${memberInvites.size} total members tracked)`)
-            .setTimestamp();
-        
-        sorted.forEach(([inviter, count], index) => {
-            embed.addFields({
-                name: `#${index + 1} ${inviter}`,
-                value: `${count} member${count !== 1 ? 's' : ''}`,
-                inline: true
-            });
-        });
-        
-        await message.reply({ embeds: [embed] });
-    }
-    
-    if (message.content.startsWith('!whoinvited ') && isAdmin) {
-        const userId = message.content.split(' ')[1];
-        
-        if (!userId) {
-            return message.reply('Usage: `!whoinvited <user_id>`');
-        }
-        
-        const inviteData = memberInvites.get(userId);
-        
-        if (!inviteData) {
-            return message.reply('❌ No invite data found for this user. They may have joined before tracking was enabled.');
-        }
-        
-        const embed = new EmbedBuilder()
-            .setColor('#0099ff')
-            .setTitle('🎫 Invite Information')
-            .addFields(
-                { name: 'User ID', value: userId, inline: true },
-                { name: 'Invite Code', value: `\`${inviteData.code}\``, inline: true },
-                { name: 'Invited By', value: inviteData.inviter, inline: true },
-                { name: 'Joined At', value: `<t:${Math.floor(inviteData.timestamp / 1000)}:F>`, inline: false }
-            )
-            .setTimestamp();
-        
-        await message.reply({ embeds: [embed] });
-    }
-    
-    if (message.content === '!invitehelp' && isAdmin) {
-        const helpEmbed = new EmbedBuilder()
-            .setColor('#0099ff')
-            .setTitle('🎫 Invite Tracking Commands')
-            .setDescription('All commands require Administrator permission')
-            .addFields(
-                { name: '!invitestats', value: 'Show top 10 inviters leaderboard', inline: false },
-                { name: '!whoinvited <user_id>', value: 'See which invite a specific user used', inline: false },
-                { name: '!invitehelp', value: 'Show this help message', inline: false }
-            )
-            .setFooter({ text: 'Invite data is saved to member-invites.json' });
-        await message.reply({ embeds: [helpEmbed] });
-    }
-});
-
-// ===== ERROR HANDLING =====
-client.on('error', error => {
-    console.error('Discord client error:', error);
-});
-
-process.on('unhandledRejection', error => {
-    console.error('Unhandled promise rejection:', error);
-});
-
-// Graceful shutdown - save data before exit
-process.on('SIGINT', () => {
-    console.log('Saving data before shutdown...');
-    saveMemberInvites();
-    console.log('✅ Data saved. Shutting down...');
-    process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-    console.log('Saving data before shutdown...');
-    saveMemberInvites();
-    console.log('✅ Data saved. Shutting down...');
-    process.exit(0);
-});
-
-// ===== LOGIN =====
-client.login(config.token);.json', JSON.stringify(pendingApprovals, null, 2));
             }
         }
     } catch (error) {
         console.error('Error auto-assigning roles:', error);
     }
     
-    // ===== LOGGING =====
     if (!logChannels.member) return;
     
     const embed = new EmbedBuilder()
@@ -340,7 +146,6 @@ client.login(config.token);.json', JSON.stringify(pendingApprovals, null, 2));
         )
         .setTimestamp();
     
-    // Find which invite was used
     try {
         const newInvites = await member.guild.invites.fetch();
         const oldInvites = invites.get(member.guild.id) || new Map();
@@ -356,7 +161,6 @@ client.login(config.token);.json', JSON.stringify(pendingApprovals, null, 2));
                 inline: false
             });
             
-            // STORE THE INVITE DATA FOR THIS MEMBER
             memberInvites.set(member.id, {
                 code: usedInvite.code,
                 inviter: usedInvite.inviter?.tag || 'Unknown',
@@ -367,11 +171,9 @@ client.login(config.token);.json', JSON.stringify(pendingApprovals, null, 2));
                 guildId: member.guild.id
             });
             
-            // Save to file
             saveMemberInvites();
         }
         
-        // Update cached invites
         invites.set(member.guild.id, new Map(newInvites.map(inv => [inv.code, inv.uses])));
     } catch (error) {
         console.error('Error tracking invite:', error);
@@ -384,6 +186,8 @@ client.login(config.token);.json', JSON.stringify(pendingApprovals, null, 2));
 client.on('guildMemberRemove', async (member) => {
     if (!logChannels.member) return;
     
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     const embed = new EmbedBuilder()
         .setColor('#ff0000')
         .setTitle('👋 Member Left')
@@ -394,7 +198,37 @@ client.on('guildMemberRemove', async (member) => {
             { name: 'Member Count', value: member.guild.memberCount.toString(), inline: true }
         );
     
-    // Add join information
+    let wasKicked = false;
+    let wasBanned = false;
+    
+    try {
+        const kickLogs = await member.guild.fetchAuditLogs({
+            limit: 1,
+            type: AuditLogEvent.MemberKick
+        });
+        const kickLog = kickLogs.entries.first();
+        
+        if (kickLog && kickLog.target.id === member.id && (Date.now() - kickLog.createdTimestamp) < 5000) {
+            wasKicked = true;
+            embed.setColor('#ff6600');
+            embed.setTitle('🔨 Member Kicked');
+        }
+        
+        const banLogs = await member.guild.fetchAuditLogs({
+            limit: 1,
+            type: AuditLogEvent.MemberBanAdd
+        });
+        const banLog = banLogs.entries.first();
+        
+        if (banLog && banLog.target.id === member.id && (Date.now() - banLog.createdTimestamp) < 5000) {
+            wasBanned = true;
+            embed.setColor('#8b0000');
+            embed.setTitle('🔨 Member Banned');
+        }
+    } catch (error) {
+        console.error('Error fetching moderation logs:', error);
+    }
+    
     if (member.joinedTimestamp) {
         const joinDate = `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>`;
         const durationMs = Date.now() - member.joinedTimestamp;
@@ -408,9 +242,8 @@ client.on('guildMemberRemove', async (member) => {
         );
     }
     
-    // Add roles
-    const userRoles = member.roles.cache.filter(r => r.id !== member.guild.id);
-    if (userRoles.size > 0) {
+    const userRoles = member.roles?.cache?.filter(r => r.id !== member.guild.id);
+    if (userRoles && userRoles.size > 0) {
         embed.addFields({
             name: '👤 Roles',
             value: userRoles.map(r => r.name).join(', '),
@@ -418,60 +251,67 @@ client.on('guildMemberRemove', async (member) => {
         });
     }
     
-    // Show which invite they used when joining
     const memberInviteData = memberInvites.get(member.id);
     if (memberInviteData) {
-        const joinedDate = memberInviteData.timestamp ? `<t:${Math.floor(memberInviteData.timestamp / 1000)}:R>` : 'Unknown';
         embed.addFields({
-            name: '🎫 Original Invite Used',
-            value: `Code: \`${memberInviteData.code}\`\nCreated by: ${memberInviteData.inviter}\nUsed: ${joinedDate}\nUses when joined: ${memberInviteData.uses}/${memberInviteData.maxUses || '∞'}`,
+            name: '🎫 Invite Used',
+            value: `Code: \`${memberInviteData.code}\`\nCreated by: ${memberInviteData.inviter}\nUses: ${memberInviteData.uses}/${memberInviteData.maxUses || '∞'}`,
             inline: false
         });
-        
-        // Clean up stored data
-        memberInvites.delete(member.id);
-        saveMemberInvites();
     }
     
-    // Check if kicked or banned
-    try {
-        const kickLogs = await member.guild.fetchAuditLogs({
-            limit: 1,
-            type: AuditLogEvent.MemberKick
-        });
-        const kickLog = kickLogs.entries.first();
-        
-        if (kickLog && kickLog.target.id === member.id && (Date.now() - kickLog.createdTimestamp) < 5000) {
-            embed.setColor('#ff6600');
-            embed.setTitle('🔨 Member Kicked');
-            embed.addFields({
-                name: '🔨 Kicked By',
-                value: `${kickLog.executor.tag}\nReason: ${kickLog.reason || 'No reason provided'}`,
-                inline: false
+    if (wasKicked) {
+        try {
+            const kickLogs = await member.guild.fetchAuditLogs({
+                limit: 1,
+                type: AuditLogEvent.MemberKick
             });
+            const kickLog = kickLogs.entries.first();
+            
+            if (kickLog && kickLog.target.id === member.id) {
+                embed.addFields({
+                    name: '🔨 Kicked By',
+                    value: `${kickLog.executor.tag}\nReason: ${kickLog.reason || 'No reason provided'}`,
+                    inline: false
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching kick details:', error);
         }
-        
-        const banLogs = await member.guild.fetchAuditLogs({
-            limit: 1,
-            type: AuditLogEvent.MemberBanAdd
-        });
-        const banLog = banLogs.entries.first();
-        
-        if (banLog && banLog.target.id === member.id && (Date.now() - banLog.createdTimestamp) < 5000) {
-            embed.setColor('#8b0000');
-            embed.setTitle('🔨 Member Banned');
-            embed.addFields({
-                name: '🔨 Banned By',
-                value: `${banLog.executor.tag}\nReason: ${banLog.reason || 'No reason provided'}`,
-                inline: false
+    }
+    
+    if (wasBanned) {
+        try {
+            const banLogs = await member.guild.fetchAuditLogs({
+                limit: 1,
+                type: AuditLogEvent.MemberBanAdd
             });
+            const banLog = banLogs.entries.first();
+            
+            if (banLog && banLog.target.id === member.id) {
+                embed.addFields({
+                    name: '🔨 Banned By',
+                    value: `${banLog.executor.tag}\nReason: ${banLog.reason || 'No reason provided'}`,
+                    inline: false
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching ban details:', error);
         }
-    } catch (error) {
-        console.error('Error fetching moderation logs:', error);
     }
     
     embed.setTimestamp();
-    logChannels.member.send({ embeds: [embed] });
+    
+    try {
+        await logChannels.member.send({ embeds: [embed] });
+        
+        if (memberInviteData) {
+            memberInvites.delete(member.id);
+            saveMemberInvites();
+        }
+    } catch (error) {
+        console.error('Error sending leave log:', error);
+    }
 });
 
 // ===== MESSAGE EDIT =====
@@ -829,12 +669,10 @@ client.on('messageCreate', async (message) => {
     
     const isAdmin = message.member?.permissions.has('Administrator');
     
-    // Test command
     if (message.content === '!test' && isAdmin) {
         await message.reply('Bot is working and you have admin!');
     }
 
-    // Approve command
     if (message.content.startsWith('!approve') && isAdmin) {
         const args = message.content.split(' ');
         
@@ -880,4 +718,187 @@ client.on('messageCreate', async (message) => {
                     pendingApprovals[userId].push(role.id);
                 }
                 
-                fs.writeFileSync('pending-approvals
+                fs.writeFileSync('pending-approvals.json', JSON.stringify(pendingApprovals, null, 2));
+                
+                return message.reply(`✅ User is not in the server. **${role.name}** will be assigned when they join.`);
+            }
+        } catch (error) {
+            console.error('Error with approve command:', error);
+            return message.reply('❌ Error processing approval. Check the user ID is valid.');
+        }
+    }
+    
+    if (message.content === '!checksales' && isAdmin) {
+        await message.reply('🔍 Checking for sales...');
+        if (saleMonitor) {
+            await saleMonitor.forceCheck();
+            await message.reply('✅ Sale check complete!');
+        } else {
+            await message.reply('❌ Sale monitor not initialized!');
+        }
+    }
+    
+    if (message.content === '!forcesales' && isAdmin) {
+        await message.reply('💥 Force posting ALL tracked games...');
+        if (saleMonitor) {
+            await saleMonitor.forcePostAll();
+            await message.reply('✅ Posted all tracked games!');
+        } else {
+            await message.reply('❌ Sale monitor not initialized!');
+        }
+    }
+    
+    if (message.content === '!listgames' && isAdmin) {
+        if (saleMonitor) {
+            const gameCount = saleMonitor.gameIds.length;
+            await message.reply(`📋 Currently tracking **${gameCount}** games.`);
+        } else {
+            await message.reply('❌ Sale monitor not initialized!');
+        }
+    }
+    
+    if (message.content.startsWith('!addgame ') && isAdmin) {
+        const appId = message.content.split(' ')[1];
+        if (appId && saleMonitor) {
+            saleMonitor.addGame(appId);
+            await message.reply(`✅ Added Steam App ID ${appId} to monitoring`);
+        } else {
+            await message.reply('❌ Usage: `!addgame <steam_app_id>`');
+        }
+    }
+    
+    if (message.content.startsWith('!removegame ') && isAdmin) {
+        const appId = message.content.split(' ')[1];
+        if (appId && saleMonitor) {
+            saleMonitor.removeGame(appId);
+            await message.reply(`✅ Removed Steam App ID ${appId} from monitoring`);
+        } else {
+            await message.reply('❌ Usage: `!removegame <steam_app_id>`');
+        }
+    }
+    
+    if (message.content === '!saleshelp' && isAdmin) {
+        const helpEmbed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('💊 Steam Sale Monitor Commands')
+            .setDescription('All commands require Administrator permission')
+            .addFields(
+                { name: '!checksales', value: 'Check for games currently on sale', inline: false },
+                { name: '!forcesales', value: 'Force post ALL tracked games', inline: false },
+                { name: '!listgames', value: 'Show how many games are being tracked', inline: false },
+                { name: '!addgame <app_id>', value: 'Add a Steam game to monitor', inline: false },
+                { name: '!removegame <app_id>', value: 'Remove a game from monitoring', inline: false },
+                { name: '!cleargamedata', value: 'Clear tracked game data (resets sale detection)', inline: false },
+                { name: '!saleshelp', value: 'Show this help message', inline: false }
+            )
+            .setFooter({ text: 'Automatic checks run every hour' });
+        await message.reply({ embeds: [helpEmbed] });
+    }
+
+    if (message.content === '!cleargamedata' && isAdmin) {
+        if (saleMonitor) {
+            saleMonitor.clearTrackedData();
+            await message.reply('✅ Cleared all tracked game data. Next check will detect all current sales as "new".');
+        } else {
+            await message.reply('❌ Sale monitor not initialized!');
+        }
+    }
+    
+    if (message.content === '!invitestats' && isAdmin) {
+        const inviterCounts = new Map();
+        
+        memberInvites.forEach((data) => {
+            const inviter = data.inviter;
+            inviterCounts.set(inviter, (inviterCounts.get(inviter) || 0) + 1);
+        });
+        
+        const sorted = Array.from(inviterCounts.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10);
+        
+        if (sorted.length === 0) {
+            return message.reply('📊 No invite data available yet!');
+        }
+        
+        const embed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('📊 Invite Leaderboard')
+            .setDescription(`Top inviters (${memberInvites.size} total members tracked)`)
+            .setTimestamp();
+        
+        sorted.forEach(([inviter, count], index) => {
+            embed.addFields({
+                name: `#${index + 1} ${inviter}`,
+                value: `${count} member${count !== 1 ? 's' : ''}`,
+                inline: true
+            });
+        });
+        
+        await message.reply({ embeds: [embed] });
+    }
+    
+    if (message.content.startsWith('!whoinvited ') && isAdmin) {
+        const userId = message.content.split(' ')[1];
+        
+        if (!userId) {
+            return message.reply('Usage: `!whoinvited <user_id>`');
+        }
+        
+        const inviteData = memberInvites.get(userId);
+        
+        if (!inviteData) {
+            return message.reply('❌ No invite data found for this user. They may have joined before tracking was enabled.');
+        }
+        
+        const embed = new EmbedBuilder()
+            .setColor('#0099ff')
+            .setTitle('🎫 Invite Information')
+            .addFields(
+                { name: 'User ID', value: userId, inline: true },
+                { name: 'Invite Code', value: `\`${inviteData.code}\``, inline: true },
+                { name: 'Invited By', value: inviteData.inviter, inline: true },
+                { name: 'Joined At', value: `<t:${Math.floor(inviteData.timestamp / 1000)}:F>`, inline: false }
+            )
+            .setTimestamp();
+        
+        await message.reply({ embeds: [embed] });
+    }
+    
+    if (message.content === '!invitehelp' && isAdmin) {
+        const helpEmbed = new EmbedBuilder()
+            .setColor('#0099ff')
+            .setTitle('🎫 Invite Tracking Commands')
+            .setDescription('All commands require Administrator permission')
+            .addFields(
+                { name: '!invitestats', value: 'Show top 10 inviters leaderboard', inline: false },
+                { name: '!whoinvited <user_id>', value: 'See which invite a specific user used', inline: false },
+                { name: '!invitehelp', value: 'Show this help message', inline: false }
+            )
+            .setFooter({ text: 'Invite data is saved to member-invites.json' });
+        await message.reply({ embeds: [helpEmbed] });
+    }
+});
+
+client.on('error', error => {
+    console.error('Discord client error:', error);
+});
+
+process.on('unhandledRejection', error => {
+    console.error('Unhandled promise rejection:', error);
+});
+
+process.on('SIGINT', () => {
+    console.log('Saving data before shutdown...');
+    saveMemberInvites();
+    console.log('✅ Data saved. Shutting down...');
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    console.log('Saving data before shutdown...');
+    saveMemberInvites();
+    console.log('✅ Data saved. Shutting down...');
+    process.exit(0);
+});
+
+client.login(config.token);
