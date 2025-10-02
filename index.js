@@ -1,6 +1,7 @@
 const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType } = require('discord.js');
 const config = require('./config.json');
 const SteamSaleMonitor = require('./steamSaleMonitor');
+const fs = require('fs');
 
 const client = new Client({
     intents: [
@@ -15,7 +16,7 @@ const client = new Client({
     ],
     partials: ['MESSAGE', 'CHANNEL', 'REACTION']
 });
-// test 
+
 // Store invites for tracking
 const invites = new Map();
 
@@ -83,8 +84,34 @@ client.once('ready', async () => {
     }
 });
 
-// Member Join
+// Member Join - COMBINED HANDLER
 client.on('guildMemberAdd', async (member) => {
+    // ===== AUTO-ASSIGN PENDING ROLES =====
+    try {
+        if (fs.existsSync('pending-approvals.json')) {
+            const pendingApprovals = JSON.parse(fs.readFileSync('pending-approvals.json'));
+            
+            if (pendingApprovals[member.id]) {
+                const roleIds = pendingApprovals[member.id];
+                
+                for (const roleId of roleIds) {
+                    const role = member.guild.roles.cache.get(roleId);
+                    if (role) {
+                        await member.roles.add(role);
+                        console.log(`✅ Auto-assigned ${role.name} to ${member.user.tag}`);
+                    }
+                }
+                
+                // Remove from pending approvals
+                delete pendingApprovals[member.id];
+                fs.writeFileSync('pending-approvals.json', JSON.stringify(pendingApprovals, null, 2));
+            }
+        }
+    } catch (error) {
+        console.error('Error auto-assigning roles:', error);
+    }
+    
+    // ===== LOGGING =====
     if (!logChannels.member) return;
     
     const embed = new EmbedBuilder()
@@ -587,6 +614,73 @@ client.on('messageCreate', async (message) => {
             )
             .setFooter({ text: 'Automatic checks run every hour' });
         await message.reply({ embeds: [helpEmbed] });
+    }
+});
+
+// Approve command - assign role to user by ID (admin only)
+client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
+    
+    const isAdmin = message.member?.permissions.has('Administrator');
+    
+    if (message.content.startsWith('!approve') && isAdmin) {
+        const args = message.content.split(' ');
+        
+        if (args.length < 3) {
+            return message.reply('Usage: `!approve <user_id> <role_name>`\nExample: `!approve 123456789012345678 Verified`');
+        }
+        
+        const userId = args[1];
+        const roleName = args.slice(2).join(' ');
+        
+        try {
+            // Try to fetch the member (works if they're in the server)
+            let member = message.guild.members.cache.get(userId);
+            
+            if (!member) {
+                // Try to fetch if not in cache
+                member = await message.guild.members.fetch(userId).catch(() => null);
+            }
+            
+            // Find the role
+            const role = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+            
+            if (!role) {
+                return message.reply(`❌ Role "${roleName}" not found!`);
+            }
+            
+            if (member) {
+                // User is in the server - assign role
+                await member.roles.add(role);
+                return message.reply(`✅ Assigned **${role.name}** to <@${userId}>`);
+            } else {
+                // User is NOT in the server - log it for future assignment
+                let pendingApprovals = {};
+                
+                try {
+                    if (fs.existsSync('pending-approvals.json')) {
+                        pendingApprovals = JSON.parse(fs.readFileSync('pending-approvals.json'));
+                    }
+                } catch (error) {
+                    console.error('Error reading pending approvals:', error);
+                }
+                
+                if (!pendingApprovals[userId]) {
+                    pendingApprovals[userId] = [];
+                }
+                
+                if (!pendingApprovals[userId].includes(role.id)) {
+                    pendingApprovals[userId].push(role.id);
+                }
+                
+                fs.writeFileSync('pending-approvals.json', JSON.stringify(pendingApprovals, null, 2));
+                
+                return message.reply(`✅ User is not in the server. **${role.name}** will be assigned when they join.`);
+            }
+        } catch (error) {
+            console.error('Error with approve command:', error);
+            return message.reply('❌ Error processing approval. Check the user ID is valid.');
+        }
     }
 });
 
