@@ -2,6 +2,7 @@
 // Add this to your Discord bot to monitor Steam sales
 
 const { EmbedBuilder } = require('discord.js');
+const fs = require('fs');
 
 class SteamSaleMonitor {
     constructor(client, config) {
@@ -9,6 +10,10 @@ class SteamSaleMonitor {
         this.saleChannelId = config.saleChannelId;
         this.checkInterval = config.saleCheckInterval || 3600000; // Default: 1 hour
         this.trackedGames = new Map(); // Store game prices
+        this.dataFile = 'tracked-games.json';
+        
+        // Load previously tracked games
+        this.loadTrackedGames();
         
         // All Drug Dealer Simulator games + Movie Games S.A. titles
         this.gameIds = [
@@ -17,9 +22,36 @@ class SteamSaleMonitor {
             '1708850', // Drug Dealer Simulator 2
             '1275630', // Drug Dealer Simulator: Free Sample
             '3169480', // Drug Dealer Simulator 2: Casino DLC
-            
-
         ];
+    }
+
+    // Load tracked games from file
+    loadTrackedGames() {
+        try {
+            if (fs.existsSync(this.dataFile)) {
+                const data = JSON.parse(fs.readFileSync(this.dataFile, 'utf8'));
+                // Convert object back to Map
+                Object.entries(data).forEach(([appId, gameInfo]) => {
+                    this.trackedGames.set(appId, gameInfo);
+                });
+                console.log(`✅ Loaded ${this.trackedGames.size} tracked games`);
+            } else {
+                console.log('ℹ️ No previous game data found, starting fresh');
+            }
+        } catch (error) {
+            console.error('❌ Error loading tracked-games.json:', error);
+        }
+    }
+
+    // Save tracked games to file
+    saveTrackedGames() {
+        try {
+            // Convert Map to object for JSON storage
+            const data = Object.fromEntries(this.trackedGames);
+            fs.writeFileSync(this.dataFile, JSON.stringify(data, null, 2));
+        } catch (error) {
+            console.error('❌ Error saving tracked-games.json:', error);
+        }
     }
 
     async start() {
@@ -48,6 +80,9 @@ class SteamSaleMonitor {
                 console.error(`Error checking game ${appId}:`, error.message);
             }
         }
+        
+        // Save after checking all games
+        this.saveTrackedGames();
     }
 
     async checkGameSale(appId) {
@@ -75,9 +110,20 @@ class SteamSaleMonitor {
                 const currentDiscount = priceData.discount_percent;
                 const previousData = this.trackedGames.get(appId);
                 
-                // If game just went on sale (wasn't on sale before, is now)
-                if (currentDiscount > 0 && (!previousData || previousData.discount === 0)) {
+                // Only post if:
+                // 1. Game just went on sale (wasn't on sale before, is now)
+                // 2. Discount increased
+                const wasOnSale = previousData && previousData.discount > 0;
+                const isNowOnSale = currentDiscount > 0;
+                const discountIncreased = previousData && currentDiscount > previousData.discount;
+                
+                if (isNowOnSale && (!wasOnSale || discountIncreased)) {
+                    console.log(`🎉 Sale detected for ${gameData.name}: ${currentDiscount}% off`);
                     await this.postSaleAlert(gameData, priceData);
+                } else if (wasOnSale && !isNowOnSale) {
+                    console.log(`ℹ️ ${gameData.name} is no longer on sale`);
+                } else if (isNowOnSale) {
+                    console.log(`ℹ️ ${gameData.name} still on sale at ${currentDiscount}%`);
                 }
                 
                 // Store current state
@@ -85,6 +131,7 @@ class SteamSaleMonitor {
                     name: gameData.name,
                     discount: currentDiscount,
                     price: priceData.final,
+                    originalPrice: priceData.initial,
                     lastChecked: Date.now()
                 });
             } else if (gameData.is_free) {
@@ -187,6 +234,7 @@ class SteamSaleMonitor {
         if (index > -1) {
             this.gameIds.splice(index, 1);
             this.trackedGames.delete(appId);
+            this.saveTrackedGames();
             console.log(`✅ Removed game ${appId} from monitoring list`);
         }
     }
@@ -220,21 +268,19 @@ class SteamSaleMonitor {
                     await this.postSaleAlert(gameData, priceData);
                 } else if (!gameData.is_free) {
                     // Post info about games without price data
-                    const embed = {
-                        color: 0x808080,
-                        title: `🎮 ${gameData.name}`,
-                        url: `https://store.steampowered.com/app/${gameData.steam_appid}`,
-                        description: this.truncateText(gameData.short_description, 200),
-                        thumbnail: { url: gameData.header_image },
-                        fields: [
-                            {
-                                name: 'Status',
-                                value: 'Price info unavailable',
-                                inline: true
-                            }
-                        ],
-                        timestamp: new Date().toISOString()
-                    };
+                    const embed = new EmbedBuilder()
+                        .setColor(0x808080)
+                        .setTitle(`🎮 ${gameData.name}`)
+                        .setURL(`https://store.steampowered.com/app/${gameData.steam_appid}`)
+                        .setDescription(this.truncateText(gameData.short_description, 200))
+                        .setThumbnail(gameData.header_image)
+                        .addFields({
+                            name: 'Status',
+                            value: 'Price info unavailable',
+                            inline: true
+                        })
+                        .setTimestamp();
+                    
                     await saleChannel.send({ embeds: [embed] });
                 }
                 
@@ -246,6 +292,13 @@ class SteamSaleMonitor {
         }
         
         console.log('✅ Finished force posting all games');
+    }
+
+    // Method to clear tracked game data (useful for testing)
+    clearTrackedData() {
+        this.trackedGames.clear();
+        this.saveTrackedGames();
+        console.log('✅ Cleared all tracked game data');
     }
 }
 
