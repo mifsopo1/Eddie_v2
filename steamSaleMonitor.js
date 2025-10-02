@@ -18,14 +18,7 @@ class SteamSaleMonitor {
             '1275630', // Drug Dealer Simulator: Free Sample
             '3169480', // Drug Dealer Simulator 2: Casino DLC
             
-            // Movie Games S.A. Other Titles
-            '689480',  // Lust for Darkness
-            '523650',  // Lust from Beyond
-            '1085750', // The Thaumaturge
-            '1506990', // Lust from Beyond: M Edition
-            '1329540', // Lust from Beyond: Scarlet
-            '1522940', // Paradise Lost
-            '1951890', // Lust from Beyond: Prologue
+
         ];
     }
 
