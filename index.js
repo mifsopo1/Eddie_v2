@@ -15,7 +15,7 @@ const client = new Client({
     ],
     partials: ['MESSAGE', 'CHANNEL', 'REACTION']
 });
-// test line
+// test 
 // Store invites for tracking
 const invites = new Map();
 
