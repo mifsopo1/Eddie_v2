@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            width: 300px;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+        }
+        h3 {
+            margin: 0 0 16px 0;
+            color: #1f2937;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-weight: 500;
+        }
+        .status.active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status.inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        .btn-start {
+            background: #10b981;
+            color: white;
+        }
+        .btn-stop {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-stats {
+            background: #6366f1;
+            color: white;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .info {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h3>🤖 Claude VPS Tracker</h3>
+    
+    <div id="status" class="status inactive">
+        ⭕ Not Tracking
+    </div>
+    
+    <input type="text" id="topic" placeholder="Conversation topic..." value="VPS Management">
+    
+    <button id="startBtn" class="btn-start">▶️ Start Tracking</button>
+    <button id="stopBtn" class="btn-stop" style="display:none;">⏹️ Stop Tracking</button>
+    <button id="statsBtn" class="btn-stats">📊 View Stats</button>
+    
+    <div class="info">
+        Automatically tracks your conversations with Claude and logs token usage to your Discord bot.
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>
