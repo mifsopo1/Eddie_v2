@@ -1,8 +1,8 @@
 const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType } = require('discord.js');
 const config = require('./config.json');
 const SteamSaleMonitor = require('./steamSaleMonitor');
-const fs = require('fs');
 const ClaudeTokenTracker = require('./claudeTokenTracker');
+const fs = require('fs');
 
 const client = new Client({
     intents: [
@@ -18,11 +18,9 @@ const client = new Client({
     partials: ['MESSAGE', 'CHANNEL', 'REACTION']
 });
 
-// ===== STORAGE MAPS =====
 const invites = new Map();
 const memberInvites = new Map();
 
-// ===== LOG CHANNELS =====
 const logChannels = {
     member: null,
     message: null,
@@ -33,24 +31,9 @@ const logChannels = {
     moderation: null
 };
 
-let claudeTracker;
 let saleMonitor;
-if (config.claudeWebhook) {
-    claudeTracker = new ClaudeTokenTracker(client, config.claudeWebhook);
-    console.log('✅ Claude token tracker initialized');
-} else {
-    console.log('⚠️ Claude tracking disabled - no claudeWebhook in config');
-}
-```
+let claudeTracker;
 
-if (message.content === '!tokenusage' && isAdmin) {
-    if (claudeTracker) {
-        await claudeTracker.handleTokenUsageCommand(message);
-    } else {
-        await message.reply('❌ Claude token tracker not initialized!');
-    }
-}
-// ===== HELPER FUNCTIONS =====
 function loadMemberInvites() {
     try {
         if (fs.existsSync('member-invites.json')) {
@@ -58,10 +41,10 @@ function loadMemberInvites() {
             Object.entries(data).forEach(([userId, inviteData]) => {
                 memberInvites.set(userId, inviteData);
             });
-            console.log(`✅ Loaded ${memberInvites.size} member invite records`);
+            console.log(`Loaded ${memberInvites.size} member invite records`);
         }
     } catch (error) {
-        console.error('❌ Error loading member-invites.json:', error);
+        console.error('Error loading member-invites.json:', error);
     }
 }
 
@@ -70,21 +53,20 @@ function saveMemberInvites() {
         const data = Object.fromEntries(memberInvites);
         fs.writeFileSync('member-invites.json', JSON.stringify(data, null, 2));
     } catch (error) {
-        console.error('❌ Error saving member-invites.json:', error);
+        console.error('Error saving member-invites.json:', error);
     }
 }
 
-// ===== BOT READY =====
 client.once('ready', async () => {
-    console.log(`✅ ${client.user.tag} is online!`);
+    console.log(`${client.user.tag} is online!`);
     
     loadMemberInvites();
     
     const statuses = [
-        { name: '📷 the streets', type: 3 },
-        { name: '👨 customers', type: 2 },
-        { name: '💊drug deals 💊', type: 3 },
-        { name: 'the competition 👀', type: 5 }
+        { name: 'the streets', type: 3 },
+        { name: 'customers', type: 2 },
+        { name: 'drug deals', type: 3 },
+        { name: 'the competition', type: 5 }
     ];
 
     let i = 0;
@@ -101,7 +83,7 @@ client.once('ready', async () => {
             const channel = client.channels.cache.get(channelId);
             if (channel) {
                 logChannels[key] = channel;
-                console.log(`✅ ${key} logs → #${channel.name}`);
+                console.log(`${key} logs -> #${channel.name}`);
             }
         }
     }
@@ -110,9 +92,9 @@ client.once('ready', async () => {
         try {
             const guildInvites = await guild.invites.fetch();
             invites.set(guild.id, new Map(guildInvites.map(invite => [invite.code, invite.uses])));
-            console.log(`✅ Cached ${guildInvites.size} invites for ${guild.name}`);
+            console.log(`Cached ${guildInvites.size} invites for ${guild.name}`);
         } catch (error) {
-            console.log(`⚠️ Couldn't fetch invites for ${guild.name}`);
+            console.log(`Could not fetch invites for ${guild.name}`);
         }
     });
 
@@ -120,11 +102,17 @@ client.once('ready', async () => {
         saleMonitor = new SteamSaleMonitor(client, config);
         await saleMonitor.start();
     } else {
-        console.log('⚠️ Sale monitoring disabled - no saleChannelId in config');
+        console.log('Sale monitoring disabled');
+    }
+
+    if (config.claudeWebhook) {
+        claudeTracker = new ClaudeTokenTracker(client, config.claudeWebhook);
+        console.log('Claude token tracker initialized');
+    } else {
+        console.log('Claude tracking disabled');
     }
 });
 
-// ===== MEMBER JOIN =====
 client.on('guildMemberAdd', async (member) => {
     try {
         if (fs.existsSync('pending-approvals.json')) {
@@ -137,7 +125,7 @@ client.on('guildMemberAdd', async (member) => {
                     const role = member.guild.roles.cache.get(roleId);
                     if (role) {
                         await member.roles.add(role);
-                        console.log(`✅ Auto-assigned ${role.name} to ${member.user.tag}`);
+                        console.log(`Auto-assigned ${role.name} to ${member.user.tag}`);
                     }
                 }
                 
@@ -153,7 +141,7 @@ client.on('guildMemberAdd', async (member) => {
     
     const embed = new EmbedBuilder()
         .setColor('#00ff00')
-        .setTitle('👋 Member Joined')
+        .setTitle('Member Joined')
         .setThumbnail(member.user.displayAvatarURL())
         .addFields(
             { name: 'User', value: `${member.user.tag} (${member.id})`, inline: true },
@@ -172,7 +160,7 @@ client.on('guildMemberAdd', async (member) => {
         
         if (usedInvite) {
             embed.addFields({
-                name: '🎫 Invite Used',
+                name: 'Invite Used',
                 value: `Code: \`${usedInvite.code}\`\nCreated by: ${usedInvite.inviter?.tag || 'Unknown'}\nUses: ${usedInvite.uses}/${usedInvite.maxUses || '∞'}`,
                 inline: false
             });
@@ -198,7 +186,6 @@ client.on('guildMemberAdd', async (member) => {
     logChannels.member.send({ embeds: [embed] });
 });
 
-// ===== MEMBER LEAVE =====
 client.on('guildMemberRemove', async (member) => {
     if (!logChannels.member) return;
     
@@ -206,7 +193,7 @@ client.on('guildMemberRemove', async (member) => {
     
     const embed = new EmbedBuilder()
         .setColor('#ff0000')
-        .setTitle('👋 Member Left')
+        .setTitle('Member Left')
         .setThumbnail(member.user.displayAvatarURL())
         .addFields(
             { name: 'User', value: `${member.user.tag} (${member.id})`, inline: true },
@@ -227,7 +214,7 @@ client.on('guildMemberRemove', async (member) => {
         if (kickLog && kickLog.target.id === member.id && (Date.now() - kickLog.createdTimestamp) < 5000) {
             wasKicked = true;
             embed.setColor('#ff6600');
-            embed.setTitle('🔨 Member Kicked');
+            embed.setTitle('Member Kicked');
         }
         
         const banLogs = await member.guild.fetchAuditLogs({
@@ -239,7 +226,7 @@ client.on('guildMemberRemove', async (member) => {
         if (banLog && banLog.target.id === member.id && (Date.now() - banLog.createdTimestamp) < 5000) {
             wasBanned = true;
             embed.setColor('#8b0000');
-            embed.setTitle('🔨 Member Banned');
+            embed.setTitle('Member Banned');
         }
     } catch (error) {
         console.error('Error fetching moderation logs:', error);
@@ -261,7 +248,7 @@ client.on('guildMemberRemove', async (member) => {
     const userRoles = member.roles?.cache?.filter(r => r.id !== member.guild.id);
     if (userRoles && userRoles.size > 0) {
         embed.addFields({
-            name: '👤 Roles',
+            name: 'Roles',
             value: userRoles.map(r => r.name).join(', '),
             inline: false
         });
@@ -270,7 +257,7 @@ client.on('guildMemberRemove', async (member) => {
     const memberInviteData = memberInvites.get(member.id);
     if (memberInviteData) {
         embed.addFields({
-            name: '🎫 Invite Used',
+            name: 'Invite Used',
             value: `Code: \`${memberInviteData.code}\`\nCreated by: ${memberInviteData.inviter}\nUses: ${memberInviteData.uses}/${memberInviteData.maxUses || '∞'}`,
             inline: false
         });
@@ -286,7 +273,7 @@ client.on('guildMemberRemove', async (member) => {
             
             if (kickLog && kickLog.target.id === member.id) {
                 embed.addFields({
-                    name: '🔨 Kicked By',
+                    name: 'Kicked By',
                     value: `${kickLog.executor.tag}\nReason: ${kickLog.reason || 'No reason provided'}`,
                     inline: false
                 });
@@ -306,7 +293,7 @@ client.on('guildMemberRemove', async (member) => {
             
             if (banLog && banLog.target.id === member.id) {
                 embed.addFields({
-                    name: '🔨 Banned By',
+                    name: 'Banned By',
                     value: `${banLog.executor.tag}\nReason: ${banLog.reason || 'No reason provided'}`,
                     inline: false
                 });
@@ -330,14 +317,13 @@ client.on('guildMemberRemove', async (member) => {
     }
 });
 
-// ===== MESSAGE EDIT =====
 client.on('messageUpdate', async (oldMessage, newMessage) => {
     if (!logChannels.message || newMessage.author.bot || !oldMessage.content || !newMessage.content) return;
     if (oldMessage.content === newMessage.content) return;
     
     const embed = new EmbedBuilder()
         .setColor('#ffa500')
-        .setTitle('✏️ Message Edited')
+        .setTitle('Message Edited')
         .setAuthor({ name: newMessage.author.tag, iconURL: newMessage.author.displayAvatarURL() })
         .addFields(
             { name: 'Channel', value: `<#${newMessage.channel.id}>`, inline: true },
@@ -350,13 +336,12 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
     logChannels.message.send({ embeds: [embed] });
 });
 
-// ===== MESSAGE DELETE =====
 client.on('messageDelete', async (message) => {
     if (!logChannels.message || message.author?.bot) return;
     
     const embed = new EmbedBuilder()
         .setColor('#ff0000')
-        .setTitle('🗑️ Message Deleted')
+        .setTitle('Message Deleted')
         .addFields(
             { name: 'Author', value: message.author ? `${message.author.tag} (${message.author.id})` : 'Unknown', inline: true },
             { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
@@ -366,7 +351,7 @@ client.on('messageDelete', async (message) => {
     
     if (message.attachments.size > 0) {
         embed.addFields({
-            name: '📎 Attachments',
+            name: 'Attachments',
             value: message.attachments.map(a => `[${a.name}](${a.url})`).join('\n'),
             inline: false
         });
@@ -381,7 +366,7 @@ client.on('messageDelete', async (message) => {
         
         if (deletionLog && deletionLog.target.id === message.author?.id && (Date.now() - deletionLog.createdTimestamp) < 5000) {
             embed.addFields({
-                name: '🔨 Deleted By',
+                name: 'Deleted By',
                 value: deletionLog.executor.tag,
                 inline: true
             });
@@ -393,7 +378,6 @@ client.on('messageDelete', async (message) => {
     logChannels.message.send({ embeds: [embed] });
 });
 
-// ===== VOICE STATE UPDATE =====
 client.on('voiceStateUpdate', (oldState, newState) => {
     if (!logChannels.voice) return;
     
@@ -403,7 +387,7 @@ client.on('voiceStateUpdate', (oldState, newState) => {
     if (!oldState.channel && newState.channel) {
         embed = new EmbedBuilder()
             .setColor('#00ff00')
-            .setTitle('🔊 Joined Voice Channel')
+            .setTitle('Joined Voice Channel')
             .addFields(
                 { name: 'User', value: `${member.user.tag}`, inline: true },
                 { name: 'Channel', value: `${newState.channel.name}`, inline: true }
@@ -413,7 +397,7 @@ client.on('voiceStateUpdate', (oldState, newState) => {
     else if (oldState.channel && !newState.channel) {
         embed = new EmbedBuilder()
             .setColor('#ff0000')
-            .setTitle('🔇 Left Voice Channel')
+            .setTitle('Left Voice Channel')
             .addFields(
                 { name: 'User', value: `${member.user.tag}`, inline: true },
                 { name: 'Channel', value: `${oldState.channel.name}`, inline: true }
@@ -423,7 +407,7 @@ client.on('voiceStateUpdate', (oldState, newState) => {
     else if (oldState.channel && newState.channel && oldState.channel.id !== newState.channel.id) {
         embed = new EmbedBuilder()
             .setColor('#0099ff')
-            .setTitle('🔄 Switched Voice Channel')
+            .setTitle('Switched Voice Channel')
             .addFields(
                 { name: 'User', value: `${member.user.tag}`, inline: true },
                 { name: 'From', value: `${oldState.channel.name}`, inline: true },
@@ -435,23 +419,23 @@ client.on('voiceStateUpdate', (oldState, newState) => {
     if (oldState.channel && newState.channel && oldState.channel.id === newState.channel.id) {
         const changes = [];
         
-        if (!oldState.mute && newState.mute) changes.push('🔇 Server Muted');
-        if (oldState.mute && !newState.mute) changes.push('🔊 Server Unmuted');
-        if (!oldState.deaf && newState.deaf) changes.push('🔇 Server Deafened');
-        if (oldState.deaf && !newState.deaf) changes.push('🔊 Server Undeafened');
-        if (!oldState.selfMute && newState.selfMute) changes.push('🤐 Self Muted');
-        if (oldState.selfMute && !newState.selfMute) changes.push('🗣️ Self Unmuted');
-        if (!oldState.selfDeaf && newState.selfDeaf) changes.push('🙉 Self Deafened');
-        if (oldState.selfDeaf && !newState.selfDeaf) changes.push('👂 Self Undeafened');
-        if (!oldState.streaming && newState.streaming) changes.push('📡 Started Streaming');
-        if (oldState.streaming && !newState.streaming) changes.push('📡 Stopped Streaming');
-        if (!oldState.selfVideo && newState.selfVideo) changes.push('📹 Camera On');
-        if (oldState.selfVideo && !newState.selfVideo) changes.push('📹 Camera Off');
+        if (!oldState.mute && newState.mute) changes.push('Server Muted');
+        if (oldState.mute && !newState.mute) changes.push('Server Unmuted');
+        if (!oldState.deaf && newState.deaf) changes.push('Server Deafened');
+        if (oldState.deaf && !newState.deaf) changes.push('Server Undeafened');
+        if (!oldState.selfMute && newState.selfMute) changes.push('Self Muted');
+        if (oldState.selfMute && !newState.selfMute) changes.push('Self Unmuted');
+        if (!oldState.selfDeaf && newState.selfDeaf) changes.push('Self Deafened');
+        if (oldState.selfDeaf && !newState.selfDeaf) changes.push('Self Undeafened');
+        if (!oldState.streaming && newState.streaming) changes.push('Started Streaming');
+        if (oldState.streaming && !newState.streaming) changes.push('Stopped Streaming');
+        if (!oldState.selfVideo && newState.selfVideo) changes.push('Camera On');
+        if (oldState.selfVideo && !newState.selfVideo) changes.push('Camera Off');
         
         if (changes.length > 0) {
             embed = new EmbedBuilder()
                 .setColor('#9932cc')
-                .setTitle('🎙️ Voice State Changed')
+                .setTitle('Voice State Changed')
                 .addFields(
                     { name: 'User', value: `${member.user.tag}`, inline: true },
                     { name: 'Channel', value: `${newState.channel.name}`, inline: true },
@@ -464,7 +448,6 @@ client.on('voiceStateUpdate', (oldState, newState) => {
     if (embed) logChannels.voice.send({ embeds: [embed] });
 });
 
-// ===== ROLE UPDATE =====
 client.on('guildMemberUpdate', (oldMember, newMember) => {
     if (!logChannels.role) return;
     
@@ -478,7 +461,7 @@ client.on('guildMemberUpdate', (oldMember, newMember) => {
     
     const embed = new EmbedBuilder()
         .setColor('#9932cc')
-        .setTitle('👤 Member Roles Updated')
+        .setTitle('Member Roles Updated')
         .setThumbnail(newMember.user.displayAvatarURL())
         .addFields(
             { name: 'Member', value: `${newMember.user.tag} (${newMember.id})`, inline: false }
@@ -487,7 +470,7 @@ client.on('guildMemberUpdate', (oldMember, newMember) => {
     
     if (addedRoles.size > 0) {
         embed.addFields({
-            name: '✅ Roles Added',
+            name: 'Roles Added',
             value: addedRoles.map(r => r.name).join(', '),
             inline: false
         });
@@ -495,7 +478,7 @@ client.on('guildMemberUpdate', (oldMember, newMember) => {
     
     if (removedRoles.size > 0) {
         embed.addFields({
-            name: '❌ Roles Removed',
+            name: 'Roles Removed',
             value: removedRoles.map(r => r.name).join(', '),
             inline: false
         });
@@ -504,13 +487,12 @@ client.on('guildMemberUpdate', (oldMember, newMember) => {
     logChannels.role.send({ embeds: [embed] });
 });
 
-// ===== CHANNEL CREATE =====
 client.on('channelCreate', channel => {
     if (!logChannels.channel) return;
     
     const embed = new EmbedBuilder()
         .setColor('#00ff00')
-        .setTitle('📁 Channel Created')
+        .setTitle('Channel Created')
         .addFields(
             { name: 'Name', value: channel.name, inline: true },
             { name: 'Type', value: ChannelType[channel.type], inline: true },
@@ -522,13 +504,12 @@ client.on('channelCreate', channel => {
     logChannels.channel.send({ embeds: [embed] });
 });
 
-// ===== CHANNEL DELETE =====
 client.on('channelDelete', channel => {
     if (!logChannels.channel) return;
     
     const embed = new EmbedBuilder()
         .setColor('#ff0000')
-        .setTitle('📁 Channel Deleted')
+        .setTitle('Channel Deleted')
         .addFields(
             { name: 'Name', value: channel.name, inline: true },
             { name: 'Type', value: ChannelType[channel.type], inline: true },
@@ -540,30 +521,29 @@ client.on('channelDelete', channel => {
     logChannels.channel.send({ embeds: [embed] });
 });
 
-// ===== CHANNEL UPDATE =====
 client.on('channelUpdate', (oldChannel, newChannel) => {
     if (!logChannels.channel) return;
     
     const changes = [];
     
     if (oldChannel.name !== newChannel.name) {
-        changes.push(`**Name:** ${oldChannel.name} → ${newChannel.name}`);
+        changes.push(`Name: ${oldChannel.name} -> ${newChannel.name}`);
     }
     if (oldChannel.topic !== newChannel.topic) {
-        changes.push(`**Topic:** ${oldChannel.topic || 'None'} → ${newChannel.topic || 'None'}`);
+        changes.push(`Topic: ${oldChannel.topic || 'None'} -> ${newChannel.topic || 'None'}`);
     }
     if (oldChannel.nsfw !== newChannel.nsfw) {
-        changes.push(`**NSFW:** ${oldChannel.nsfw} → ${newChannel.nsfw}`);
+        changes.push(`NSFW: ${oldChannel.nsfw} -> ${newChannel.nsfw}`);
     }
     if (oldChannel.rateLimitPerUser !== newChannel.rateLimitPerUser) {
-        changes.push(`**Slowmode:** ${oldChannel.rateLimitPerUser}s → ${newChannel.rateLimitPerUser}s`);
+        changes.push(`Slowmode: ${oldChannel.rateLimitPerUser}s -> ${newChannel.rateLimitPerUser}s`);
     }
     
     if (changes.length === 0) return;
     
     const embed = new EmbedBuilder()
         .setColor('#ffa500')
-        .setTitle('📝 Channel Updated')
+        .setTitle('Channel Updated')
         .addFields(
             { name: 'Channel', value: `<#${newChannel.id}>`, inline: true },
             { name: 'Changes', value: changes.join('\n'), inline: false }
@@ -573,13 +553,12 @@ client.on('channelUpdate', (oldChannel, newChannel) => {
     logChannels.channel.send({ embeds: [embed] });
 });
 
-// ===== INVITE CREATE =====
 client.on('inviteCreate', invite => {
     if (!logChannels.invite) return;
     
     const embed = new EmbedBuilder()
         .setColor('#00ff00')
-        .setTitle('🎫 Invite Created')
+        .setTitle('Invite Created')
         .addFields(
             { name: 'Code', value: `\`${invite.code}\``, inline: true },
             { name: 'Channel', value: `<#${invite.channel.id}>`, inline: true },
@@ -593,13 +572,12 @@ client.on('inviteCreate', invite => {
     logChannels.invite.send({ embeds: [embed] });
 });
 
-// ===== INVITE DELETE =====
 client.on('inviteDelete', invite => {
     if (!logChannels.invite) return;
     
     const embed = new EmbedBuilder()
         .setColor('#ff0000')
-        .setTitle('🎫 Invite Deleted')
+        .setTitle('Invite Deleted')
         .addFields(
             { name: 'Code', value: `\`${invite.code}\``, inline: true },
             { name: 'Channel', value: `<#${invite.channel?.id}>` || 'Unknown', inline: true },
@@ -610,13 +588,12 @@ client.on('inviteDelete', invite => {
     logChannels.invite.send({ embeds: [embed] });
 });
 
-// ===== BAN ADD =====
 client.on('guildBanAdd', async ban => {
     if (!logChannels.moderation) return;
     
     const embed = new EmbedBuilder()
         .setColor('#ff0000')
-        .setTitle('🔨 Member Banned')
+        .setTitle('Member Banned')
         .setThumbnail(ban.user.displayAvatarURL())
         .addFields(
             { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: false },
@@ -645,13 +622,12 @@ client.on('guildBanAdd', async ban => {
     logChannels.moderation.send({ embeds: [embed] });
 });
 
-// ===== BAN REMOVE =====
 client.on('guildBanRemove', async ban => {
     if (!logChannels.moderation) return;
     
     const embed = new EmbedBuilder()
         .setColor('#00ff00')
-        .setTitle('🔓 Member Unbanned')
+        .setTitle('Member Unbanned')
         .setThumbnail(ban.user.displayAvatarURL())
         .addFields(
             { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: false }
@@ -679,49 +655,11 @@ client.on('guildBanRemove', async ban => {
     logChannels.moderation.send({ embeds: [embed] });
 });
 
-// ===== COMMANDS =====
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     
     const isAdmin = message.member?.permissions.has('Administrator');
     
-        // ===== CLAUDE TOKEN TRACKING COMMANDS =====
-    if (message.content === '!tokenusage' && isAdmin) {
-        if (claudeTracker) {
-            await claudeTracker.handleTokenUsageCommand(message);
-        } else {
-            await message.reply('❌ Claude token tracker not initialized! Add `claudeWebhook` to config.json');
-        }
-    }
-
-    if (message.content === '!optimization' && isAdmin) {
-        if (claudeTracker) {
-            await claudeTracker.handleOptimizationCommand(message);
-        } else {
-            await message.reply('❌ Claude token tracker not initialized!');
-        }
-    }
-
-    if (message.content.startsWith('!logtoken ') && isAdmin) {
-        const args = message.content.split(' ');
-        if (args.length >= 3 && claudeTracker) {
-            const inputTokens = parseInt(args[1]);
-            const outputTokens = parseInt(args[2]);
-            const context = args.slice(3).join(' ') || 'Manual entry';
-            
-            if (isNaN(inputTokens) || isNaN(outputTokens)) {
-                return message.reply('❌ Input and output tokens must be numbers!');
-            }
-            
-            claudeTracker.logTokenUsage(inputTokens, outputTokens, context);
-            await message.reply(`✅ Logged **${(inputTokens + outputTokens).toLocaleString()}** tokens`);
-        } else if (!claudeTracker) {
-            await message.reply('❌ Claude token tracker not initialized!');
-        } else {
-            await message.reply('Usage: `!logtoken <input_tokens> <output_tokens> [context]`');
-        }
-    }
-
     if (message.content === '!test' && isAdmin) {
         await message.reply('Bot is working and you have admin!');
     }
@@ -730,7 +668,7 @@ client.on('messageCreate', async (message) => {
         const args = message.content.split(' ');
         
         if (args.length < 3) {
-            return message.reply('Usage: `!approve <user_id> <role_name>`\nExample: `!approve 123456789012345678 Verified`');
+            return message.reply('Usage: `!approve <user_id> <role_name>`');
         }
         
         const userId = args[1];
@@ -746,12 +684,12 @@ client.on('messageCreate', async (message) => {
             const role = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
             
             if (!role) {
-                return message.reply(`❌ Role "${roleName}" not found!`);
+                return message.reply(`Role "${roleName}" not found!`);
             }
             
             if (member) {
                 await member.roles.add(role);
-                return message.reply(`✅ Assigned **${role.name}** to <@${userId}>`);
+                return message.reply(`Assigned ${role.name} to <@${userId}>`);
             } else {
                 let pendingApprovals = {};
                 
@@ -773,40 +711,40 @@ client.on('messageCreate', async (message) => {
                 
                 fs.writeFileSync('pending-approvals.json', JSON.stringify(pendingApprovals, null, 2));
                 
-                return message.reply(`✅ User is not in the server. **${role.name}** will be assigned when they join.`);
+                return message.reply(`User is not in the server. ${role.name} will be assigned when they join.`);
             }
         } catch (error) {
             console.error('Error with approve command:', error);
-            return message.reply('❌ Error processing approval. Check the user ID is valid.');
+            return message.reply('Error processing approval.');
         }
     }
     
     if (message.content === '!checksales' && isAdmin) {
-        await message.reply('🔍 Checking for sales...');
+        await message.reply('Checking for sales...');
         if (saleMonitor) {
             await saleMonitor.forceCheck();
-            await message.reply('✅ Sale check complete!');
+            await message.reply('Sale check complete!');
         } else {
-            await message.reply('❌ Sale monitor not initialized!');
+            await message.reply('Sale monitor not initialized!');
         }
     }
     
     if (message.content === '!forcesales' && isAdmin) {
-        await message.reply('💥 Force posting ALL tracked games...');
+        await message.reply('Force posting all tracked games...');
         if (saleMonitor) {
             await saleMonitor.forcePostAll();
-            await message.reply('✅ Posted all tracked games!');
+            await message.reply('Posted all tracked games!');
         } else {
-            await message.reply('❌ Sale monitor not initialized!');
+            await message.reply('Sale monitor not initialized!');
         }
     }
     
     if (message.content === '!listgames' && isAdmin) {
         if (saleMonitor) {
             const gameCount = saleMonitor.gameIds.length;
-            await message.reply(`📋 Currently tracking **${gameCount}** games.`);
+            await message.reply(`Currently tracking ${gameCount} games.`);
         } else {
-            await message.reply('❌ Sale monitor not initialized!');
+            await message.reply('Sale monitor not initialized!');
         }
     }
     
@@ -814,9 +752,9 @@ client.on('messageCreate', async (message) => {
         const appId = message.content.split(' ')[1];
         if (appId && saleMonitor) {
             saleMonitor.addGame(appId);
-            await message.reply(`✅ Added Steam App ID ${appId} to monitoring`);
+            await message.reply(`Added Steam App ID ${appId} to monitoring`);
         } else {
-            await message.reply('❌ Usage: `!addgame <steam_app_id>`');
+            await message.reply('Usage: !addgame <steam_app_id>');
         }
     }
     
@@ -824,16 +762,16 @@ client.on('messageCreate', async (message) => {
         const appId = message.content.split(' ')[1];
         if (appId && saleMonitor) {
             saleMonitor.removeGame(appId);
-            await message.reply(`✅ Removed Steam App ID ${appId} from monitoring`);
+            await message.reply(`Removed Steam App ID ${appId} from monitoring`);
         } else {
-            await message.reply('❌ Usage: `!removegame <steam_app_id>`');
+            await message.reply('Usage: !removegame <steam_app_id>');
         }
     }
     
     if (message.content === '!saleshelp' && isAdmin) {
         const helpEmbed = new EmbedBuilder()
             .setColor('#00ff00')
-            .setTitle('💊 Steam Sale Monitor Commands')
+            .setTitle('Steam Sale Monitor Commands')
             .setDescription('All commands require Administrator permission')
             .addFields(
                 { name: '!checksales', value: 'Check for games currently on sale', inline: false },
@@ -841,7 +779,7 @@ client.on('messageCreate', async (message) => {
                 { name: '!listgames', value: 'Show how many games are being tracked', inline: false },
                 { name: '!addgame <app_id>', value: 'Add a Steam game to monitor', inline: false },
                 { name: '!removegame <app_id>', value: 'Remove a game from monitoring', inline: false },
-                { name: '!cleargamedata', value: 'Clear tracked game data (resets sale detection)', inline: false },
+                { name: '!cleargamedata', value: 'Clear tracked game data', inline: false },
                 { name: '!saleshelp', value: 'Show this help message', inline: false }
             )
             .setFooter({ text: 'Automatic checks run every hour' });
@@ -851,9 +789,9 @@ client.on('messageCreate', async (message) => {
     if (message.content === '!cleargamedata' && isAdmin) {
         if (saleMonitor) {
             saleMonitor.clearTrackedData();
-            await message.reply('✅ Cleared all tracked game data. Next check will detect all current sales as "new".');
+            await message.reply('Cleared all tracked game data.');
         } else {
-            await message.reply('❌ Sale monitor not initialized!');
+            await message.reply('Sale monitor not initialized!');
         }
     }
     
@@ -870,12 +808,12 @@ client.on('messageCreate', async (message) => {
             .slice(0, 10);
         
         if (sorted.length === 0) {
-            return message.reply('📊 No invite data available yet!');
+            return message.reply('No invite data available yet!');
         }
         
         const embed = new EmbedBuilder()
             .setColor('#00ff00')
-            .setTitle('📊 Invite Leaderboard')
+            .setTitle('Invite Leaderboard')
             .setDescription(`Top inviters (${memberInvites.size} total members tracked)`)
             .setTimestamp();
         
@@ -894,18 +832,18 @@ client.on('messageCreate', async (message) => {
         const userId = message.content.split(' ')[1];
         
         if (!userId) {
-            return message.reply('Usage: `!whoinvited <user_id>`');
+            return message.reply('Usage: !whoinvited <user_id>');
         }
         
         const inviteData = memberInvites.get(userId);
         
         if (!inviteData) {
-            return message.reply('❌ No invite data found for this user. They may have joined before tracking was enabled.');
+            return message.reply('No invite data found for this user.');
         }
         
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
-            .setTitle('🎫 Invite Information')
+            .setTitle('Invite Information')
             .addFields(
                 { name: 'User ID', value: userId, inline: true },
                 { name: 'Invite Code', value: `\`${inviteData.code}\``, inline: true },
@@ -920,7 +858,7 @@ client.on('messageCreate', async (message) => {
     if (message.content === '!invitehelp' && isAdmin) {
         const helpEmbed = new EmbedBuilder()
             .setColor('#0099ff')
-            .setTitle('🎫 Invite Tracking Commands')
+            .setTitle('Invite Tracking Commands')
             .setDescription('All commands require Administrator permission')
             .addFields(
                 { name: '!invitestats', value: 'Show top 10 inviters leaderboard', inline: false },
@@ -928,6 +866,62 @@ client.on('messageCreate', async (message) => {
                 { name: '!invitehelp', value: 'Show this help message', inline: false }
             )
             .setFooter({ text: 'Invite data is saved to member-invites.json' });
+        await message.reply({ embeds: [helpEmbed] });
+    }
+
+    if (message.content === '!tokenusage' && isAdmin) {
+        if (claudeTracker) {
+            await claudeTracker.handleTokenUsageCommand(message);
+        } else {
+            await message.reply('Claude token tracker not initialized!');
+        }
+    }
+
+    if (message.content === '!optimization' && isAdmin) {
+        if (claudeTracker) {
+            await claudeTracker.handleOptimizationCommand(message);
+        } else {
+            await message.reply('Claude token tracker not initialized!');
+        }
+    }
+
+    if (message.content.startsWith('!logtoken ') && isAdmin) {
+        const args = message.content.split(' ');
+        if (args.length >= 3 && claudeTracker) {
+            const inputTokens = parseInt(args[1]);
+            const outputTokens = parseInt(args[2]);
+            const context = args.slice(3).join(' ') || 'Manual entry';
+            
+            if (isNaN(inputTokens) || isNaN(outputTokens)) {
+                return message.reply('Input and output tokens must be numbers!');
+            }
+            
+            claudeTracker.logTokenUsage(inputTokens, outputTokens, context);
+            await message.reply(`Logged ${(inputTokens + outputTokens).toLocaleString()} tokens`);
+        } else if (!claudeTracker) {
+            await message.reply('Claude token tracker not initialized!');
+        } else {
+            await message.reply('Usage: !logtoken <input_tokens> <output_tokens> [context]');
+        }
+    }
+
+    if (message.content === '!tokenhelp' && isAdmin) {
+        const helpEmbed = new EmbedBuilder()
+            .setColor('#6366f1')
+            .setTitle('Claude Token Tracking Commands')
+            .setDescription('All commands require Administrator permission')
+            .addFields(
+                { name: '!tokenusage', value: 'View 7-day token usage statistics', inline: false },
+                { name: '!optimization', value: 'Get tips to optimize your token usage', inline: false },
+                { name: '!logtoken <input> <output> [context]', value: 'Manually log token usage', inline: false },
+                { name: '!tokenhelp', value: 'Show this help message', inline: false }
+            )
+            .addFields({
+                name: 'Automatic Features',
+                value: 'Daily reports sent to webhook at midnight\nToken usage history saved\nCost calculations included',
+                inline: false
+            })
+            .setFooter({ text: 'Track your Claude API usage and optimize costs' });
         await message.reply({ embeds: [helpEmbed] });
     }
 });
@@ -943,14 +937,14 @@ process.on('unhandledRejection', error => {
 process.on('SIGINT', () => {
     console.log('Saving data before shutdown...');
     saveMemberInvites();
-    console.log('✅ Data saved. Shutting down...');
+    console.log('Data saved. Shutting down...');
     process.exit(0);
 });
 
 process.on('SIGTERM', () => {
     console.log('Saving data before shutdown...');
     saveMemberInvites();
-    console.log('✅ Data saved. Shutting down...');
+    console.log('Data saved. Shutting down...');
     process.exit(0);
 });
 
