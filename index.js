@@ -43,8 +43,6 @@ if (config.claudeWebhook) {
 }
 ```
 
-**In the commands section (inside `messageCreate` event):**
-```javascript
 if (message.content === '!tokenusage' && isAdmin) {
     if (claudeTracker) {
         await claudeTracker.handleTokenUsageCommand(message);
