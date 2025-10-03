@@ -669,6 +669,43 @@ client.on('messageCreate', async (message) => {
     
     const isAdmin = message.member?.permissions.has('Administrator');
     
+        // ===== CLAUDE TOKEN TRACKING COMMANDS =====
+    if (message.content === '!tokenusage' && isAdmin) {
+        if (claudeTracker) {
+            await claudeTracker.handleTokenUsageCommand(message);
+        } else {
+            await message.reply('❌ Claude token tracker not initialized! Add `claudeWebhook` to config.json');
+        }
+    }
+
+    if (message.content === '!optimization' && isAdmin) {
+        if (claudeTracker) {
+            await claudeTracker.handleOptimizationCommand(message);
+        } else {
+            await message.reply('❌ Claude token tracker not initialized!');
+        }
+    }
+
+    if (message.content.startsWith('!logtoken ') && isAdmin) {
+        const args = message.content.split(' ');
+        if (args.length >= 3 && claudeTracker) {
+            const inputTokens = parseInt(args[1]);
+            const outputTokens = parseInt(args[2]);
+            const context = args.slice(3).join(' ') || 'Manual entry';
+            
+            if (isNaN(inputTokens) || isNaN(outputTokens)) {
+                return message.reply('❌ Input and output tokens must be numbers!');
+            }
+            
+            claudeTracker.logTokenUsage(inputTokens, outputTokens, context);
+            await message.reply(`✅ Logged **${(inputTokens + outputTokens).toLocaleString()}** tokens`);
+        } else if (!claudeTracker) {
+            await message.reply('❌ Claude token tracker not initialized!');
+        } else {
+            await message.reply('Usage: `!logtoken <input_tokens> <output_tokens> [context]`');
+        }
+    }
+
     if (message.content === '!test' && isAdmin) {
         await message.reply('Bot is working and you have admin!');
     }
