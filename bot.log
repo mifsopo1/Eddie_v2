@@ -1,0 +1,23 @@
+nohup: ignoring input
+✅ Eddie_Logging#6005 is online!
+✅ Loaded 3 member invite records
+✅ member logs → #🛫│border⋅security⋅check
+✅ message logs → #🤦│user-logs
+✅ voice logs → #🤦│user-logs
+✅ role logs → #🤦│user-logs
+✅ channel logs → #📢│channel-updates
+✅ invite logs → #🛫│border⋅security⋅check
+✅ moderation logs → #📰│action⋅logs
+✅ Loaded 3 tracked games
+🎮 Starting Steam Sale Monitor...
+🔍 Checking for game sales...
+(node:290383) DeprecationWarning: The ready event has been renamed to clientReady to distinguish it from the gateway READY event and will only emit under that name in v15. Please use clientReady instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ℹ️ Drug Dealer Simulator still on sale at 90%
+✅ Cached 112 invites for DRUG DEALER SIMULATOR
+ℹ️ Drug Dealer Simulator 2 still on sale at 30%
+ℹ️ Drug Dealer Simulator: Free Sample is a free game/demo
+ℹ️ Drug Dealer Simulator 2: Casino DLC still on sale at 20%
+✅ Sale monitor running (checking every 60 minutes)
+Saving data before shutdown...
+✅ Data saved. Shutting down...
