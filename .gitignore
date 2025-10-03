@@ -2,3 +2,4 @@ config.json
 sales-data.json
 pending-approvals.json
 config.json
+.env
