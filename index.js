@@ -2,6 +2,7 @@ const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType } = 
 const config = require('./config.json');
 const SteamSaleMonitor = require('./steamSaleMonitor');
 const fs = require('fs');
+const ClaudeTokenTracker = require('./claudeTokenTracker');
 
 const client = new Client({
     intents: [
@@ -32,8 +33,25 @@ const logChannels = {
     moderation: null
 };
 
+let claudeTracker;
 let saleMonitor;
+if (config.claudeWebhook) {
+    claudeTracker = new ClaudeTokenTracker(client, config.claudeWebhook);
+    console.log('✅ Claude token tracker initialized');
+} else {
+    console.log('⚠️ Claude tracking disabled - no claudeWebhook in config');
+}
+```
 
+**In the commands section (inside `messageCreate` event):**
+```javascript
+if (message.content === '!tokenusage' && isAdmin) {
+    if (claudeTracker) {
+        await claudeTracker.handleTokenUsageCommand(message);
+    } else {
+        await message.reply('❌ Claude token tracker not initialized!');
+    }
+}
 // ===== HELPER FUNCTIONS =====
 function loadMemberInvites() {
     try {
