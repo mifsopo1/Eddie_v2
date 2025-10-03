@@ -16,7 +16,8 @@
     "author": "",
     "license": "MIT",
     "dependencies": {
-        "discord.js": "^14.14.1"
+        "discord.js": "^14.14.1",
+        "express": "^5.1.0"
     },
     "devDependencies": {
         "nodemon": "^3.0.2"
