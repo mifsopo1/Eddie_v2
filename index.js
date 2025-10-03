@@ -114,9 +114,9 @@ client.once('ready', async () => {
         console.log('✅ Claude token tracker initialized');
         
         // Initialize VPS tracker with webhook
-        vpsTracker = new VPSConversationTracker(claudeTracker);
-        webhookLogger = new WebhookLogger(vpsTracker, 3001);
-        webhookLogger.start();
+//        vpsTracker = new VPSConversationTracker(claudeTracker);
+//        webhookLogger = new WebhookLogger(vpsTracker, 3001);
+//        webhookLogger.start();
         console.log('✅ VPS conversation tracker with webhook initialized');
         
         // Schedule weekly reports

@@ -1,0 +1,38 @@
+{
+  "dailyUsage": {
+    "2025-10-03": {
+      "input": 14678366,
+      "output": 433602,
+      "total": 15111968,
+      "conversations": 4
+    }
+  },
+  "totalTokens": 15111968,
+  "lastReset": 1759530094738,
+  "conversations": [
+    {
+      "date": 1759531301652,
+      "input": 4,
+      "output": 150,
+      "context": "VPS: Untitled Conversation"
+    },
+    {
+      "date": 1759531313609,
+      "input": 150,
+      "output": 700,
+      "context": "VPS: Untitled Conversation"
+    },
+    {
+      "date": 1759531683664,
+      "input": 7339106,
+      "output": 216376,
+      "context": "VPS: Untitled Conversation"
+    },
+    {
+      "date": 1759531691726,
+      "input": 7339106,
+      "output": 216376,
+      "context": "VPS: Untitled Conversation"
+    }
+  ]
+}
