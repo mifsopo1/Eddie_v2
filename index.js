@@ -2,8 +2,6 @@ const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType } = 
 const config = require('./config.json');
 const SteamSaleMonitor = require('./steamSaleMonitor');
 const ClaudeTokenTracker = require('./claudeTokenTracker');
-const VPSConversationTracker = require('./vps-conversation-tracker');
-const WebhookLogger = require('./webhook-logger');
 const fs = require('fs');
 
 // Global variables
@@ -61,8 +59,7 @@ const logChannels = {
 
 let saleMonitor;
 let claudeTracker;
-let vpsTracker;
-let webhookLogger;
+
 
 function loadMemberInvites() {
     try {
@@ -139,17 +136,7 @@ client.once('ready', async () => {
         claudeTracker = new ClaudeTokenTracker(client, config.claudeWebhook);
         console.log('✅ Claude token tracker initialized');
         
-        // Initialize VPS tracker with webhook
-//        vpsTracker = new VPSConversationTracker(claudeTracker);
-//        webhookLogger = new WebhookLogger(vpsTracker, 3001);
-//        webhookLogger.start();
-        console.log('✅ VPS conversation tracker with webhook initialized');
         
-        // Schedule weekly reports
-        scheduleWeeklyVPSReport();
-    } else {
-        console.log('⚠️  Claude tracking disabled - no webhook configured');
-    }
 });
 
 client.on('guildMemberAdd', async (member) => {
@@ -986,97 +973,6 @@ if (!isAdmin && !hasBypassRole && !checkRateLimit(message.author.id)) {
         await message.reply({ embeds: [helpEmbed] });
     }
 
-    // VPS Conversation Tracker Commands
-    if (message.content === '!vpsstats' && isAdmin) {
-        if (vpsTracker) {
-            const embed = vpsTracker.generateStatsEmbed();
-            await message.reply({ embeds: [embed] });
-        } else {
-            await message.reply('VPS tracker not initialized!');
-        }
-    }
-
-    if (message.content.startsWith('!vpsstart ') && isAdmin) {
-        const topic = message.content.substring(10);
-        if (vpsTracker) {
-            vpsTracker.startConversation(topic);
-            await message.reply(`📝 Started tracking: ${topic}`);
-        } else {
-            await message.reply('VPS tracker not initialized!');
-        }
-    }
-
-    if (message.content.startsWith('!vpslog ') && isAdmin) {
-        const args = message.content.split(' ');
-        if (args.length >= 5 && vpsTracker) {
-            const userMsg = args[1];
-            const assistantMsg = args[2];
-            const inputTokens = parseInt(args[3]);
-            const outputTokens = parseInt(args[4]);
-            
-            if (isNaN(inputTokens) || isNaN(outputTokens)) {
-                return message.reply('Tokens must be numbers!');
-            }
-            
-            vpsTracker.logMessage(userMsg, assistantMsg, inputTokens, outputTokens);
-            await message.reply(`✅ Logged: ${(inputTokens + outputTokens).toLocaleString()} tokens`);
-        } else {
-            await message.reply('Usage: !vpslog "user" "assistant" input_tokens output_tokens');
-        }
-    }
-
-    if (message.content === '!vpsend' && isAdmin) {
-        if (vpsTracker) {
-            const summary = vpsTracker.endConversation();
-            if (summary) {
-                await message.reply(
-                    `✅ Conversation ended:\n` +
-                    `**${summary.topic}**\n` +
-                    `Messages: ${summary.messages}\n` +
-                    `Tokens: ${summary.totalTokens.toLocaleString()}\n` +
-                    `Cost: $${summary.cost.toFixed(4)}`
-                );
-            } else {
-                await message.reply('No active conversation to end.');
-            }
-        } else {
-            await message.reply('VPS tracker not initialized!');
-        }
-    }
-
-    if (message.content === '!vpsreport' && isAdmin) {
-        if (vpsTracker && config.claudeWebhook) {
-            await vpsTracker.sendStatsToDiscord(config.claudeWebhook);
-            await message.reply('✅ Report sent to Discord webhook');
-        } else {
-            await message.reply('VPS tracker or webhook not configured!');
-        }
-    }
-
-    if (message.content === '!vpshelp' && isAdmin) {
-        const helpEmbed = new EmbedBuilder()
-            .setColor('#6366f1')
-            .setTitle('VPS Conversation Tracker Commands')
-            .setDescription('All commands require Administrator permission')
-            .addFields(
-                { name: '!vpsstats', value: 'View lifetime VPS conversation statistics', inline: false },
-                { name: '!vpsstart <topic>', value: 'Start tracking a new conversation', inline: false },
-                { name: '!vpslog "user" "assistant" <in> <out>', value: 'Log a message exchange', inline: false },
-                { name: '!vpsend', value: 'End current conversation and save', inline: false },
-                { name: '!vpsreport', value: 'Send full report to Discord webhook', inline: false },
-                { name: '!vpshelp', value: 'Show this help message', inline: false }
-            )
-            .addFields({
-                name: 'Automatic Features',
-                value: 'Weekly reports every Sunday at 6 PM\n' +
-                       'Browser extension for auto-tracking\n' +
-                       'Webhook API on port 3001\n' +
-                       'Lifetime cost tracking',
-                inline: false
-            })
-            .setFooter({ text: 'Track conversations with Claude automatically' });
-        await message.reply({ embeds: [helpEmbed] });
-    }
 });
 
 client.on('voiceStateUpdate', (oldState, newState) => {
@@ -1765,50 +1661,6 @@ process.on('SIGTERM', () => {
     process.exit(0);
 });
 
-// Weekly VPS Report Scheduler
-function scheduleWeeklyVPSReport() {
-    const scheduleNext = () => {
-        const now = new Date();
-        const nextSunday = new Date(now);
-        
-        // Set to next Sunday at 6 PM
-        nextSunday.setDate(now.getDate() + (7 - now.getDay()) % 7);
-        nextSunday.setHours(18, 0, 0, 0);
-        
-        // If we've passed 6 PM on Sunday, schedule for next week
-        if (now > nextSunday) {
-            nextSunday.setDate(nextSunday.getDate() + 7);
-        }
-        
-        const msUntilReport = nextSunday - now;
-        
-        setTimeout(async () => {
-            console.log('📊 Sending weekly VPS report...');
-            
-            if (vpsTracker && config.claudeWebhook) {
-                // End current conversation if active
-                if (vpsTracker.currentConversation) {
-                    vpsTracker.endConversation();
-                }
-                
-                // Send report
-                await vpsTracker.sendStatsToDiscord(config.claudeWebhook);
-                
-                // Get stats for console log
-                const stats = vpsTracker.getLifetimeStats();
-                console.log(`📈 Weekly Report Sent:`);
-                console.log(`   Total Conversations: ${stats.totalConversations}`);
-                console.log(`   Total Tokens: ${stats.totalTokens.toLocaleString()}`);
-                console.log(`   Total Cost: $${stats.totalCost.toFixed(4)}`);
-            }
-            
-            scheduleNext();
-        }, msUntilReport);
-        
-        console.log(`📅 Next VPS weekly report: ${nextSunday.toLocaleString()}`);
-    };
-    
-    scheduleNext();
-}
+
 
 client.login(config.token);
