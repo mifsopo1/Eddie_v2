@@ -12,5 +12,7 @@
     },
     "saleChannelId": "STEAM_SALE_CHANNEL_ID",
     "saleCheckInterval": 3600000,
-    "claudeWebhook": "YOUR_DISCORD_WEBHOOK_URL_HERE"
+    "claudeWebhook": "YOUR_DISCORD_WEBHOOK_URL_HERE",
+    "rateLimitBypassRoles": [],
+    "excludedBots": ["YOUR_BOT_ID_HERE"]
 }

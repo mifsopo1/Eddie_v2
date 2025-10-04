@@ -509,9 +509,9 @@ client.on('messageDelete', async (message) => {
 client.on('messageCreate', async (message) => {
     // Handle attachment logging for ALL messages (including bots)
     if (message.attachments.size > 0 || message.embeds.length > 0 || message.stickers.size > 0) {
-        // Don't log messages from these bots (prevents infinite loop)
-        const excludedBots = ['1422775949505724477', '1418807658307129505', '1414884959042146324'];
-        if (excludedBots.includes(message.author.id)) return;
+      // Don't log messages from these bots (prevents infinite loop)
+      const excludedBots = config.excludedBots || [];
+      if (excludedBots.includes(message.author.id)) return;
         
         const attachmentChannel = logChannels.attachments;
         if (attachmentChannel) {
@@ -619,9 +619,9 @@ client.on('messageCreate', async (message) => {
 // Continue with command handling (keep the bot check here)
 if (message.author.bot) return;
 
-// ========== RATE LIMITING (NEW) ==========
+// ========== RATE LIMITING ==========
 const isAdmin = message.member?.permissions.has('Administrator');
-const bypassRoleIds = ['623527426630221858', '803634927496986625', '1414893215726960640', '645744514576809984', '676494810995228684', '700870935124901988', '676507746706784286'];
+const bypassRoleIds = config.rateLimitBypassRoles || [];
 const hasBypassRole = message.member?.roles.cache.some(role => bypassRoleIds.includes(role.id));
 
 if (!isAdmin && !hasBypassRole && !checkRateLimit(message.author.id)) {
