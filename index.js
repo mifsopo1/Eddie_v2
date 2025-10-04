@@ -6,6 +6,9 @@ const VPSConversationTracker = require('./vps-conversation-tracker');
 const WebhookLogger = require('./webhook-logger');
 const fs = require('fs');
 
+// Global variables
+const roleUpdateQueue = new Map(); // userId -> { timeout, oldRoles, newRoles, timestamp }
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -30,7 +33,8 @@ const logChannels = {
     role: null,
     channel: null,
     invite: null,
-    moderation: null
+    moderation: null,
+    attachments: null
 };
 
 let saleMonitor;
@@ -361,7 +365,6 @@ client.on('messageDelete', async (message) => {
             { name: 'Message ID', value: message.id, inline: true }
         );
     
-    // Add content if it exists
     if (message.content) {
         embed.addFields({
             name: 'Content',
@@ -370,7 +373,6 @@ client.on('messageDelete', async (message) => {
         });
     }
     
-    // Handle attachments
     if (message.attachments.size > 0) {
         const attachmentList = message.attachments.map(a => {
             const size = (a.size / 1024).toFixed(2);
@@ -383,7 +385,6 @@ client.on('messageDelete', async (message) => {
             inline: false
         });
         
-        // Set thumbnail to first image if exists
         const firstImage = message.attachments.find(a => 
             a.contentType?.startsWith('image/')
         );
@@ -392,7 +393,6 @@ client.on('messageDelete', async (message) => {
         }
     }
     
-    // Handle embeds (links with previews)
     if (message.embeds.length > 0) {
         const embedInfo = message.embeds.map((e, i) => {
             let info = `**Embed ${i + 1}**\n`;
@@ -410,7 +410,6 @@ client.on('messageDelete', async (message) => {
         });
     }
     
-    // Handle stickers
     if (message.stickers.size > 0) {
         const stickerList = message.stickers.map(s => 
             `**${s.name}** (${s.format})`
@@ -423,7 +422,6 @@ client.on('messageDelete', async (message) => {
         });
     }
     
-    // Add timestamp info
     if (message.createdTimestamp) {
         embed.addFields({
             name: 'Created',
@@ -432,7 +430,6 @@ client.on('messageDelete', async (message) => {
         });
     }
     
-    // Add invite data if available
     const memberInviteData = memberInvites.get(message.author?.id);
     if (memberInviteData) {
         embed.addFields({
@@ -443,7 +440,6 @@ client.on('messageDelete', async (message) => {
         });
     }
     
-    // Check for moderation action
     try {
         const fetchedLogs = await message.guild.fetchAuditLogs({
             limit: 1,
@@ -472,7 +468,6 @@ client.on('messageDelete', async (message) => {
     
     embed.setTimestamp();
     
-    // Set author thumbnail
     if (message.author) {
         embed.setAuthor({
             name: message.author.tag,
@@ -484,500 +479,143 @@ client.on('messageDelete', async (message) => {
 });
 
 client.on('messageCreate', async (message) => {
-    // Skip if bot message or no attachments/embeds
-    if (message.author.bot) return;
-    if (message.attachments.size === 0 && message.embeds.length === 0) return;
-    
-    const attachmentChannel = client.channels.cache.get(config.logChannels.attachments);
-    if (!attachmentChannel) return;
-    
-    const embed = new EmbedBuilder()
-        .setColor('#3498db')
-        .setTitle('📎 New Attachment/Media')
-        .setAuthor({
-            name: message.author.tag,
-            iconURL: message.author.displayAvatarURL()
-        })
-        .addFields(
-            { name: 'User', value: `${message.author.tag} (${message.author.id})`, inline: true },
-            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
-            { name: 'Message', value: `[Jump to Message](${message.url})`, inline: true }
-        );
-    
-    // Add message content if it exists
-    if (message.content) {
-        embed.addFields({
-            name: '💬 Message Content',
-            value: message.content.slice(0, 1024),
-            inline: false
-        });
-    }
-    
-    // Handle attachments
-    if (message.attachments.size > 0) {
-        const attachmentList = message.attachments.map(a => {
-            const size = (a.size / 1024).toFixed(2);
-            const type = a.contentType || 'unknown';
-            return `**${a.name}**\nType: ${type}\nSize: ${size} KB\n[Download](${a.url})`;
-        }).join('\n\n');
-        
-        embed.addFields({
-            name: `📎 Attachments (${message.attachments.size})`,
-            value: attachmentList.slice(0, 1024),
-            inline: false
-        });
-        
-        // Set image/video preview
-        const firstImage = message.attachments.find(a => 
-            a.contentType?.startsWith('image/')
-        );
-        if (firstImage) {
-            embed.setImage(firstImage.url);
-        }
-        
-        const firstVideo = message.attachments.find(a => 
-            a.contentType?.startsWith('video/')
-        );
-        if (firstVideo && !firstImage) {
-            embed.addFields({
-                name: '🎥 Video Preview',
-                value: `[Click to view video](${firstVideo.url})`,
-                inline: false
-            });
-        }
-    }
-    
-    // Handle link embeds
-    if (message.embeds.length > 0) {
-        const embedInfo = message.embeds.map((e, i) => {
-            let info = `**Link ${i + 1}**\n`;
-            if (e.title) info += `Title: ${e.title}\n`;
-            if (e.description) info += `Description: ${e.description.slice(0, 150)}...\n`;
-            if (e.url) info += `URL: ${e.url}\n`;
-            if (e.thumbnail) info += `Has thumbnail\n`;
-            if (e.image) info += `Has image\n`;
-            if (e.video) info += `Has video\n`;
-            return info;
-        }).join('\n');
-        
-        embed.addFields({
-            name: `🔗 Link Embeds (${message.embeds.length})`,
-            value: embedInfo.slice(0, 1024),
-            inline: false
-        });
-    }
-    
-    // Handle stickers
-    if (message.stickers.size > 0) {
-        const stickerList = message.stickers.map(s => 
-            `**${s.name}**\nFormat: ${s.format}\n[View Sticker](${s.url})`
-        ).join('\n\n');
-        
-        embed.addFields({
-            name: `🎨 Stickers (${message.stickers.size})`,
-            value: stickerList.slice(0, 1024),
-            inline: false
-        });
-    }
-    
-    // Add member join info
-    const memberInviteData = memberInvites.get(message.author.id);
-    if (memberInviteData) {
-        embed.addFields({
-            name: '📋 User Join Info',
-            value: `Joined: <t:${Math.floor(memberInviteData.timestamp / 1000)}:R>\n` +
-                   `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}\n` +
-                   `Account Age: <t:${Math.floor(message.author.createdTimestamp / 1000)}:R>`,
-            inline: false
-        });
-    }
-    
-    // Add member roles
-    if (message.member) {
-        const roles = message.member.roles.cache
-            .filter(r => r.id !== message.guild.id)
-            .sort((a, b) => b.position - a.position)
-            .map(r => r.name)
-            .slice(0, 10);
-        
-        if (roles.length > 0) {
-            embed.addFields({
-                name: '🎭 User Roles',
-                value: roles.join(', '),
-                inline: false
-            });
-        }
-    }
-    
-    embed.setTimestamp();
-    embed.setFooter({
-        text: `Message ID: ${message.id}`
-    });
-    
-    try {
-        await attachmentChannel.send({ embeds: [embed] });
-        
-        // Forward actual files if they're not too large (< 8MB for normal servers)
-        const forwardableAttachments = message.attachments.filter(a => a.size < 8388608);
-        if (forwardableAttachments.size > 0) {
-            await attachmentChannel.send({
-                content: `📦 **Files from ${message.author.tag}:**`,
-                files: forwardableAttachments.map(a => a.url)
-            });
-        }
-    } catch (error) {
-        console.error('Error forwarding attachment:', error);
-    }
-});
-
-client.on('voiceStateUpdate', (oldState, newState) => {
-    if (!logChannels.voice) return;
-    
-    const member = newState.member;
-    let embed = null;
-    
-    if (!oldState.channel && newState.channel) {
-        embed = new EmbedBuilder()
-            .setColor('#00ff00')
-            .setTitle('Joined Voice Channel')
-            .addFields(
-                { name: 'User', value: `${member.user.tag}`, inline: true },
-                { name: 'Channel', value: `${newState.channel.name}`, inline: true }
-            )
-            .setTimestamp();
-    }
-    else if (oldState.channel && !newState.channel) {
-        embed = new EmbedBuilder()
-            .setColor('#ff0000')
-            .setTitle('Left Voice Channel')
-            .addFields(
-                { name: 'User', value: `${member.user.tag}`, inline: true },
-                { name: 'Channel', value: `${oldState.channel.name}`, inline: true }
-            )
-            .setTimestamp();
-    }
-    else if (oldState.channel && newState.channel && oldState.channel.id !== newState.channel.id) {
-        embed = new EmbedBuilder()
-            .setColor('#0099ff')
-            .setTitle('Switched Voice Channel')
-            .addFields(
-                { name: 'User', value: `${member.user.tag}`, inline: true },
-                { name: 'From', value: `${oldState.channel.name}`, inline: true },
-                { name: 'To', value: `${newState.channel.name}`, inline: true }
-            )
-            .setTimestamp();
-    }
-    
-    if (oldState.channel && newState.channel && oldState.channel.id === newState.channel.id) {
-        const changes = [];
-        
-        if (!oldState.mute && newState.mute) changes.push('Server Muted');
-        if (oldState.mute && !newState.mute) changes.push('Server Unmuted');
-        if (!oldState.deaf && newState.deaf) changes.push('Server Deafened');
-        if (oldState.deaf && !newState.deaf) changes.push('Server Undeafened');
-        if (!oldState.selfMute && newState.selfMute) changes.push('Self Muted');
-        if (oldState.selfMute && !newState.selfMute) changes.push('Self Unmuted');
-        if (!oldState.selfDeaf && newState.selfDeaf) changes.push('Self Deafened');
-        if (oldState.selfDeaf && !newState.selfDeaf) changes.push('Self Undeafened');
-        if (!oldState.streaming && newState.streaming) changes.push('Started Streaming');
-        if (oldState.streaming && !newState.streaming) changes.push('Stopped Streaming');
-        if (!oldState.selfVideo && newState.selfVideo) changes.push('Camera On');
-        if (oldState.selfVideo && !newState.selfVideo) changes.push('Camera Off');
-        
-        if (changes.length > 0) {
-            embed = new EmbedBuilder()
-                .setColor('#9932cc')
-                .setTitle('Voice State Changed')
+    // Handle attachment logging for non-bot messages
+    if (!message.author.bot && (message.attachments.size > 0 || message.embeds.length > 0 || message.stickers.size > 0)) {
+        const attachmentChannel = logChannels.attachments;
+        if (attachmentChannel) {
+            const embed = new EmbedBuilder()
+                .setColor('#3498db')
+                .setTitle('📎 New Attachment/Media')
+                .setAuthor({
+                    name: message.author.tag,
+                    iconURL: message.author.displayAvatarURL()
+                })
                 .addFields(
-                    { name: 'User', value: `${member.user.tag}`, inline: true },
-                    { name: 'Channel', value: `${newState.channel.name}`, inline: true },
-                    { name: 'Changes', value: changes.join('\n'), inline: false }
-                )
-                .setTimestamp();
-        }
-    }
-    
-    if (embed) logChannels.voice.send({ embeds: [embed] });
-});
-
-client.on('guildMemberUpdate', (oldMember, newMember) => {
-    if (!logChannels.role) return;
-    
-    const oldRoles = oldMember.roles.cache;
-    const newRoles = newMember.roles.cache;
-    
-    const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
-    const removedRoles = oldRoles.filter(role => !newRoles.has(role.id));
-    
-    if (addedRoles.size === 0 && removedRoles.size === 0) return;
-    
-    const embed = new EmbedBuilder()
-        .setColor('#9932cc')
-        .setTitle('Member Roles Updated')
-        .setThumbnail(newMember.user.displayAvatarURL())
-        .addFields(
-            { name: 'Member', value: `${newMember.user.tag} (${newMember.id})`, inline: false }
-        )
-        .setTimestamp();
-    
-    if (addedRoles.size > 0) {
-        embed.addFields({
-            name: 'Roles Added',
-            value: addedRoles.map(r => r.name).join(', '),
-            inline: false
-        });
-    }
-    
-    if (removedRoles.size > 0) {
-        embed.addFields({
-            name: 'Roles Removed',
-            value: removedRoles.map(r => r.name).join(', '),
-            inline: false
-        });
-    }
-    
-    logChannels.role.send({ embeds: [embed] });
-});
-
-client.on('channelCreate', channel => {
-    if (!logChannels.channel) return;
-    
-    const embed = new EmbedBuilder()
-        .setColor('#00ff00')
-        .setTitle('Channel Created')
-        .addFields(
-            { name: 'Name', value: channel.name, inline: true },
-            { name: 'Type', value: ChannelType[channel.type], inline: true },
-            { name: 'ID', value: channel.id, inline: true },
-            { name: 'Category', value: channel.parent?.name || 'None', inline: true }
-        )
-        .setTimestamp();
-    
-    logChannels.channel.send({ embeds: [embed] });
-});
-
-client.on('channelDelete', channel => {
-    if (!logChannels.channel) return;
-    
-    const embed = new EmbedBuilder()
-        .setColor('#ff0000')
-        .setTitle('Channel Deleted')
-        .addFields(
-            { name: 'Name', value: channel.name, inline: true },
-            { name: 'Type', value: ChannelType[channel.type], inline: true },
-            { name: 'ID', value: channel.id, inline: true },
-            { name: 'Category', value: channel.parent?.name || 'None', inline: true }
-        )
-        .setTimestamp();
-    
-    logChannels.channel.send({ embeds: [embed] });
-});
-
-client.on('channelUpdate', (oldChannel, newChannel) => {
-    if (!logChannels.channel) return;
-    
-    const changes = [];
-    
-    if (oldChannel.name !== newChannel.name) {
-        changes.push(`Name: ${oldChannel.name} -> ${newChannel.name}`);
-    }
-    if (oldChannel.topic !== newChannel.topic) {
-        changes.push(`Topic: ${oldChannel.topic || 'None'} -> ${newChannel.topic || 'None'}`);
-    }
-    if (oldChannel.nsfw !== newChannel.nsfw) {
-        changes.push(`NSFW: ${oldChannel.nsfw} -> ${newChannel.nsfw}`);
-    }
-    if (oldChannel.rateLimitPerUser !== newChannel.rateLimitPerUser) {
-        changes.push(`Slowmode: ${oldChannel.rateLimitPerUser}s -> ${newChannel.rateLimitPerUser}s`);
-    }
-    
-    if (changes.length === 0) return;
-    
-    const embed = new EmbedBuilder()
-        .setColor('#ffa500')
-        .setTitle('Channel Updated')
-        .addFields(
-            { name: 'Channel', value: `<#${newChannel.id}>`, inline: true },
-            { name: 'Changes', value: changes.join('\n'), inline: false }
-        )
-        .setTimestamp();
-    
-    logChannels.channel.send({ embeds: [embed] });
-});
-
-client.on('inviteCreate', invite => {
-    if (!logChannels.invite) return;
-    
-    const embed = new EmbedBuilder()
-        .setColor('#00ff00')
-        .setTitle('Invite Created')
-        .addFields(
-            { name: 'Code', value: `\`${invite.code}\``, inline: true },
-            { name: 'Channel', value: `<#${invite.channel.id}>`, inline: true },
-            { name: 'Created By', value: invite.inviter?.tag || 'Unknown', inline: true },
-            { name: 'Max Uses', value: invite.maxUses ? invite.maxUses.toString() : 'Unlimited', inline: true },
-            { name: 'Expires', value: invite.expiresTimestamp ? `<t:${Math.floor(invite.expiresTimestamp / 1000)}:R>` : 'Never', inline: true },
-            { name: 'Temporary', value: invite.temporary ? 'Yes' : 'No', inline: true }
-        )
-        .setTimestamp();
-    
-    logChannels.invite.send({ embeds: [embed] });
-});
-
-client.on('inviteDelete', invite => {
-    if (!logChannels.invite) return;
-    
-    const embed = new EmbedBuilder()
-        .setColor('#ff0000')
-        .setTitle('Invite Deleted')
-        .addFields(
-            { name: 'Code', value: `\`${invite.code}\``, inline: true },
-            { name: 'Channel', value: `<#${invite.channel?.id}>` || 'Unknown', inline: true },
-            { name: 'Created By', value: invite.inviter?.tag || 'Unknown', inline: true }
-        )
-        .setTimestamp();
-    
-    logChannels.invite.send({ embeds: [embed] });
-});
-
-client.on('guildBanAdd', async ban => {
-    if (!logChannels.moderation) return;
-    
-    const embed = new EmbedBuilder()
-        .setColor('#8b0000')
-        .setTitle('Member Banned')
-        .setThumbnail(ban.user.displayAvatarURL())
-        .addFields(
-            { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: true },
-            { name: 'Account Created', value: `<t:${Math.floor(ban.user.createdTimestamp / 1000)}:R>`, inline: true },
-            { name: '\u200b', value: '\u200b', inline: true }
-        );
-    
-    // Try to get member info before they were banned
-    let memberInfo = null;
-    try {
-        // Check audit logs for more info
-        const fetchedLogs = await ban.guild.fetchAuditLogs({
-            limit: 1,
-            type: AuditLogEvent.MemberBanAdd
-        });
-        const banLog = fetchedLogs.entries.first();
-        
-        if (banLog && banLog.target.id === ban.user.id) {
-            embed.addFields({
-                name: 'Banned By',
-                value: `${banLog.executor.tag}`,
-                inline: true
-            });
+                    { name: 'User', value: `${message.author.tag} (${message.author.id})`, inline: true },
+                    { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                    { name: 'Message', value: `[Jump to Message](${message.url})`, inline: true }
+                );
             
-            if (banLog.reason) {
+            if (message.content) {
                 embed.addFields({
-                    name: 'Reason',
-                    value: banLog.reason,
-                    inline: true
-                });
-            } else {
-                embed.addFields({
-                    name: 'Reason',
-                    value: 'No reason provided',
-                    inline: true
+                    name: '💬 Message Content',
+                    value: message.content.slice(0, 1024),
+                    inline: false
                 });
             }
             
-            embed.addFields({ name: '\u200b', value: '\u200b', inline: true });
-        }
-    } catch (error) {
-        console.error('Error fetching ban logs:', error);
-    }
-    
-    // Get invite data
-    const memberInviteData = memberInvites.get(ban.user.id);
-    if (memberInviteData) {
-        const joinedAt = memberInviteData.timestamp;
-        const timeInServer = Date.now() - joinedAt;
-        const days = Math.floor(timeInServer / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((timeInServer % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        
-        embed.addFields(
-            { name: 'Joined Server', value: `<t:${Math.floor(joinedAt / 1000)}:R>`, inline: true },
-            { name: 'Time in Server', value: `${days}d ${hours}h`, inline: true },
-            { name: '\u200b', value: '\u200b', inline: true }
-        );
-        
-        embed.addFields({
-            name: 'Invite Used',
-            value: `Code: \`${memberInviteData.code}\`\nCreated by: ${memberInviteData.inviter}\nUses: ${memberInviteData.uses}/${memberInviteData.maxUses || '∞'}`,
-            inline: false
-        });
-    }
-    
-    embed.setTimestamp();
-    
-    logChannels.moderation.send({ embeds: [embed] });
-});
-
-client.on('guildBanRemove', async ban => {
-    if (!logChannels.moderation) return;
-    
-    const embed = new EmbedBuilder()
-        .setColor('#00ff00')
-        .setTitle('Member Unbanned')
-        .setThumbnail(ban.user.displayAvatarURL())
-        .addFields(
-            { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: true },
-            { name: 'Account Created', value: `<t:${Math.floor(ban.user.createdTimestamp / 1000)}:R>`, inline: true },
-            { name: '\u200b', value: '\u200b', inline: true }
-        );
-    
-    try {
-        const fetchedLogs = await ban.guild.fetchAuditLogs({
-            limit: 1,
-            type: AuditLogEvent.MemberBanRemove
-        });
-        const unbanLog = fetchedLogs.entries.first();
-        
-        if (unbanLog && unbanLog.target.id === ban.user.id && (Date.now() - unbanLog.createdTimestamp) < 5000) {
-            embed.addFields({
-                name: 'Unbanned By',
-                value: unbanLog.executor.tag,
-                inline: true
-            });
-            
-            if (unbanLog.reason) {
+            if (message.attachments.size > 0) {
+                const attachmentList = message.attachments.map(a => {
+                    const size = (a.size / 1024).toFixed(2);
+                    const type = a.contentType || 'unknown';
+                    return `**${a.name}**\nType: ${type}\nSize: ${size} KB\n[Download](${a.url})`;
+                }).join('\n\n');
+                
                 embed.addFields({
-                    name: 'Reason',
-                    value: unbanLog.reason,
-                    inline: true
+                    name: `📎 Attachments (${message.attachments.size})`,
+                    value: attachmentList.slice(0, 1024),
+                    inline: false
+                });
+                
+                const firstImage = message.attachments.find(a => 
+                    a.contentType?.startsWith('image/')
+                );
+                if (firstImage) {
+                    embed.setImage(firstImage.url);
+                }
+                
+                const firstVideo = message.attachments.find(a => 
+                    a.contentType?.startsWith('video/')
+                );
+                if (firstVideo && !firstImage) {
+                    embed.addFields({
+                        name: '🎥 Video Preview',
+                        value: `[Click to view video](${firstVideo.url})`,
+                        inline: false
+                    });
+                }
+            }
+            
+            if (message.embeds.length > 0) {
+                const embedInfo = message.embeds.map((e, i) => {
+                    let info = `**Link ${i + 1}**\n`;
+                    if (e.title) info += `Title: ${e.title}\n`;
+                    if (e.description) info += `Description: ${e.description.slice(0, 150)}...\n`;
+                    if (e.url) info += `URL: ${e.url}\n`;
+                    if (e.thumbnail) info += `Has thumbnail\n`;
+                    if (e.image) info += `Has image\n`;
+                    if (e.video) info += `Has video\n`;
+                    return info;
+                }).join('\n');
+                
+                embed.addFields({
+                    name: `🔗 Link Embeds (${message.embeds.length})`,
+                    value: embedInfo.slice(0, 1024),
+                    inline: false
                 });
             }
+            
+            if (message.stickers.size > 0) {
+                const stickerList = message.stickers.map(s => 
+                    `**${s.name}**\nFormat: ${s.format}\n[View Sticker](${s.url})`
+                ).join('\n\n');
+                
+                embed.addFields({
+                    name: `🎨 Stickers (${message.stickers.size})`,
+                    value: stickerList.slice(0, 1024),
+                    inline: false
+                });
+            }
+            
+            const memberInviteData = memberInvites.get(message.author.id);
+            if (memberInviteData) {
+                embed.addFields({
+                    name: '📋 User Join Info',
+                    value: `Joined: <t:${Math.floor(memberInviteData.timestamp / 1000)}:R>\n` +
+                           `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}\n` +
+                           `Account Age: <t:${Math.floor(message.author.createdTimestamp / 1000)}:R>`,
+                    inline: false
+                });
+            }
+            
+            if (message.member) {
+                const roles = message.member.roles.cache
+                    .filter(r => r.id !== message.guild.id)
+                    .sort((a, b) => b.position - a.position)
+                    .map(r => r.name)
+                    .slice(0, 10);
+                
+                if (roles.length > 0) {
+                    embed.addFields({
+                        name: '🎭 User Roles',
+                        value: roles.join(', '),
+                        inline: false
+                    });
+                }
+            }
+            
+            embed.setTimestamp();
+            embed.setFooter({
+                text: `Message ID: ${message.id}`
+            });
+            
+            try {
+                await attachmentChannel.send({ embeds: [embed] });
+                
+                const forwardableAttachments = message.attachments.filter(a => a.size < 8388608);
+                if (forwardableAttachments.size > 0) {
+                    await attachmentChannel.send({
+                        content: `📦 **Files from ${message.author.tag}:**`,
+                        files: forwardableAttachments.map(a => a.url)
+                    });
+                }
+            } catch (error) {
+                console.error('Error forwarding attachment:', error);
+            }
         }
-    } catch (error) {
-        console.error('Error fetching unban logs:', error);
     }
     
-    // Get original invite data (if still stored)
-    const memberInviteData = memberInvites.get(ban.user.id);
-    if (memberInviteData) {
-        embed.addFields({
-            name: '📋 Original Join Info',
-            value: `Joined: <t:${Math.floor(memberInviteData.timestamp / 1000)}:F>\n` +
-                   `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}`,
-            inline: false
-        });
-    }
-    
-    embed.addFields({
-        name: 'ℹ️ Note',
-        value: 'If this user rejoins, they can be tracked through a new invite',
-        inline: false
-    });
-    
-    embed.setTimestamp();
-    
-    logChannels.moderation.send({ embeds: [embed] });
-});
-
-client.on('messageCreate', async (message) => {
+    // Continue with command handling
     if (message.author.bot) return;
     
     const isAdmin = message.member?.permissions.has('Administrator');
@@ -986,7 +624,6 @@ client.on('messageCreate', async (message) => {
         await message.reply('Bot is working and you have admin!');
     }
 
-    // Approval Command
     if (message.content.startsWith('!approve') && isAdmin) {
         const args = message.content.split(' ');
         
@@ -1344,6 +981,662 @@ client.on('messageCreate', async (message) => {
     }
 });
 
+client.on('voiceStateUpdate', (oldState, newState) => {
+    if (!logChannels.voice) return;
+    
+    const member = newState.member;
+    let embed = null;
+    
+    if (!oldState.channel && newState.channel) {
+        embed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('Joined Voice Channel')
+            .addFields(
+                { name: 'User', value: `${member.user.tag}`, inline: true },
+                { name: 'Channel', value: `${newState.channel.name}`, inline: true }
+            )
+            .setTimestamp();
+    }
+    else if (oldState.channel && !newState.channel) {
+        embed = new EmbedBuilder()
+            .setColor('#ff0000')
+            .setTitle('Left Voice Channel')
+            .addFields(
+                { name: 'User', value: `${member.user.tag}`, inline: true },
+                { name: 'Channel', value: `${oldState.channel.name}`, inline: true }
+            )
+            .setTimestamp();
+    }
+    else if (oldState.channel && newState.channel && oldState.channel.id !== newState.channel.id) {
+        embed = new EmbedBuilder()
+            .setColor('#0099ff')
+            .setTitle('Switched Voice Channel')
+            .addFields(
+                { name: 'User', value: `${member.user.tag}`, inline: true },
+                { name: 'From', value: `${oldState.channel.name}`, inline: true },
+                { name: 'To', value: `${newState.channel.name}`, inline: true }
+            )
+            .setTimestamp();
+    }
+    
+    if (oldState.channel && newState.channel && oldState.channel.id === newState.channel.id) {
+        const changes = [];
+        
+        if (!oldState.mute && newState.mute) changes.push('Server Muted');
+        if (oldState.mute && !newState.mute) changes.push('Server Unmuted');
+        if (!oldState.deaf && newState.deaf) changes.push('Server Deafened');
+        if (oldState.deaf && !newState.deaf) changes.push('Server Undeafened');
+        if (!oldState.selfMute && newState.selfMute) changes.push('Self Muted');
+        if (oldState.selfMute && !newState.selfMute) changes.push('Self Unmuted');
+        if (!oldState.selfDeaf && newState.selfDeaf) changes.push('Self Deafened');
+        if (oldState.selfDeaf && !newState.selfDeaf) changes.push('Self Undeafened');
+        if (!oldState.streaming && newState.streaming) changes.push('Started Streaming');
+        if (oldState.streaming && !newState.streaming) changes.push('Stopped Streaming');
+        if (!oldState.selfVideo && newState.selfVideo) changes.push('Camera On');
+        if (oldState.selfVideo && !newState.selfVideo) changes.push('Camera Off');
+        
+        if (changes.length > 0) {
+            embed = new EmbedBuilder()
+                .setColor('#9932cc')
+                .setTitle('Voice State Changed')
+                .addFields(
+                    { name: 'User', value: `${member.user.tag}`, inline: true },
+                    { name: 'Channel', value: `${newState.channel.name}`, inline: true },
+                    { name: 'Changes', value: changes.join('\n'), inline: false }
+                )
+                .setTimestamp();
+        }
+    }
+    
+    if (embed) logChannels.voice.send({ embeds: [embed] });
+});
+
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+    if (!logChannels.role) return;
+    
+    const oldRoles = oldMember.roles.cache;
+    const newRoles = newMember.roles.cache;
+    
+    const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
+    const removedRoles = oldRoles.filter(role => !newRoles.has(role.id));
+    
+    if (addedRoles.size === 0 && removedRoles.size === 0) return;
+    
+    const userId = newMember.id;
+    
+    // Check if user already has a pending update
+    if (roleUpdateQueue.has(userId)) {
+        const existing = roleUpdateQueue.get(userId);
+        
+        // Clear the existing timeout
+        clearTimeout(existing.timeout);
+        
+        // Update the roles (merge new changes)
+        addedRoles.forEach(role => {
+            if (!existing.newRoles.added.has(role.id)) {
+                existing.newRoles.added.set(role.id, role);
+            }
+        });
+        
+        removedRoles.forEach(role => {
+            if (!existing.newRoles.removed.has(role.id)) {
+                existing.newRoles.removed.set(role.id, role);
+            }
+        });
+        
+        // Set new timeout
+        const timeout = setTimeout(() => {
+            sendRoleUpdateLog(newMember, existing);
+            roleUpdateQueue.delete(userId);
+        }, 20000); // 20 seconds
+        
+        existing.timeout = timeout;
+        roleUpdateQueue.set(userId, existing);
+        
+    } else {
+        // Create new queue entry
+        const queueEntry = {
+            timeout: null,
+            oldRoles: new Map(oldRoles.filter(r => r.id !== newMember.guild.id)), // Exclude @everyone
+            newRoles: {
+                added: new Map(addedRoles),
+                removed: new Map(removedRoles)
+            },
+            timestamp: Date.now(),
+            member: newMember
+        };
+        
+        const timeout = setTimeout(() => {
+            sendRoleUpdateLog(newMember, queueEntry);
+            roleUpdateQueue.delete(userId);
+        }, 20000); // 20 seconds
+        
+        queueEntry.timeout = timeout;
+        roleUpdateQueue.set(userId, queueEntry);
+    }
+});
+
+async function sendRoleUpdateLog(member, queueEntry) {
+    const { oldRoles, newRoles, timestamp } = queueEntry;
+    const addedRoles = newRoles.added;
+    const removedRoles = newRoles.removed;
+    
+    // Calculate current roles (old roles + added - removed)
+    const currentRoles = new Map(oldRoles);
+    addedRoles.forEach((role, id) => currentRoles.set(id, role));
+    removedRoles.forEach((role, id) => currentRoles.delete(id));
+    
+    const embed = new EmbedBuilder()
+        .setColor('#9932cc')
+        .setTitle('Member Roles Updated')
+        .setThumbnail(member.user.displayAvatarURL())
+        .addFields(
+            { name: 'Member', value: `${member.user.tag} (${member.id})`, inline: true },
+            { name: 'Total Changes', value: `${addedRoles.size + removedRoles.size}`, inline: true },
+            { name: '\u200b', value: '\u200b', inline: true }
+        );
+    
+    // Try to fetch who made the changes
+    try {
+        const fetchedLogs = await member.guild.fetchAuditLogs({
+            limit: 10, // Get more logs since there might be multiple role changes
+            type: AuditLogEvent.MemberRoleUpdate
+        });
+        
+        // Find all role updates for this user in the last 25 seconds
+        const relevantLogs = fetchedLogs.entries.filter(log => 
+            log.target.id === member.id && 
+            (Date.now() - log.createdTimestamp) < 25000
+        );
+        
+        if (relevantLogs.size > 0) {
+            // Get unique executors
+            const executors = new Set();
+            const reasons = new Set();
+            
+            relevantLogs.forEach(log => {
+                executors.add(`${log.executor.tag}`);
+                if (log.reason) reasons.add(log.reason);
+            });
+            
+            embed.addFields({
+                name: '👤 Changed By',
+                value: Array.from(executors).join(', '),
+                inline: true
+            });
+            
+            // Set thumbnail to first executor
+            const firstLog = relevantLogs.first();
+            embed.setThumbnail(firstLog.executor.displayAvatarURL());
+            
+            if (reasons.size > 0) {
+                embed.addFields({
+                    name: '📝 Reason(s)',
+                    value: Array.from(reasons).join('\n'),
+                    inline: true
+                });
+            }
+            
+            embed.addFields({ name: '\u200b', value: '\u200b', inline: true });
+        }
+    } catch (error) {
+        console.error('Error fetching role update logs:', error);
+    }
+    
+    // Show roles BEFORE changes
+    if (oldRoles.size > 0) {
+        const rolesList = Array.from(oldRoles.values())
+            .sort((a, b) => b.position - a.position)
+            .map(r => r.name)
+            .join(', ');
+        
+        embed.addFields({
+            name: '🎭 Roles Before Changes',
+            value: rolesList.slice(0, 1024) || 'None',
+            inline: false
+        });
+    } else {
+        embed.addFields({
+            name: '🎭 Roles Before Changes',
+            value: 'None',
+            inline: false
+        });
+    }
+    
+    // Show added roles
+    if (addedRoles.size > 0) {
+        const addedList = Array.from(addedRoles.values())
+            .sort((a, b) => b.position - a.position)
+            .map(r => `${r.name}`)
+            .join(', ');
+        
+        embed.addFields({
+            name: `✅ Roles Added (${addedRoles.size})`,
+            value: addedList.slice(0, 1024),
+            inline: false
+        });
+    }
+    
+    // Show removed roles
+    if (removedRoles.size > 0) {
+        const removedList = Array.from(removedRoles.values())
+            .sort((a, b) => b.position - a.position)
+            .map(r => `${r.name}`)
+            .join(', ');
+        
+        embed.addFields({
+            name: `❌ Roles Removed (${removedRoles.size})`,
+            value: removedList.slice(0, 1024),
+            inline: false
+        });
+    }
+    
+    // Show current roles AFTER changes
+    if (currentRoles.size > 0) {
+        const currentList = Array.from(currentRoles.values())
+            .sort((a, b) => b.position - a.position)
+            .map(r => r.name)
+            .join(', ');
+        
+        embed.addFields({
+            name: '🎭 Current Roles',
+            value: currentList.slice(0, 1024),
+            inline: false
+        });
+    } else {
+        embed.addFields({
+            name: '🎭 Current Roles',
+            value: 'None',
+            inline: false
+        });
+    }
+    
+    // Add member join info if available
+    const memberInviteData = memberInvites.get(member.id);
+    if (memberInviteData) {
+        embed.addFields({
+            name: '📋 Member Join Info',
+            value: `Joined: <t:${Math.floor(memberInviteData.timestamp / 1000)}:R>\n` +
+                   `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}\n` +
+                   `Account Age: <t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`,
+            inline: false
+        });
+    }
+    
+    // Add time range for changes
+    const timeElapsed = Date.now() - timestamp;
+    embed.addFields({
+        name: '⏱️ Change Duration',
+        value: `${(timeElapsed / 1000).toFixed(1)} seconds`,
+        inline: true
+    });
+    
+    embed.setTimestamp();
+    embed.setFooter({ 
+        text: `User ID: ${member.id}` 
+    });
+    
+    try {
+        await logChannels.role.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Error sending role update log:', error);
+    }
+}
+
+client.on('channelCreate', channel => {
+    if (!logChannels.channel) return;
+    
+    const embed = new EmbedBuilder()
+        .setColor('#00ff00')
+        .setTitle('Channel Created')
+        .addFields(
+            { name: 'Name', value: channel.name, inline: true },
+            { name: 'Type', value: ChannelType[channel.type], inline: true },
+            { name: 'ID', value: channel.id, inline: true },
+            { name: 'Category', value: channel.parent?.name || 'None', inline: true }
+        )
+        .setTimestamp();
+    
+    logChannels.channel.send({ embeds: [embed] });
+});
+
+client.on('channelDelete', channel => {
+    if (!logChannels.channel) return;
+    
+    const embed = new EmbedBuilder()
+        .setColor('#ff0000')
+        .setTitle('Channel Deleted')
+        .addFields(
+            { name: 'Name', value: channel.name, inline: true },
+            { name: 'Type', value: ChannelType[channel.type], inline: true },
+            { name: 'ID', value: channel.id, inline: true },
+            { name: 'Category', value: channel.parent?.name || 'None', inline: true }
+        )
+        .setTimestamp();
+    
+    logChannels.channel.send({ embeds: [embed] });
+});
+
+client.on('channelUpdate', async (oldChannel, newChannel) => {
+    if (!logChannels.channel) return;
+    
+    const changes = [];
+    
+    // Track all possible changes
+    if (oldChannel.name !== newChannel.name) {
+        changes.push({
+            field: 'Name',
+            old: oldChannel.name,
+            new: newChannel.name
+        });
+    }
+    
+    if (oldChannel.topic !== newChannel.topic) {
+        changes.push({
+            field: 'Topic',
+            old: oldChannel.topic || 'None',
+            new: newChannel.topic || 'None'
+        });
+    }
+    
+    if (oldChannel.nsfw !== newChannel.nsfw) {
+        changes.push({
+            field: 'NSFW',
+            old: oldChannel.nsfw ? 'Yes' : 'No',
+            new: newChannel.nsfw ? 'Yes' : 'No'
+        });
+    }
+    
+    if (oldChannel.rateLimitPerUser !== newChannel.rateLimitPerUser) {
+        changes.push({
+            field: 'Slowmode',
+            old: `${oldChannel.rateLimitPerUser}s`,
+            new: `${newChannel.rateLimitPerUser}s`
+        });
+    }
+    
+    if (oldChannel.bitrate !== newChannel.bitrate) {
+        changes.push({
+            field: 'Bitrate',
+            old: `${oldChannel.bitrate / 1000}kbps`,
+            new: `${newChannel.bitrate / 1000}kbps`
+        });
+    }
+    
+    if (oldChannel.userLimit !== newChannel.userLimit) {
+        changes.push({
+            field: 'User Limit',
+            old: oldChannel.userLimit === 0 ? 'Unlimited' : oldChannel.userLimit.toString(),
+            new: newChannel.userLimit === 0 ? 'Unlimited' : newChannel.userLimit.toString()
+        });
+    }
+    
+    if (oldChannel.parentId !== newChannel.parentId) {
+        changes.push({
+            field: 'Category',
+            old: oldChannel.parent?.name || 'None',
+            new: newChannel.parent?.name || 'None'
+        });
+    }
+    
+    if (oldChannel.position !== newChannel.position) {
+        changes.push({
+            field: 'Position',
+            old: oldChannel.position.toString(),
+            new: newChannel.position.toString()
+        });
+    }
+    
+    // Check for permission overwrites changes
+    const oldPerms = oldChannel.permissionOverwrites?.cache;
+    const newPerms = newChannel.permissionOverwrites?.cache;
+    
+    if (oldPerms && newPerms && oldPerms.size !== newPerms.size) {
+        changes.push({
+            field: 'Permission Overwrites',
+            old: `${oldPerms.size} overwrite(s)`,
+            new: `${newPerms.size} overwrite(s)`
+        });
+    }
+    
+    if (changes.length === 0) return;
+    
+    const embed = new EmbedBuilder()
+        .setColor('#ffa500')
+        .setTitle('Channel Updated')
+        .addFields(
+            { name: 'Channel', value: `<#${newChannel.id}>`, inline: true },
+            { name: 'Channel Type', value: ChannelType[newChannel.type] || 'Unknown', inline: true },
+            { name: 'Channel ID', value: newChannel.id, inline: true }
+        );
+    
+    // Fetch audit logs to see who made the change
+    try {
+        const fetchedLogs = await newChannel.guild.fetchAuditLogs({
+            limit: 1,
+            type: AuditLogEvent.ChannelUpdate
+        });
+        const updateLog = fetchedLogs.entries.first();
+        
+        if (updateLog && updateLog.target.id === newChannel.id && (Date.now() - updateLog.createdTimestamp) < 5000) {
+            embed.addFields({
+                name: '👤 Changed By',
+                value: `${updateLog.executor.tag} (${updateLog.executor.id})`,
+                inline: true
+            });
+            
+            embed.setThumbnail(updateLog.executor.displayAvatarURL());
+            
+            if (updateLog.reason) {
+                embed.addFields({
+                    name: '📝 Reason',
+                    value: updateLog.reason,
+                    inline: true
+                });
+            }
+            
+            // Add extra spacing field for alignment
+            embed.addFields({ name: '\u200b', value: '\u200b', inline: true });
+        }
+    } catch (error) {
+        console.error('Error fetching channel update logs:', error);
+    }
+    
+    // Add all changes as separate fields
+    changes.forEach(change => {
+        // Handle long values (like topics)
+        const oldValue = change.old.length > 1024 ? change.old.slice(0, 1021) + '...' : change.old;
+        const newValue = change.new.length > 1024 ? change.new.slice(0, 1021) + '...' : change.new;
+        
+        embed.addFields({
+            name: `🔄 ${change.field}`,
+            value: `**Before:** ${oldValue}\n**After:** ${newValue}`,
+            inline: false
+        });
+    });
+    
+    // Add summary at the bottom
+    embed.addFields({
+        name: '📊 Summary',
+        value: `${changes.length} change(s) made to this channel`,
+        inline: false
+    });
+    
+    embed.setTimestamp();
+    embed.setFooter({ 
+        text: `Channel: ${newChannel.name}` 
+    });
+    
+    logChannels.channel.send({ embeds: [embed] });
+});
+
+client.on('inviteCreate', invite => {
+    if (!logChannels.invite) return;
+    
+    const embed = new EmbedBuilder()
+        .setColor('#00ff00')
+        .setTitle('Invite Created')
+        .addFields(
+            { name: 'Code', value: `\`${invite.code}\``, inline: true },
+            { name: 'Channel', value: `<#${invite.channel.id}>`, inline: true },
+            { name: 'Created By', value: invite.inviter?.tag || 'Unknown', inline: true },
+            { name: 'Max Uses', value: invite.maxUses ? invite.maxUses.toString() : 'Unlimited', inline: true },
+            { name: 'Expires', value: invite.expiresTimestamp ? `<t:${Math.floor(invite.expiresTimestamp / 1000)}:R>` : 'Never', inline: true },
+            { name: 'Temporary', value: invite.temporary ? 'Yes' : 'No', inline: true }
+        )
+        .setTimestamp();
+    
+    logChannels.invite.send({ embeds: [embed] });
+});
+
+client.on('inviteDelete', invite => {
+    if (!logChannels.invite) return;
+    
+    const embed = new EmbedBuilder()
+        .setColor('#ff0000')
+        .setTitle('Invite Deleted')
+        .addFields(
+            { name: 'Code', value: `\`${invite.code}\``, inline: true },
+            { name: 'Channel', value: `<#${invite.channel?.id}>` || 'Unknown', inline: true },
+            { name: 'Created By', value: invite.inviter?.tag || 'Unknown', inline: true }
+        )
+        .setTimestamp();
+    
+    logChannels.invite.send({ embeds: [embed] });
+});
+
+client.on('guildBanAdd', async ban => {
+    if (!logChannels.moderation) return;
+    
+    const embed = new EmbedBuilder()
+        .setColor('#8b0000')
+        .setTitle('Member Banned')
+        .setThumbnail(ban.user.displayAvatarURL())
+        .addFields(
+            { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: true },
+            { name: 'Account Created', value: `<t:${Math.floor(ban.user.createdTimestamp / 1000)}:R>`, inline: true },
+            { name: '\u200b', value: '\u200b', inline: true }
+        );
+    
+    try {
+        const fetchedLogs = await ban.guild.fetchAuditLogs({
+            limit: 1,
+            type: AuditLogEvent.MemberBanAdd
+        });
+        const banLog = fetchedLogs.entries.first();
+        
+        if (banLog && banLog.target.id === ban.user.id) {
+            embed.addFields({
+                name: 'Banned By',
+                value: `${banLog.executor.tag}`,
+                inline: true
+            });
+            
+            if (banLog.reason) {
+                embed.addFields({
+                    name: 'Reason',
+                    value: banLog.reason,
+                    inline: true
+                });
+            } else {
+                embed.addFields({
+                    name: 'Reason',
+                    value: 'No reason provided',
+                    inline: true
+                });
+            }
+            
+            embed.addFields({ name: '\u200b', value: '\u200b', inline: true });
+        }
+    } catch (error) {
+        console.error('Error fetching ban logs:', error);
+    }
+    
+    const memberInviteData = memberInvites.get(ban.user.id);
+    if (memberInviteData) {
+        const joinedAt = memberInviteData.timestamp;
+        const timeInServer = Date.now() - joinedAt;
+        const days = Math.floor(timeInServer / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeInServer % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        
+        embed.addFields(
+            { name: 'Joined Server', value: `<t:${Math.floor(joinedAt / 1000)}:R>`, inline: true },
+            { name: 'Time in Server', value: `${days}d ${hours}h`, inline: true },
+            { name: '\u200b', value: '\u200b', inline: true }
+        );
+        
+        embed.addFields({
+            name: 'Invite Used',
+            value: `Code: \`${memberInviteData.code}\`\nCreated by: ${memberInviteData.inviter}\nUses: ${memberInviteData.uses}/${memberInviteData.maxUses || '∞'}`,
+            inline: false
+        });
+    }
+    
+    embed.setTimestamp();
+    
+    logChannels.moderation.send({ embeds: [embed] });
+});
+
+client.on('guildBanRemove', async ban => {
+    if (!logChannels.moderation) return;
+    
+    const embed = new EmbedBuilder()
+        .setColor('#00ff00')
+        .setTitle('Member Unbanned')
+        .setThumbnail(ban.user.displayAvatarURL())
+        .addFields(
+            { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: true },
+            { name: 'Account Created', value: `<t:${Math.floor(ban.user.createdTimestamp / 1000)}:R>`, inline: true },
+            { name: '\u200b', value: '\u200b', inline: true }
+        );
+    
+    try {
+        const fetchedLogs = await ban.guild.fetchAuditLogs({
+            limit: 1,
+            type: AuditLogEvent.MemberBanRemove
+        });
+        const unbanLog = fetchedLogs.entries.first();
+        
+        if (unbanLog && unbanLog.target.id === ban.user.id && (Date.now() - unbanLog.createdTimestamp) < 5000) {
+            embed.addFields({
+                name: 'Unbanned By',
+                value: unbanLog.executor.tag,
+                inline: true
+            });
+            
+            if (unbanLog.reason) {
+                embed.addFields({
+                    name: 'Reason',
+                    value: unbanLog.reason,
+                    inline: true
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching unban logs:', error);
+    }
+    
+    const memberInviteData = memberInvites.get(ban.user.id);
+    if (memberInviteData) {
+        embed.addFields({
+            name: '📋 Original Join Info',
+            value: `Joined: <t:${Math.floor(memberInviteData.timestamp / 1000)}:F>\n` +
+                   `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}`,
+            inline: false
+        });
+    }
+    
+    embed.addFields({
+        name: 'ℹ️ Note',
+        value: 'If this user rejoins, they can be tracked through a new invite',
+        inline: false
+    });
+    
+    embed.setTimestamp();
+    
+    logChannels.moderation.send({ embeds: [embed] });
+});
+
 client.on('error', error => {
     console.error('Discord client error:', error);
 });
@@ -1353,6 +1646,10 @@ process.on('unhandledRejection', error => {
 });
 
 process.on('SIGINT', () => {
+    console.log('Clearing role update queue...');
+    roleUpdateQueue.forEach(entry => clearTimeout(entry.timeout));
+    roleUpdateQueue.clear();
+    
     console.log('Saving data before shutdown...');
     saveMemberInvites();
     console.log('Data saved. Shutting down...');
@@ -1360,6 +1657,10 @@ process.on('SIGINT', () => {
 });
 
 process.on('SIGTERM', () => {
+    console.log('Clearing role update queue...');
+    roleUpdateQueue.forEach(entry => clearTimeout(entry.timeout));
+    roleUpdateQueue.clear();
+    
     console.log('Saving data before shutdown...');
     saveMemberInvites();
     console.log('Data saved. Shutting down...');
