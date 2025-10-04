@@ -358,18 +358,92 @@ client.on('messageDelete', async (message) => {
         .addFields(
             { name: 'Author', value: message.author ? `${message.author.tag} (${message.author.id})` : 'Unknown', inline: true },
             { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
-            { name: 'Content', value: message.content?.slice(0, 1024) || 'No text content', inline: false }
-        )
-        .setTimestamp();
+            { name: 'Message ID', value: message.id, inline: true }
+        );
     
-    if (message.attachments.size > 0) {
+    // Add content if it exists
+    if (message.content) {
         embed.addFields({
-            name: 'Attachments',
-            value: message.attachments.map(a => `[${a.name}](${a.url})`).join('\n'),
+            name: 'Content',
+            value: message.content.slice(0, 1024) || 'No text content',
             inline: false
         });
     }
     
+    // Handle attachments
+    if (message.attachments.size > 0) {
+        const attachmentList = message.attachments.map(a => {
+            const size = (a.size / 1024).toFixed(2);
+            return `**${a.name}** (${size} KB)\n[Original URL](${a.url})`;
+        }).join('\n\n');
+        
+        embed.addFields({
+            name: `📎 Attachments (${message.attachments.size})`,
+            value: attachmentList.slice(0, 1024),
+            inline: false
+        });
+        
+        // Set thumbnail to first image if exists
+        const firstImage = message.attachments.find(a => 
+            a.contentType?.startsWith('image/')
+        );
+        if (firstImage) {
+            embed.setImage(firstImage.url);
+        }
+    }
+    
+    // Handle embeds (links with previews)
+    if (message.embeds.length > 0) {
+        const embedInfo = message.embeds.map((e, i) => {
+            let info = `**Embed ${i + 1}**\n`;
+            if (e.title) info += `Title: ${e.title}\n`;
+            if (e.description) info += `Description: ${e.description.slice(0, 100)}...\n`;
+            if (e.url) info += `URL: ${e.url}\n`;
+            if (e.image) info += `Image: [Link](${e.image.url})\n`;
+            return info;
+        }).join('\n');
+        
+        embed.addFields({
+            name: `📰 Embeds (${message.embeds.length})`,
+            value: embedInfo.slice(0, 1024),
+            inline: false
+        });
+    }
+    
+    // Handle stickers
+    if (message.stickers.size > 0) {
+        const stickerList = message.stickers.map(s => 
+            `**${s.name}** (${s.format})`
+        ).join(', ');
+        
+        embed.addFields({
+            name: '🎨 Stickers',
+            value: stickerList,
+            inline: false
+        });
+    }
+    
+    // Add timestamp info
+    if (message.createdTimestamp) {
+        embed.addFields({
+            name: 'Created',
+            value: `<t:${Math.floor(message.createdTimestamp / 1000)}:F>`,
+            inline: true
+        });
+    }
+    
+    // Add invite data if available
+    const memberInviteData = memberInvites.get(message.author?.id);
+    if (memberInviteData) {
+        embed.addFields({
+            name: '📋 Author Join Info',
+            value: `Joined: <t:${Math.floor(memberInviteData.timestamp / 1000)}:R>\n` +
+                   `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}`,
+            inline: false
+        });
+    }
+    
+    // Check for moderation action
     try {
         const fetchedLogs = await message.guild.fetchAuditLogs({
             limit: 1,
@@ -379,16 +453,181 @@ client.on('messageDelete', async (message) => {
         
         if (deletionLog && deletionLog.target.id === message.author?.id && (Date.now() - deletionLog.createdTimestamp) < 5000) {
             embed.addFields({
-                name: 'Deleted By',
-                value: deletionLog.executor.tag,
+                name: '🛡️ Deleted By',
+                value: `${deletionLog.executor.tag}`,
                 inline: true
             });
+            
+            if (deletionLog.reason) {
+                embed.addFields({
+                    name: 'Reason',
+                    value: deletionLog.reason,
+                    inline: true
+                });
+            }
         }
     } catch (error) {
         console.error('Error fetching deletion logs:', error);
     }
     
+    embed.setTimestamp();
+    
+    // Set author thumbnail
+    if (message.author) {
+        embed.setAuthor({
+            name: message.author.tag,
+            iconURL: message.author.displayAvatarURL()
+        });
+    }
+    
     logChannels.message.send({ embeds: [embed] });
+});
+
+client.on('messageCreate', async (message) => {
+    // Skip if bot message or no attachments/embeds
+    if (message.author.bot) return;
+    if (message.attachments.size === 0 && message.embeds.length === 0) return;
+    
+    const attachmentChannel = client.channels.cache.get(config.logChannels.attachments);
+    if (!attachmentChannel) return;
+    
+    const embed = new EmbedBuilder()
+        .setColor('#3498db')
+        .setTitle('📎 New Attachment/Media')
+        .setAuthor({
+            name: message.author.tag,
+            iconURL: message.author.displayAvatarURL()
+        })
+        .addFields(
+            { name: 'User', value: `${message.author.tag} (${message.author.id})`, inline: true },
+            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+            { name: 'Message', value: `[Jump to Message](${message.url})`, inline: true }
+        );
+    
+    // Add message content if it exists
+    if (message.content) {
+        embed.addFields({
+            name: '💬 Message Content',
+            value: message.content.slice(0, 1024),
+            inline: false
+        });
+    }
+    
+    // Handle attachments
+    if (message.attachments.size > 0) {
+        const attachmentList = message.attachments.map(a => {
+            const size = (a.size / 1024).toFixed(2);
+            const type = a.contentType || 'unknown';
+            return `**${a.name}**\nType: ${type}\nSize: ${size} KB\n[Download](${a.url})`;
+        }).join('\n\n');
+        
+        embed.addFields({
+            name: `📎 Attachments (${message.attachments.size})`,
+            value: attachmentList.slice(0, 1024),
+            inline: false
+        });
+        
+        // Set image/video preview
+        const firstImage = message.attachments.find(a => 
+            a.contentType?.startsWith('image/')
+        );
+        if (firstImage) {
+            embed.setImage(firstImage.url);
+        }
+        
+        const firstVideo = message.attachments.find(a => 
+            a.contentType?.startsWith('video/')
+        );
+        if (firstVideo && !firstImage) {
+            embed.addFields({
+                name: '🎥 Video Preview',
+                value: `[Click to view video](${firstVideo.url})`,
+                inline: false
+            });
+        }
+    }
+    
+    // Handle link embeds
+    if (message.embeds.length > 0) {
+        const embedInfo = message.embeds.map((e, i) => {
+            let info = `**Link ${i + 1}**\n`;
+            if (e.title) info += `Title: ${e.title}\n`;
+            if (e.description) info += `Description: ${e.description.slice(0, 150)}...\n`;
+            if (e.url) info += `URL: ${e.url}\n`;
+            if (e.thumbnail) info += `Has thumbnail\n`;
+            if (e.image) info += `Has image\n`;
+            if (e.video) info += `Has video\n`;
+            return info;
+        }).join('\n');
+        
+        embed.addFields({
+            name: `🔗 Link Embeds (${message.embeds.length})`,
+            value: embedInfo.slice(0, 1024),
+            inline: false
+        });
+    }
+    
+    // Handle stickers
+    if (message.stickers.size > 0) {
+        const stickerList = message.stickers.map(s => 
+            `**${s.name}**\nFormat: ${s.format}\n[View Sticker](${s.url})`
+        ).join('\n\n');
+        
+        embed.addFields({
+            name: `🎨 Stickers (${message.stickers.size})`,
+            value: stickerList.slice(0, 1024),
+            inline: false
+        });
+    }
+    
+    // Add member join info
+    const memberInviteData = memberInvites.get(message.author.id);
+    if (memberInviteData) {
+        embed.addFields({
+            name: '📋 User Join Info',
+            value: `Joined: <t:${Math.floor(memberInviteData.timestamp / 1000)}:R>\n` +
+                   `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}\n` +
+                   `Account Age: <t:${Math.floor(message.author.createdTimestamp / 1000)}:R>`,
+            inline: false
+        });
+    }
+    
+    // Add member roles
+    if (message.member) {
+        const roles = message.member.roles.cache
+            .filter(r => r.id !== message.guild.id)
+            .sort((a, b) => b.position - a.position)
+            .map(r => r.name)
+            .slice(0, 10);
+        
+        if (roles.length > 0) {
+            embed.addFields({
+                name: '🎭 User Roles',
+                value: roles.join(', '),
+                inline: false
+            });
+        }
+    }
+    
+    embed.setTimestamp();
+    embed.setFooter({
+        text: `Message ID: ${message.id}`
+    });
+    
+    try {
+        await attachmentChannel.send({ embeds: [embed] });
+        
+        // Forward actual files if they're not too large (< 8MB for normal servers)
+        const forwardableAttachments = message.attachments.filter(a => a.size < 8388608);
+        if (forwardableAttachments.size > 0) {
+            await attachmentChannel.send({
+                content: `📦 **Files from ${message.author.tag}:**`,
+                files: forwardableAttachments.map(a => a.url)
+            });
+        }
+    } catch (error) {
+        console.error('Error forwarding attachment:', error);
+    }
 });
 
 client.on('voiceStateUpdate', (oldState, newState) => {
