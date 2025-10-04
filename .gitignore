@@ -29,4 +29,5 @@ Thumbs.db
 *.bak
 *.save
 *.broken
-*.old
+*.oldnode_modules/
+node_modules/
