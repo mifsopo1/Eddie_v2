@@ -624,6 +624,99 @@ client.on('messageCreate', async (message) => {
         await message.reply('Bot is working and you have admin!');
     }
 
+        if (message.content === '!sessionstats' && isAdmin) {
+        if (claudeTracker) {
+            try {
+                const data = JSON.parse(fs.readFileSync('claude-token-usage.json', 'utf8'));
+                const today = new Date().toISOString().split('T')[0];
+                const todayUsage = data.dailyUsage[today];
+                
+                if (!todayUsage) {
+                    return message.reply('No usage data for today yet!');
+                }
+                
+                // Calculate costs
+                const inputCost = (todayUsage.input / 1000000) * 3.00;
+                const outputCost = (todayUsage.output / 1000000) * 15.00;
+                const totalCost = inputCost + outputCost;
+                
+                // Get recent conversations (last 5)
+                const recentConvos = data.conversations.slice(-5).reverse();
+                const convoList = recentConvos.map((c, i) => {
+                    const date = new Date(c.date);
+                    const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                    const totalTokens = c.input + c.output;
+                    return `${i + 1}. **${time}** - ${totalTokens.toLocaleString()} tokens\n   ${c.context}`;
+                }).join('\n\n');
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#6366f1')
+                    .setTitle('💰 Current Session Token Stats')
+                    .setDescription(`**Date:** ${today}`)
+                    .addFields(
+                        {
+                            name: '📊 Today\'s Usage',
+                            value: `**${todayUsage.total.toLocaleString()}** total tokens\n` +
+                                   `Input: ${todayUsage.input.toLocaleString()}\n` +
+                                   `Output: ${todayUsage.output.toLocaleString()}\n` +
+                                   `Conversations: ${todayUsage.conversations}`,
+                            inline: true
+                        },
+                        {
+                            name: '💵 Estimated Cost',
+                            value: `**$${totalCost.toFixed(2)}** total\n` +
+                                   `Input: $${inputCost.toFixed(2)}\n` +
+                                   `Output: $${outputCost.toFixed(2)}`,
+                            inline: true
+                        },
+                        {
+                            name: '📈 Token Ratio',
+                            value: `${((todayUsage.input / todayUsage.total) * 100).toFixed(1)}% input\n` +
+                                   `${((todayUsage.output / todayUsage.total) * 100).toFixed(1)}% output`,
+                            inline: true
+                        }
+                    );
+                
+                if (recentConvos.length > 0) {
+                    embed.addFields({
+                        name: '🕐 Recent Conversations',
+                        value: convoList.slice(0, 1024),
+                        inline: false
+                    });
+                }
+                
+                // Lifetime stats
+                embed.addFields({
+                    name: '🌍 Lifetime Total',
+                    value: `**${data.totalTokens.toLocaleString()}** tokens across all time\n` +
+                           `**${data.conversations.length}** total conversations logged`,
+                    inline: false
+                });
+                
+                // Add usage warnings
+                if (todayUsage.total > 10000000) {
+                    embed.addFields({
+                        name: '⚠️ High Usage Alert',
+                        value: 'You\'ve used over 10M tokens today! Consider reviewing your context size.',
+                        inline: false
+                    });
+                }
+                
+                embed.setTimestamp();
+                embed.setFooter({ 
+                    text: 'Claude Sonnet 3.5 • $3/M input • $15/M output' 
+                });
+                
+                await message.reply({ embeds: [embed] });
+            } catch (error) {
+                console.error('Error reading session stats:', error);
+                await message.reply('Error reading session stats file!');
+            }
+        } else {
+            await message.reply('Claude token tracker not initialized!');
+        }
+    }
+
     if (message.content.startsWith('!approve') && isAdmin) {
         const args = message.content.split(' ');
         
@@ -875,6 +968,7 @@ client.on('messageCreate', async (message) => {
             .setDescription('All commands require Administrator permission')
             .addFields(
                 { name: '!tokenusage', value: 'View 7-day token usage statistics', inline: false },
+                { name: '!sessionstats', value: 'View current session/day token usage', inline: false },
                 { name: '!optimization', value: 'Get tips to optimize your token usage', inline: false },
                 { name: '!logtoken <input> <output> [context]', value: 'Manually log token usage', inline: false },
                 { name: '!tokenhelp', value: 'Show this help message', inline: false }
