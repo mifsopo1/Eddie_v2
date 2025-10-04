@@ -1,14 +1,16 @@
 {
     "token": "YOUR_BOT_TOKEN_HERE",
     "logChannels": {
-        "member": "CHANNEL_ID",
-        "message": "CHANNEL_ID",
-        "voice": "CHANNEL_ID",
-        "role": "CHANNEL_ID",
-        "channel": "CHANNEL_ID",
-        "invite": "CHANNEL_ID",
-        "moderation": "CHANNEL_ID"
+        "member": "MEMBER_LOG_CHANNEL_ID",
+        "message": "MESSAGE_LOG_CHANNEL_ID",
+        "voice": "VOICE_LOG_CHANNEL_ID",
+        "role": "ROLE_LOG_CHANNEL_ID",
+        "channel": "CHANNEL_LOG_CHANNEL_ID",
+        "invite": "INVITE_LOG_CHANNEL_ID",
+        "moderation": "MODERATION_LOG_CHANNEL_ID",
+        "attachments": "ATTACHMENT_LOG_CHANNEL_ID"
     },
-    "saleChannelId": "YOUR_SALE_CHANNEL_ID",
-    "saleCheckInterval": 3600000
+    "saleChannelId": "STEAM_SALE_CHANNEL_ID",
+    "saleCheckInterval": 3600000,
+    "claudeWebhook": "YOUR_DISCORD_WEBHOOK_URL_HERE"
 }

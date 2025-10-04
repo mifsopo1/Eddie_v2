@@ -1,5 +1,25 @@
 const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType } = require('discord.js');
 const config = require('./config.json');
+
+// Safety check - prevent using example config
+if (config.token === 'YOUR_BOT_TOKEN_HERE') {
+    console.error('❌ ERROR: Please copy config.example.json to config.json and add your bot token!');
+    console.error('Run: cp config.example.json config.json');
+    console.error('Then edit config.json with your Discord bot token and channel IDs.');
+    process.exit(1);
+}
+
+// Check for placeholder channel IDs
+const hasPlaceholders = Object.values(config.logChannels).some(id => 
+    id.includes('CHANNEL_ID') || id === ''
+);
+
+if (hasPlaceholders) {
+    console.error('❌ ERROR: Please replace all placeholder channel IDs in config.json');
+    console.error('Enable Developer Mode in Discord, then right-click channels to copy their IDs.');
+    process.exit(1);
+}
+
 const SteamSaleMonitor = require('./steamSaleMonitor');
 const ClaudeTokenTracker = require('./claudeTokenTracker');
 const fs = require('fs');
