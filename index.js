@@ -503,10 +503,14 @@ client.on('messageDelete', async (message) => {
 client.on('messageCreate', async (message) => {
     // Handle attachment logging for ALL messages (including bots)
     if (message.attachments.size > 0 || message.embeds.length > 0 || message.stickers.size > 0) {
+        // Don't log messages from these bots (prevents infinite loop)
+        const excludedBots = ['1422775949505724477', '1418807658307129505', '1414884959042146324'];
+        if (excludedBots.includes(message.author.id)) return;
+        
         const attachmentChannel = logChannels.attachments;
         if (attachmentChannel) {
             const embed = new EmbedBuilder()
-                .setColor(message.author.bot ? '#ff6b6b' : '#3498db') // Red for bots
+                .setColor(message.author.bot ? '#ff6b6b' : '#3498db')// Red for bots
                 .setTitle(message.author.bot ? '🤖 Bot Attachment/Media' : '📎 New Attachment/Media')
                 .setAuthor({
                     name: `${message.author.tag}${message.author.bot ? ' [BOT]' : ''}`,
