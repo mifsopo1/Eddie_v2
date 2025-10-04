@@ -9,6 +9,28 @@ const fs = require('fs');
 // Global variables
 const roleUpdateQueue = new Map(); // userId -> { timeout, oldRoles, newRoles, timestamp }
 
+// ADD THE RATE LIMITING HERE:
+const MESSAGE_RATE_LIMIT = 5; // messages per interval
+const RATE_LIMIT_INTERVAL = 10000; // 10 seconds
+const userMessageTimestamps = new Map(); // userId -> array of timestamps
+
+function checkRateLimit(userId) {
+    const now = Date.now();
+    const timestamps = userMessageTimestamps.get(userId) || [];
+    
+    // Remove timestamps older than the interval
+    const recentTimestamps = timestamps.filter(time => now - time < RATE_LIMIT_INTERVAL);
+    
+    if (recentTimestamps.length >= MESSAGE_RATE_LIMIT) {
+        return false; // Rate limited
+    }
+    
+    // Add current timestamp
+    recentTimestamps.push(now);
+    userMessageTimestamps.set(userId, recentTimestamps);
+    return true; // Not rate limited
+}
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -479,15 +501,15 @@ client.on('messageDelete', async (message) => {
 });
 
 client.on('messageCreate', async (message) => {
-    // Handle attachment logging for non-bot messages
-    if (!message.author.bot && (message.attachments.size > 0 || message.embeds.length > 0 || message.stickers.size > 0)) {
+    // Handle attachment logging for ALL messages (including bots)
+    if (message.attachments.size > 0 || message.embeds.length > 0 || message.stickers.size > 0) {
         const attachmentChannel = logChannels.attachments;
         if (attachmentChannel) {
             const embed = new EmbedBuilder()
-                .setColor('#3498db')
-                .setTitle('📎 New Attachment/Media')
+                .setColor(message.author.bot ? '#ff6b6b' : '#3498db') // Red for bots
+                .setTitle(message.author.bot ? '🤖 Bot Attachment/Media' : '📎 New Attachment/Media')
                 .setAuthor({
-                    name: message.author.tag,
+                    name: `${message.author.tag}${message.author.bot ? ' [BOT]' : ''}`,
                     iconURL: message.author.displayAvatarURL()
                 })
                 .addFields(
@@ -495,6 +517,15 @@ client.on('messageCreate', async (message) => {
                     { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
                     { name: 'Message', value: `[Jump to Message](${message.url})`, inline: true }
                 );
+            
+            // Add bot warning if it's a bot account
+            if (message.author.bot) {
+                embed.addFields({
+                    name: '⚠️ Bot Account',
+                    value: 'This message was sent by a bot account',
+                    inline: false
+                });
+            }
             
             if (message.content) {
                 embed.addFields({
@@ -523,33 +554,20 @@ client.on('messageCreate', async (message) => {
                 if (firstImage) {
                     embed.setImage(firstImage.url);
                 }
-                
-                const firstVideo = message.attachments.find(a => 
-                    a.contentType?.startsWith('video/')
-                );
-                if (firstVideo && !firstImage) {
-                    embed.addFields({
-                        name: '🎥 Video Preview',
-                        value: `[Click to view video](${firstVideo.url})`,
-                        inline: false
-                    });
-                }
             }
             
             if (message.embeds.length > 0) {
                 const embedInfo = message.embeds.map((e, i) => {
-                    let info = `**Link ${i + 1}**\n`;
+                    let info = `**Embed ${i + 1}**\n`;
                     if (e.title) info += `Title: ${e.title}\n`;
-                    if (e.description) info += `Description: ${e.description.slice(0, 150)}...\n`;
+                    if (e.description) info += `Description: ${e.description.slice(0, 100)}...\n`;
                     if (e.url) info += `URL: ${e.url}\n`;
-                    if (e.thumbnail) info += `Has thumbnail\n`;
-                    if (e.image) info += `Has image\n`;
-                    if (e.video) info += `Has video\n`;
+                    if (e.image) info += `Image: [Link](${e.image.url})\n`;
                     return info;
                 }).join('\n');
                 
                 embed.addFields({
-                    name: `🔗 Link Embeds (${message.embeds.length})`,
+                    name: `📰 Embeds (${message.embeds.length})`,
                     value: embedInfo.slice(0, 1024),
                     inline: false
                 });
@@ -557,41 +575,14 @@ client.on('messageCreate', async (message) => {
             
             if (message.stickers.size > 0) {
                 const stickerList = message.stickers.map(s => 
-                    `**${s.name}**\nFormat: ${s.format}\n[View Sticker](${s.url})`
-                ).join('\n\n');
+                    `**${s.name}** (${s.format})`
+                ).join(', ');
                 
                 embed.addFields({
-                    name: `🎨 Stickers (${message.stickers.size})`,
-                    value: stickerList.slice(0, 1024),
+                    name: '🎨 Stickers',
+                    value: stickerList,
                     inline: false
                 });
-            }
-            
-            const memberInviteData = memberInvites.get(message.author.id);
-            if (memberInviteData) {
-                embed.addFields({
-                    name: '📋 User Join Info',
-                    value: `Joined: <t:${Math.floor(memberInviteData.timestamp / 1000)}:R>\n` +
-                           `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}\n` +
-                           `Account Age: <t:${Math.floor(message.author.createdTimestamp / 1000)}:R>`,
-                    inline: false
-                });
-            }
-            
-            if (message.member) {
-                const roles = message.member.roles.cache
-                    .filter(r => r.id !== message.guild.id)
-                    .sort((a, b) => b.position - a.position)
-                    .map(r => r.name)
-                    .slice(0, 10);
-                
-                if (roles.length > 0) {
-                    embed.addFields({
-                        name: '🎭 User Roles',
-                        value: roles.join(', '),
-                        inline: false
-                    });
-                }
             }
             
             embed.setTimestamp();
@@ -605,7 +596,7 @@ client.on('messageCreate', async (message) => {
                 const forwardableAttachments = message.attachments.filter(a => a.size < 8388608);
                 if (forwardableAttachments.size > 0) {
                     await attachmentChannel.send({
-                        content: `📦 **Files from ${message.author.tag}:**`,
+                        content: `📦 **Files from ${message.author.tag}${message.author.bot ? ' [BOT]' : ''}:**`,
                         files: forwardableAttachments.map(a => a.url)
                     });
                 }
@@ -615,16 +606,25 @@ client.on('messageCreate', async (message) => {
         }
     }
     
-    // Continue with command handling
-    if (message.author.bot) return;
-    
-    const isAdmin = message.member?.permissions.has('Administrator');
+// Continue with command handling (keep the bot check here)
+if (message.author.bot) return;
+
+// ========== RATE LIMITING (NEW) ==========
+const isAdmin = message.member?.permissions.has('Administrator');
+const bypassRoleIds = ['623527426630221858', '803634927496986625', '1414893215726960640', '645744514576809984', '676494810995228684', '700870935124901988', '676507746706784286'];
+const hasBypassRole = message.member?.roles.cache.some(role => bypassRoleIds.includes(role.id));
+
+if (!isAdmin && !hasBypassRole && !checkRateLimit(message.author.id)) {
+    // User is rate limited - silently ignore
+    return;
+}
+    // ========== END RATE LIMITING ==========
     
     if (message.content === '!test' && isAdmin) {
         await message.reply('Bot is working and you have admin!');
     }
 
-        if (message.content === '!sessionstats' && isAdmin) {
+    if (message.content === '!sessionstats' && isAdmin) {
         if (claudeTracker) {
             try {
                 const data = JSON.parse(fs.readFileSync('claude-token-usage.json', 'utf8'));
