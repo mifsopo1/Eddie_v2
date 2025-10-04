@@ -135,9 +135,8 @@ client.once('ready', async () => {
     if (config.claudeWebhook) {
         claudeTracker = new ClaudeTokenTracker(client, config.claudeWebhook);
         console.log('✅ Claude token tracker initialized');
-        
-        
-});
+    }
+});  // ← This closes client.once('ready') - line 115
 
 client.on('guildMemberAdd', async (member) => {
     try {
