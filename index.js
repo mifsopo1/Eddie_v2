@@ -605,16 +605,19 @@ client.on('guildBanAdd', async ban => {
     if (!logChannels.moderation) return;
     
     const embed = new EmbedBuilder()
-        .setColor('#ff0000')
+        .setColor('#8b0000')
         .setTitle('Member Banned')
         .setThumbnail(ban.user.displayAvatarURL())
         .addFields(
-            { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: false },
-            { name: 'Reason', value: ban.reason || 'No reason provided', inline: false }
-        )
-        .setTimestamp();
+            { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: true },
+            { name: 'Account Created', value: `<t:${Math.floor(ban.user.createdTimestamp / 1000)}:R>`, inline: true },
+            { name: '\u200b', value: '\u200b', inline: true }
+        );
     
+    // Try to get member info before they were banned
+    let memberInfo = null;
     try {
+        // Check audit logs for more info
         const fetchedLogs = await ban.guild.fetchAuditLogs({
             limit: 1,
             type: AuditLogEvent.MemberBanAdd
@@ -624,13 +627,52 @@ client.on('guildBanAdd', async ban => {
         if (banLog && banLog.target.id === ban.user.id) {
             embed.addFields({
                 name: 'Banned By',
-                value: banLog.executor.tag,
+                value: `${banLog.executor.tag}`,
                 inline: true
             });
+            
+            if (banLog.reason) {
+                embed.addFields({
+                    name: 'Reason',
+                    value: banLog.reason,
+                    inline: true
+                });
+            } else {
+                embed.addFields({
+                    name: 'Reason',
+                    value: 'No reason provided',
+                    inline: true
+                });
+            }
+            
+            embed.addFields({ name: '\u200b', value: '\u200b', inline: true });
         }
     } catch (error) {
         console.error('Error fetching ban logs:', error);
     }
+    
+    // Get invite data
+    const memberInviteData = memberInvites.get(ban.user.id);
+    if (memberInviteData) {
+        const joinedAt = memberInviteData.timestamp;
+        const timeInServer = Date.now() - joinedAt;
+        const days = Math.floor(timeInServer / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeInServer % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        
+        embed.addFields(
+            { name: 'Joined Server', value: `<t:${Math.floor(joinedAt / 1000)}:R>`, inline: true },
+            { name: 'Time in Server', value: `${days}d ${hours}h`, inline: true },
+            { name: '\u200b', value: '\u200b', inline: true }
+        );
+        
+        embed.addFields({
+            name: 'Invite Used',
+            value: `Code: \`${memberInviteData.code}\`\nCreated by: ${memberInviteData.inviter}\nUses: ${memberInviteData.uses}/${memberInviteData.maxUses || '∞'}`,
+            inline: false
+        });
+    }
+    
+    embed.setTimestamp();
     
     logChannels.moderation.send({ embeds: [embed] });
 });
@@ -643,9 +685,10 @@ client.on('guildBanRemove', async ban => {
         .setTitle('Member Unbanned')
         .setThumbnail(ban.user.displayAvatarURL())
         .addFields(
-            { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: false }
-        )
-        .setTimestamp();
+            { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: true },
+            { name: 'Account Created', value: `<t:${Math.floor(ban.user.createdTimestamp / 1000)}:R>`, inline: true },
+            { name: '\u200b', value: '\u200b', inline: true }
+        );
     
     try {
         const fetchedLogs = await ban.guild.fetchAuditLogs({
@@ -654,16 +697,43 @@ client.on('guildBanRemove', async ban => {
         });
         const unbanLog = fetchedLogs.entries.first();
         
-        if (unbanLog && unbanLog.target.id === ban.user.id) {
+        if (unbanLog && unbanLog.target.id === ban.user.id && (Date.now() - unbanLog.createdTimestamp) < 5000) {
             embed.addFields({
                 name: 'Unbanned By',
                 value: unbanLog.executor.tag,
                 inline: true
             });
+            
+            if (unbanLog.reason) {
+                embed.addFields({
+                    name: 'Reason',
+                    value: unbanLog.reason,
+                    inline: true
+                });
+            }
         }
     } catch (error) {
         console.error('Error fetching unban logs:', error);
     }
+    
+    // Get original invite data (if still stored)
+    const memberInviteData = memberInvites.get(ban.user.id);
+    if (memberInviteData) {
+        embed.addFields({
+            name: '📋 Original Join Info',
+            value: `Joined: <t:${Math.floor(memberInviteData.timestamp / 1000)}:F>\n` +
+                   `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}`,
+            inline: false
+        });
+    }
+    
+    embed.addFields({
+        name: 'ℹ️ Note',
+        value: 'If this user rejoins, they can be tracked through a new invite',
+        inline: false
+    });
+    
+    embed.setTimestamp();
     
     logChannels.moderation.send({ embeds: [embed] });
 });
