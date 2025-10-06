@@ -387,6 +387,58 @@ client.once('ready', async () => {
     
     loadMemberInvites();
     
+    // Send startup notification to Discord
+    if (config.startupNotification?.enabled && config.startupNotification?.channelId) {
+        try {
+            const notificationChannel = client.channels.cache.get(config.startupNotification.channelId);
+            if (notificationChannel) {
+                const startupEmbed = new EmbedBuilder()
+                    .setColor('#00ff00')
+                    .setTitle('🟢 Bot Started Successfully')
+                    .setDescription(`**${client.user.tag}** is now online and ready!`)
+                    .addFields(
+                        { name: '🕐 Started At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+                        { name: '📊 Servers', value: client.guilds.cache.size.toString(), inline: true },
+                        { name: '👥 Total Users', value: client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0).toString(), inline: true },
+                        { name: '🔧 Node Version', value: process.version, inline: true },
+                        { name: '📦 Discord.js', value: require('discord.js').version, inline: true },
+                        { name: '💾 Memory', value: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`, inline: true }
+                    )
+                    .setThumbnail(client.user.displayAvatarURL())
+                    .setTimestamp()
+                    .setFooter({ text: 'System Status' });
+                
+                // Add enabled features
+                const features = [];
+                if (logChannels.member) features.push('✅ Member Logging');
+                if (logChannels.message) features.push('✅ Message Logging');
+                if (logChannels.voice) features.push('✅ Voice Logging');
+                if (logChannels.role) features.push('✅ Role Logging');
+                if (logChannels.channel) features.push('✅ Channel Logging');
+                if (logChannels.moderation) features.push('✅ Moderation Logging');
+                if (logChannels.attachments) features.push('✅ Attachment Logging');
+                if (SPAM_THRESHOLDS.ENABLED) features.push('🛡️ Anti-Spam Protection');
+                if (saleMonitor) features.push('🎮 Steam Sale Monitor');
+                if (claudeTracker) features.push('🤖 Claude Token Tracker');
+                
+                if (features.length > 0) {
+                    startupEmbed.addFields({
+                        name: '🎯 Active Features',
+                        value: features.join('\n'),
+                        inline: false
+                    });
+                }
+                
+                await notificationChannel.send({ embeds: [startupEmbed] });
+                console.log('✅ Startup notification sent to Discord');
+            } else {
+                console.log('⚠️ Startup notification channel not found');
+            }
+        } catch (error) {
+            console.error('❌ Error sending startup notification:', error);
+        }
+    }
+    
     const statuses = [
         { name: 'the streets', type: 3 },
         { name: 'customers', type: 2 },
@@ -921,7 +973,32 @@ client.on('messageCreate', async (message) => {
         return;
     }
     // ========== END RATE LIMITING ==========
+    if (message.content === '!botstatus' && isAdmin) {
+    const uptime = Math.floor(client.uptime / 1000);
+    const days = Math.floor(uptime / 86400);
+    const hours = Math.floor((uptime % 86400) / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = uptime % 60;
     
+    const statusEmbed = new EmbedBuilder()
+        .setColor('#0099ff')
+        .setTitle('🤖 Bot Status')
+        .setThumbnail(client.user.displayAvatarURL())
+        .addFields(
+            { name: '🟢 Status', value: 'Online', inline: true },
+            { name: '📊 Servers', value: client.guilds.cache.size.toString(), inline: true },
+            { name: '👥 Total Users', value: client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0).toString(), inline: true },
+            { name: '⏱️ Uptime', value: `${days}d ${hours}h ${minutes}m ${seconds}s`, inline: true },
+            { name: '🏓 Ping', value: `${client.ws.ping}ms`, inline: true },
+            { name: '💾 Memory', value: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`, inline: true },
+            { name: '🔧 Node.js', value: process.version, inline: true },
+            { name: '📦 Discord.js', value: require('discord.js').version, inline: true },
+            { name: '🛡️ Anti-Spam', value: SPAM_THRESHOLDS.ENABLED ? 'Enabled' : 'Disabled', inline: true }
+        )
+        .setTimestamp();
+    
+    await message.reply({ embeds: [statusEmbed] });
+    }
     // ========== ANTI-SPAM COMMANDS ==========
     if (message.content === '!spamstats' && isAdmin) {
         const activeTracking = Array.from(userSpamTracking.entries())
@@ -2070,6 +2147,61 @@ process.on('SIGTERM', () => {
     saveMemberInvites();
     console.log('Data saved. Shutting down...');
     process.exit(0);
+});
+
+// Enhanced shutdown handlers with Discord notification
+async function sendShutdownNotification(reason) {
+    if (config.startupNotification?.enabled && config.startupNotification?.channelId) {
+        try {
+            const notificationChannel = client.channels.cache.get(config.startupNotification.channelId);
+            if (notificationChannel) {
+                const shutdownEmbed = new EmbedBuilder()
+                    .setColor('#ff0000')
+                    .setTitle('🔴 Bot Shutting Down')
+                    .setDescription(`**${client.user.tag}** is going offline`)
+                    .addFields(
+                        { name: '⏰ Shutdown Time', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+                        { name: '📊 Reason', value: reason, inline: true },
+                        { name: '⏱️ Uptime', value: `${Math.floor(client.uptime / 1000 / 60)} minutes`, inline: true }
+                    )
+                    .setTimestamp()
+                    .setFooter({ text: 'System Status' });
+                
+                await notificationChannel.send({ embeds: [shutdownEmbed] });
+                console.log('✅ Shutdown notification sent to Discord');
+            }
+        } catch (error) {
+            console.error('❌ Error sending shutdown notification:', error);
+        }
+    }
+}
+
+process.on('SIGINT', async () => {
+    console.log('Clearing role update queue...');
+    roleUpdateQueue.forEach(entry => clearTimeout(entry.timeout));
+    roleUpdateQueue.clear();
+    
+    console.log('Saving data before shutdown...');
+    saveMemberInvites();
+    
+    await sendShutdownNotification('Manual shutdown (SIGINT)');
+    
+    console.log('Data saved. Shutting down...');
+    setTimeout(() => process.exit(0), 2000); // Give time for Discord message to send
+});
+
+process.on('SIGTERM', async () => {
+    console.log('Clearing role update queue...');
+    roleUpdateQueue.forEach(entry => clearTimeout(entry.timeout));
+    roleUpdateQueue.clear();
+    
+    console.log('Saving data before shutdown...');
+    saveMemberInvites();
+    
+    await sendShutdownNotification('Process terminated (SIGTERM)');
+    
+    console.log('Data saved. Shutting down...');
+    setTimeout(() => process.exit(0), 2000);
 });
 
 client.login(config.token);

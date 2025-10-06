@@ -14,5 +14,23 @@
     "saleCheckInterval": 3600000,
     "claudeWebhook": "YOUR_DISCORD_WEBHOOK_URL_HERE",
     "rateLimitBypassRoles": [],
-    "excludedBots": ["YOUR_BOT_ID_HERE"]
+    "excludedBots": ["YOUR_BOT_ID_HERE"],
+
+        "antiSpam": {
+        "enabled": true,
+        "messageThreshold": 5,
+        "timeWindow": 10000,
+        "crossChannelThreshold": 3,
+        "crossChannelTime": 15000,
+        "muteDuration": 3600000,
+        "deleteThreshold": 10,
+        "exemptRoles": [],
+        "autoUnmute": true
+    },
+
+    "startupNotification": {
+        "enabled": true,
+        "channelId": "651872458395090964"
+    }
+
 }
