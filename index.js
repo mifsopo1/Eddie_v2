@@ -25,11 +25,12 @@ const ClaudeTokenTracker = require('./claudeTokenTracker');
 const fs = require('fs');
 
 // Global variables
-const roleUpdateQueue = new Map(); // userId -> { timeout, oldRoles, newRoles, timestamp }
+const roleUpdateQueue = new Map();
+
 // Anti-spam configuration with fallback to defaults
 const SPAM_CONFIG = config.antiSpam || {};
 const SPAM_THRESHOLDS = {
-    ENABLED: SPAM_CONFIG.enabled !== false,  // Default enabled
+    ENABLED: SPAM_CONFIG.enabled !== false,
     MESSAGE_COUNT: SPAM_CONFIG.messageThreshold || 5,
     TIME_WINDOW: SPAM_CONFIG.timeWindow || 10000,
     CROSS_CHANNEL_COUNT: SPAM_CONFIG.crossChannelThreshold || 3,
@@ -40,35 +41,30 @@ const SPAM_THRESHOLDS = {
     EXEMPT_ROLES: SPAM_CONFIG.exemptRoles || []
 };
 
-const userSpamTracking = new Map(); // userId -> { messages: [], channels: Set(), muted: boolean }
-// ADD THE RATE LIMITING HERE:
-const MESSAGE_RATE_LIMIT = 5; // messages per interval
-const RATE_LIMIT_INTERVAL = 10000; // 10 seconds
-const userMessageTimestamps = new Map(); // userId -> array of timestamps
+const userSpamTracking = new Map();
+const MESSAGE_RATE_LIMIT = 5;
+const RATE_LIMIT_INTERVAL = 10000;
+const userMessageTimestamps = new Map();
 
 function checkRateLimit(userId) {
     const now = Date.now();
     const timestamps = userMessageTimestamps.get(userId) || [];
     
-    // Remove timestamps older than the interval
     const recentTimestamps = timestamps.filter(time => now - time < RATE_LIMIT_INTERVAL);
     
     if (recentTimestamps.length >= MESSAGE_RATE_LIMIT) {
-        return false; // Rate limited
+        return false;
     }
     
-    // Add current timestamp
     recentTimestamps.push(now);
     userMessageTimestamps.set(userId, recentTimestamps);
-    return true; // Not rate limited
+    return true;
 }
 
-// Add this function after the checkRateLimit function (around line 90)
 function trackSpamBehavior(message) {
     const userId = message.author.id;
     const now = Date.now();
     
-    // Get or create user tracking data
     if (!userSpamTracking.has(userId)) {
         userSpamTracking.set(userId, {
             messages: [],
@@ -80,7 +76,6 @@ function trackSpamBehavior(message) {
     
     const userData = userSpamTracking.get(userId);
     
-    // Add current message
     userData.messages.push({
         timestamp: now,
         channelId: message.channel.id,
@@ -89,18 +84,15 @@ function trackSpamBehavior(message) {
     });
     userData.channels.add(message.channel.id);
     
-    // Clean old messages (outside time window)
     userData.messages = userData.messages.filter(msg => 
         now - msg.timestamp < SPAM_THRESHOLDS.CROSS_CHANNEL_TIME
     );
     
-    // Clean old channels
     const recentChannels = new Set(
         userData.messages.map(msg => msg.channelId)
     );
     userData.channels = recentChannels;
     
-    // Check for spam patterns
     const recentMessages = userData.messages.filter(msg => 
         now - msg.timestamp < SPAM_THRESHOLDS.TIME_WINDOW
     );
@@ -109,7 +101,6 @@ function trackSpamBehavior(message) {
         now - msg.timestamp < SPAM_THRESHOLDS.CROSS_CHANNEL_TIME
     );
     
-    // SPAM DETECTION 1: Too many messages in short time
     if (recentMessages.length >= SPAM_THRESHOLDS.MESSAGE_COUNT) {
         return {
             isSpam: true,
@@ -119,7 +110,6 @@ function trackSpamBehavior(message) {
         };
     }
     
-    // SPAM DETECTION 2: Cross-channel spam
     if (crossChannelMessages.length >= SPAM_THRESHOLDS.CROSS_CHANNEL_COUNT && 
         userData.channels.size >= 3) {
         return {
@@ -131,7 +121,6 @@ function trackSpamBehavior(message) {
         };
     }
     
-    // SPAM DETECTION 3: Identical message spam
     const recentContent = recentMessages.map(m => m.content.toLowerCase().trim());
     const uniqueContent = new Set(recentContent);
     if (recentContent.length >= 3 && uniqueContent.size === 1) {
@@ -146,21 +135,18 @@ function trackSpamBehavior(message) {
     return { isSpam: false };
 }
 
-// Add this function to handle spam punishment
 async function handleSpammer(message, spamData) {
     const member = message.member;
     if (!member) return;
     
-    // Don't punish admins or mods
     if (member.permissions.has('Administrator') || member.permissions.has('ModerateMembers')) {
         return;
     }
     
     const userData = userSpamTracking.get(message.author.id);
-    if (userData.muted) return; // Already muted
+    if (userData.muted) return;
     
     try {
-        // Find or create "Muted" role
         let mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
         
         if (!mutedRole) {
@@ -172,10 +158,9 @@ async function handleSpammer(message, spamData) {
                 reason: 'Auto-spam protection'
             });
             
-            // Set permissions for all channels
             const channels = message.guild.channels.cache;
             for (const [, channel] of channels) {
-                if (channel.isTextBased() || channel.type === 2) { // Text or Voice
+                if (channel.isTextBased() || channel.type === 2) {
                     await channel.permissionOverwrites.create(mutedRole, {
                         SendMessages: false,
                         AddReactions: false,
@@ -186,11 +171,9 @@ async function handleSpammer(message, spamData) {
             console.log('✅ Muted role created and configured');
         }
         
-        // Mute the user
         await member.roles.add(mutedRole);
         userData.muted = true;
         
-        // Delete spam messages
         const messagesToDelete = spamData.messages.slice(0, SPAM_THRESHOLDS.DELETE_THRESHOLD);
         let deletedCount = 0;
         
@@ -209,7 +192,6 @@ async function handleSpammer(message, spamData) {
             }
         }
         
-        // Log to moderation channel
         if (logChannels.moderation) {
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
@@ -234,12 +216,10 @@ async function handleSpammer(message, spamData) {
                 { name: 'Mute Duration', value: '1 hour (auto)', inline: true }
             );
             
-            // Add member join info if available
             const memberInviteData = memberInvites.get(message.author.id);
             if (memberInviteData) {
                 const joinedAt = memberInviteData.timestamp;
                 const accountAge = Date.now() - message.author.createdTimestamp;
-                const serverAge = Date.now() - joinedAt;
                 
                 embed.addFields({
                     name: '📋 Account Info',
@@ -249,8 +229,7 @@ async function handleSpammer(message, spamData) {
                     inline: false
                 });
                 
-                // Flag suspicious new accounts
-                if (accountAge < 86400000) { // Less than 1 day old
+                if (accountAge < 86400000) {
                     embed.addFields({
                         name: '⚠️ Warning',
                         value: '**New account** (< 1 day old) - Possible spam bot',
@@ -259,7 +238,6 @@ async function handleSpammer(message, spamData) {
                 }
             }
             
-            // Show sample spam messages
             const sampleMessages = spamData.messages.slice(0, 3);
             if (sampleMessages.length > 0) {
                 const samples = sampleMessages.map((m, i) => 
@@ -279,29 +257,27 @@ async function handleSpammer(message, spamData) {
             await logChannels.moderation.send({ embeds: [embed] });
         }
         
-// Auto-unmute after duration (if enabled)
-if (SPAM_THRESHOLDS.AUTO_UNMUTE) {
-    setTimeout(async () => {
-        try {
-            await member.roles.remove(mutedRole);
-            userData.muted = false;
-            
-            if (logChannels.moderation) {
-                const unmuteEmbed = new EmbedBuilder()
-                    .setColor('#00ff00')
-                    .setTitle('🔓 Auto-Unmute')
-                    .setDescription(`${message.author.tag} has been automatically unmuted`)
-                    .setTimestamp();
-                
-                await logChannels.moderation.send({ embeds: [unmuteEmbed] });
-            }
-        } catch (error) {
-            console.error('Error auto-unmuting:', error);
+        if (SPAM_THRESHOLDS.AUTO_UNMUTE) {
+            setTimeout(async () => {
+                try {
+                    await member.roles.remove(mutedRole);
+                    userData.muted = false;
+                    
+                    if (logChannels.moderation) {
+                        const unmuteEmbed = new EmbedBuilder()
+                            .setColor('#00ff00')
+                            .setTitle('🔓 Auto-Unmute')
+                            .setDescription(`${message.author.tag} has been automatically unmuted`)
+                            .setTimestamp();
+                        
+                        await logChannels.moderation.send({ embeds: [unmuteEmbed] });
+                    }
+                } catch (error) {
+                    console.error('Error auto-unmuting:', error);
+                }
+            }, SPAM_THRESHOLDS.MUTE_DURATION);
         }
-    }, SPAM_THRESHOLDS.MUTE_DURATION);
-}
         
-        // Try to DM the user
         try {
             await message.author.send({
                 embeds: [new EmbedBuilder()
@@ -322,7 +298,6 @@ if (SPAM_THRESHOLDS.AUTO_UNMUTE) {
                 ]
             });
         } catch (error) {
-            // User has DMs disabled
             console.log(`Could not DM ${message.author.tag} about mute`);
         }
         
@@ -340,21 +315,18 @@ function getSpamReasonText(reason) {
     return reasons[reason] || 'Unknown spam type';
 }
 
-// Add spam cleanup task (cleans old data every 5 minutes)
 setInterval(() => {
     const now = Date.now();
     for (const [userId, userData] of userSpamTracking.entries()) {
-        // Remove old messages
         userData.messages = userData.messages.filter(msg => 
             now - msg.timestamp < SPAM_THRESHOLDS.CROSS_CHANNEL_TIME
         );
         
-        // Remove user if no recent messages
         if (userData.messages.length === 0 && !userData.muted) {
             userSpamTracking.delete(userId);
         }
     }
-}, 300000); // 5 minutes
+}, 300000);
 
 const client = new Client({
     intents: [
@@ -386,7 +358,6 @@ const logChannels = {
 
 let saleMonitor;
 let claudeTracker;
-
 
 function loadMemberInvites() {
     try {
@@ -463,10 +434,9 @@ client.once('ready', async () => {
         claudeTracker = new ClaudeTokenTracker(client, config.claudeWebhook);
         console.log('✅ Claude token tracker initialized');
     }
-});  // ← This closes client.once('ready') - line 115
+});
 
 client.on('guildMemberAdd', async (member) => {
-    // Auto-assign pending approved roles
     try {
         if (fs.existsSync('pending-approvals.json')) {
             const pendingApprovals = JSON.parse(fs.readFileSync('pending-approvals.json'));
@@ -503,7 +473,6 @@ client.on('guildMemberAdd', async (member) => {
         )
         .setTimestamp();
     
-    // Invite tracking
     try {
         const newInvites = await member.guild.invites.fetch();
         const oldInvites = invites.get(member.guild.id) || new Map();
@@ -558,8 +527,7 @@ client.on('guildMemberRemove', async (member) => {
     let wasKicked = false;
     let wasBanned = false;
     
-    // ADD TRY BLOCK HERE
-    try {  // ← ADD THIS LINE!
+    try {
         const kickLogs = await member.guild.fetchAuditLogs({
             limit: 1,
             type: AuditLogEvent.MemberKick
@@ -583,7 +551,7 @@ client.on('guildMemberRemove', async (member) => {
             embed.setColor('#8b0000');
             embed.setTitle('Member Banned');
         }
-    } catch (error) {  // ← This was your line 328 error
+    } catch (error) {
         console.error('Error fetching moderation logs:', error);
     }
     
@@ -817,7 +785,7 @@ client.on('messageDelete', async (message) => {
 });
 
 client.on('messageCreate', async (message) => {
-    // ========== SPAM DETECTION (runs for everyone, including bots) ==========
+    // ========== SPAM DETECTION ==========
     if (SPAM_THRESHOLDS.ENABLED && !message.author.bot && message.guild) {
         const hasExemptRole = message.member?.roles.cache.some(role => 
             SPAM_THRESHOLDS.EXEMPT_ROLES.includes(role.id)
@@ -829,21 +797,20 @@ client.on('messageCreate', async (message) => {
             if (spamData.isSpam) {
                 console.log(`🚨 Spam detected from ${message.author.tag}: ${spamData.reason}`);
                 await handleSpammer(message, spamData);
-                return; // Stop processing this message
+                return;
             }
         }
     }
     
-    // Handle attachment logging for ALL messages (including bots)
+    // ========== ATTACHMENT LOGGING ==========
     if (message.attachments.size > 0 || message.embeds.length > 0 || message.stickers.size > 0) {
-      // Don't log messages from these bots (prevents infinite loop)
-      const excludedBots = config.excludedBots || [];
-      if (excludedBots.includes(message.author.id)) return;
+        const excludedBots = config.excludedBots || [];
+        if (excludedBots.includes(message.author.id)) return;
         
         const attachmentChannel = logChannels.attachments;
         if (attachmentChannel) {
             const embed = new EmbedBuilder()
-                .setColor(message.author.bot ? '#ff6b6b' : '#3498db')// Red for bots
+                .setColor(message.author.bot ? '#ff6b6b' : '#3498db')
                 .setTitle(message.author.bot ? '🤖 Bot Attachment/Media' : '📎 New Attachment/Media')
                 .setAuthor({
                     name: `${message.author.tag}${message.author.bot ? ' [BOT]' : ''}`,
@@ -855,7 +822,6 @@ client.on('messageCreate', async (message) => {
                     { name: 'Message', value: `[Jump to Message](${message.url})`, inline: true }
                 );
             
-            // Add bot warning if it's a bot account
             if (message.author.bot) {
                 embed.addFields({
                     name: '⚠️ Bot Account',
@@ -943,27 +909,20 @@ client.on('messageCreate', async (message) => {
         }
     }
     
-// Continue with command handling (keep the bot check here)
-if (message.author.bot) return;
+    // ========== BOT CHECK ==========
+    if (message.author.bot) return;
 
-    if (message.content === '!test' && isAdmin) {
-    const embed = new EmbedBuilder()
-        .setColor('#00ff00')
-        .setTitle('✅ Bot Status Check')
-        .addFields(
-            { name: 'Status', value: '🟢 Online', inline: true },
-            { name: 'Admin Access', value: '✅ Confirmed', inline: true },
-            { name: 'Ping', value: `${client.ws.ping}ms`, inline: true },
-            { name: 'Uptime', value: `${Math.floor(client.uptime / 1000 / 60)} minutes`, inline: true },
-            { name: 'Server', value: message.guild.name, inline: true },
-            { name: 'Members', value: message.guild.memberCount.toString(), inline: true }
-        )
-        .setTimestamp();
-    
-    await message.reply({ embeds: [embed] });
+    // ========== RATE LIMITING ==========
+    const isAdmin = message.member?.permissions.has('Administrator');
+    const bypassRoleIds = config.rateLimitBypassRoles || [];
+    const hasBypassRole = message.member?.roles.cache.some(role => bypassRoleIds.includes(role.id));
+
+    if (!isAdmin && !hasBypassRole && !checkRateLimit(message.author.id)) {
+        return;
     }
-
-    // Anti-spam admin commands
+    // ========== END RATE LIMITING ==========
+    
+    // ========== ANTI-SPAM COMMANDS ==========
     if (message.content === '!spamstats' && isAdmin) {
         const activeTracking = Array.from(userSpamTracking.entries())
             .filter(([, data]) => data.messages.length > 0)
@@ -1077,18 +1036,24 @@ if (message.author.bot) return;
         
         await message.reply({ embeds: [helpEmbed] });
     }
-
-// ========== RATE LIMITING ==========
-const isAdmin = message.member?.permissions.has('Administrator');
-const bypassRoleIds = config.rateLimitBypassRoles || [];
-const hasBypassRole = message.member?.roles.cache.some(role => bypassRoleIds.includes(role.id));
-
-if (!isAdmin && !hasBypassRole && !checkRateLimit(message.author.id)) {
-    // User is rate limited - silently ignore
-    return;
-}
-    // ========== END RATE LIMITING ==========
     
+    // ========== BOT COMMANDS ==========
+    if (message.content === '!test' && isAdmin) {
+        const embed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('✅ Bot Status Check')
+            .addFields(
+                { name: 'Status', value: '🟢 Online', inline: true },
+                { name: 'Admin Access', value: '✅ Confirmed', inline: true },
+                { name: 'Ping', value: `${client.ws.ping}ms`, inline: true },
+                { name: 'Uptime', value: `${Math.floor(client.uptime / 1000 / 60)} minutes`, inline: true },
+                { name: 'Server', value: message.guild.name, inline: true },
+                { name: 'Members', value: message.guild.memberCount.toString(), inline: true }
+            )
+            .setTimestamp();
+        
+        await message.reply({ embeds: [embed] });
+    }
 
     if (message.content === '!sessionstats' && isAdmin) {
         if (claudeTracker) {
@@ -1101,12 +1066,10 @@ if (!isAdmin && !hasBypassRole && !checkRateLimit(message.author.id)) {
                     return message.reply('No usage data for today yet!');
                 }
                 
-                // Calculate costs
                 const inputCost = (todayUsage.input / 1000000) * 3.00;
                 const outputCost = (todayUsage.output / 1000000) * 15.00;
                 const totalCost = inputCost + outputCost;
                 
-                // Get recent conversations (last 5)
                 const recentConvos = data.conversations.slice(-5).reverse();
                 const convoList = recentConvos.map((c, i) => {
                     const date = new Date(c.date);
@@ -1151,7 +1114,6 @@ if (!isAdmin && !hasBypassRole && !checkRateLimit(message.author.id)) {
                     });
                 }
                 
-                // Lifetime stats
                 embed.addFields({
                     name: '🌍 Lifetime Total',
                     value: `**${data.totalTokens.toLocaleString()}** tokens across all time\n` +
@@ -1159,7 +1121,6 @@ if (!isAdmin && !hasBypassRole && !checkRateLimit(message.author.id)) {
                     inline: false
                 });
                 
-                // Add usage warnings
                 if (todayUsage.total > 10000000) {
                     embed.addFields({
                         name: '⚠️ High Usage Alert',
@@ -1447,9 +1408,7 @@ if (!isAdmin && !hasBypassRole && !checkRateLimit(message.author.id)) {
             .setFooter({ text: 'Track your Claude API usage and optimize costs' });
         await message.reply({ embeds: [helpEmbed] });
     }
-
 });
-
 client.on('voiceStateUpdate', (oldState, newState) => {
     if (!logChannels.voice) return;
     
@@ -1533,14 +1492,11 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     
     const userId = newMember.id;
     
-    // Check if user already has a pending update
     if (roleUpdateQueue.has(userId)) {
         const existing = roleUpdateQueue.get(userId);
         
-        // Clear the existing timeout
         clearTimeout(existing.timeout);
         
-        // Update the roles (merge new changes)
         addedRoles.forEach(role => {
             if (!existing.newRoles.added.has(role.id)) {
                 existing.newRoles.added.set(role.id, role);
@@ -1553,20 +1509,18 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
             }
         });
         
-        // Set new timeout
         const timeout = setTimeout(() => {
             sendRoleUpdateLog(newMember, existing);
             roleUpdateQueue.delete(userId);
-        }, 20000); // 20 seconds
+        }, 20000);
         
         existing.timeout = timeout;
         roleUpdateQueue.set(userId, existing);
         
     } else {
-        // Create new queue entry
         const queueEntry = {
             timeout: null,
-            oldRoles: new Map(oldRoles.filter(r => r.id !== newMember.guild.id)), // Exclude @everyone
+            oldRoles: new Map(oldRoles.filter(r => r.id !== newMember.guild.id)),
             newRoles: {
                 added: new Map(addedRoles),
                 removed: new Map(removedRoles)
@@ -1578,7 +1532,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
         const timeout = setTimeout(() => {
             sendRoleUpdateLog(newMember, queueEntry);
             roleUpdateQueue.delete(userId);
-        }, 20000); // 20 seconds
+        }, 20000);
         
         queueEntry.timeout = timeout;
         roleUpdateQueue.set(userId, queueEntry);
@@ -1590,7 +1544,6 @@ async function sendRoleUpdateLog(member, queueEntry) {
     const addedRoles = newRoles.added;
     const removedRoles = newRoles.removed;
     
-    // Calculate current roles (old roles + added - removed)
     const currentRoles = new Map(oldRoles);
     addedRoles.forEach((role, id) => currentRoles.set(id, role));
     removedRoles.forEach((role, id) => currentRoles.delete(id));
@@ -1605,21 +1558,18 @@ async function sendRoleUpdateLog(member, queueEntry) {
             { name: '\u200b', value: '\u200b', inline: true }
         );
     
-    // Try to fetch who made the changes
     try {
         const fetchedLogs = await member.guild.fetchAuditLogs({
-            limit: 10, // Get more logs since there might be multiple role changes
+            limit: 10,
             type: AuditLogEvent.MemberRoleUpdate
         });
         
-        // Find all role updates for this user in the last 25 seconds
         const relevantLogs = fetchedLogs.entries.filter(log => 
             log.target.id === member.id && 
             (Date.now() - log.createdTimestamp) < 25000
         );
         
         if (relevantLogs.size > 0) {
-            // Get unique executors
             const executors = new Set();
             const reasons = new Set();
             
@@ -1634,7 +1584,6 @@ async function sendRoleUpdateLog(member, queueEntry) {
                 inline: true
             });
             
-            // Set thumbnail to first executor
             const firstLog = relevantLogs.first();
             embed.setThumbnail(firstLog.executor.displayAvatarURL());
             
@@ -1652,7 +1601,6 @@ async function sendRoleUpdateLog(member, queueEntry) {
         console.error('Error fetching role update logs:', error);
     }
     
-    // Show roles BEFORE changes
     if (oldRoles.size > 0) {
         const rolesList = Array.from(oldRoles.values())
             .sort((a, b) => b.position - a.position)
@@ -1672,7 +1620,6 @@ async function sendRoleUpdateLog(member, queueEntry) {
         });
     }
     
-    // Show added roles
     if (addedRoles.size > 0) {
         const addedList = Array.from(addedRoles.values())
             .sort((a, b) => b.position - a.position)
@@ -1686,7 +1633,6 @@ async function sendRoleUpdateLog(member, queueEntry) {
         });
     }
     
-    // Show removed roles
     if (removedRoles.size > 0) {
         const removedList = Array.from(removedRoles.values())
             .sort((a, b) => b.position - a.position)
@@ -1700,7 +1646,6 @@ async function sendRoleUpdateLog(member, queueEntry) {
         });
     }
     
-    // Show current roles AFTER changes
     if (currentRoles.size > 0) {
         const currentList = Array.from(currentRoles.values())
             .sort((a, b) => b.position - a.position)
@@ -1720,7 +1665,6 @@ async function sendRoleUpdateLog(member, queueEntry) {
         });
     }
     
-    // Add member join info if available
     const memberInviteData = memberInvites.get(member.id);
     if (memberInviteData) {
         embed.addFields({
@@ -1732,7 +1676,6 @@ async function sendRoleUpdateLog(member, queueEntry) {
         });
     }
     
-    // Add time range for changes
     const timeElapsed = Date.now() - timestamp;
     embed.addFields({
         name: '⏱️ Change Duration',
@@ -1791,7 +1734,6 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
     
     const changes = [];
     
-    // Track all possible changes
     if (oldChannel.name !== newChannel.name) {
         changes.push({
             field: 'Name',
@@ -1856,7 +1798,6 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
         });
     }
     
-    // Check for permission overwrites changes
     const oldPerms = oldChannel.permissionOverwrites?.cache;
     const newPerms = newChannel.permissionOverwrites?.cache;
     
@@ -1879,7 +1820,6 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
             { name: 'Channel ID', value: newChannel.id, inline: true }
         );
     
-    // Fetch audit logs to see who made the change
     try {
         const fetchedLogs = await newChannel.guild.fetchAuditLogs({
             limit: 1,
@@ -1904,16 +1844,13 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
                 });
             }
             
-            // Add extra spacing field for alignment
             embed.addFields({ name: '\u200b', value: '\u200b', inline: true });
         }
     } catch (error) {
         console.error('Error fetching channel update logs:', error);
     }
     
-    // Add all changes as separate fields
     changes.forEach(change => {
-        // Handle long values (like topics)
         const oldValue = change.old.length > 1024 ? change.old.slice(0, 1021) + '...' : change.old;
         const newValue = change.new.length > 1024 ? change.new.slice(0, 1021) + '...' : change.new;
         
@@ -1924,7 +1861,6 @@ client.on('channelUpdate', async (oldChannel, newChannel) => {
         });
     });
     
-    // Add summary at the bottom
     embed.addFields({
         name: '📊 Summary',
         value: `${changes.length} change(s) made to this channel`,
@@ -2135,7 +2071,5 @@ process.on('SIGTERM', () => {
     console.log('Data saved. Shutting down...');
     process.exit(0);
 });
-
-
 
 client.login(config.token);
