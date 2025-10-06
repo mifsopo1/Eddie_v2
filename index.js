@@ -26,7 +26,21 @@ const fs = require('fs');
 
 // Global variables
 const roleUpdateQueue = new Map(); // userId -> { timeout, oldRoles, newRoles, timestamp }
+// Anti-spam configuration with fallback to defaults
+const SPAM_CONFIG = config.antiSpam || {};
+const SPAM_THRESHOLDS = {
+    ENABLED: SPAM_CONFIG.enabled !== false,  // Default enabled
+    MESSAGE_COUNT: SPAM_CONFIG.messageThreshold || 5,
+    TIME_WINDOW: SPAM_CONFIG.timeWindow || 10000,
+    CROSS_CHANNEL_COUNT: SPAM_CONFIG.crossChannelThreshold || 3,
+    CROSS_CHANNEL_TIME: SPAM_CONFIG.crossChannelTime || 15000,
+    MUTE_DURATION: SPAM_CONFIG.muteDuration || 3600000,
+    DELETE_THRESHOLD: SPAM_CONFIG.deleteThreshold || 10,
+    AUTO_UNMUTE: SPAM_CONFIG.autoUnmute !== false,
+    EXEMPT_ROLES: SPAM_CONFIG.exemptRoles || []
+};
 
+const userSpamTracking = new Map(); // userId -> { messages: [], channels: Set(), muted: boolean }
 // ADD THE RATE LIMITING HERE:
 const MESSAGE_RATE_LIMIT = 5; // messages per interval
 const RATE_LIMIT_INTERVAL = 10000; // 10 seconds
@@ -48,6 +62,298 @@ function checkRateLimit(userId) {
     userMessageTimestamps.set(userId, recentTimestamps);
     return true; // Not rate limited
 }
+
+// Add this function after the checkRateLimit function (around line 90)
+function trackSpamBehavior(message) {
+    const userId = message.author.id;
+    const now = Date.now();
+    
+    // Get or create user tracking data
+    if (!userSpamTracking.has(userId)) {
+        userSpamTracking.set(userId, {
+            messages: [],
+            channels: new Set(),
+            muted: false,
+            warnings: 0
+        });
+    }
+    
+    const userData = userSpamTracking.get(userId);
+    
+    // Add current message
+    userData.messages.push({
+        timestamp: now,
+        channelId: message.channel.id,
+        messageId: message.id,
+        content: message.content
+    });
+    userData.channels.add(message.channel.id);
+    
+    // Clean old messages (outside time window)
+    userData.messages = userData.messages.filter(msg => 
+        now - msg.timestamp < SPAM_THRESHOLDS.CROSS_CHANNEL_TIME
+    );
+    
+    // Clean old channels
+    const recentChannels = new Set(
+        userData.messages.map(msg => msg.channelId)
+    );
+    userData.channels = recentChannels;
+    
+    // Check for spam patterns
+    const recentMessages = userData.messages.filter(msg => 
+        now - msg.timestamp < SPAM_THRESHOLDS.TIME_WINDOW
+    );
+    
+    const crossChannelMessages = userData.messages.filter(msg => 
+        now - msg.timestamp < SPAM_THRESHOLDS.CROSS_CHANNEL_TIME
+    );
+    
+    // SPAM DETECTION 1: Too many messages in short time
+    if (recentMessages.length >= SPAM_THRESHOLDS.MESSAGE_COUNT) {
+        return {
+            isSpam: true,
+            reason: 'rapid_messages',
+            count: recentMessages.length,
+            messages: userData.messages
+        };
+    }
+    
+    // SPAM DETECTION 2: Cross-channel spam
+    if (crossChannelMessages.length >= SPAM_THRESHOLDS.CROSS_CHANNEL_COUNT && 
+        userData.channels.size >= 3) {
+        return {
+            isSpam: true,
+            reason: 'cross_channel_spam',
+            count: crossChannelMessages.length,
+            channels: userData.channels.size,
+            messages: userData.messages
+        };
+    }
+    
+    // SPAM DETECTION 3: Identical message spam
+    const recentContent = recentMessages.map(m => m.content.toLowerCase().trim());
+    const uniqueContent = new Set(recentContent);
+    if (recentContent.length >= 3 && uniqueContent.size === 1) {
+        return {
+            isSpam: true,
+            reason: 'identical_spam',
+            count: recentMessages.length,
+            messages: userData.messages
+        };
+    }
+    
+    return { isSpam: false };
+}
+
+// Add this function to handle spam punishment
+async function handleSpammer(message, spamData) {
+    const member = message.member;
+    if (!member) return;
+    
+    // Don't punish admins or mods
+    if (member.permissions.has('Administrator') || member.permissions.has('ModerateMembers')) {
+        return;
+    }
+    
+    const userData = userSpamTracking.get(message.author.id);
+    if (userData.muted) return; // Already muted
+    
+    try {
+        // Find or create "Muted" role
+        let mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
+        
+        if (!mutedRole) {
+            console.log('Creating Muted role...');
+            mutedRole = await message.guild.roles.create({
+                name: 'Muted',
+                color: '#808080',
+                permissions: [],
+                reason: 'Auto-spam protection'
+            });
+            
+            // Set permissions for all channels
+            const channels = message.guild.channels.cache;
+            for (const [, channel] of channels) {
+                if (channel.isTextBased() || channel.type === 2) { // Text or Voice
+                    await channel.permissionOverwrites.create(mutedRole, {
+                        SendMessages: false,
+                        AddReactions: false,
+                        Speak: false
+                    }).catch(err => console.error(`Error setting permissions for ${channel.name}:`, err));
+                }
+            }
+            console.log('✅ Muted role created and configured');
+        }
+        
+        // Mute the user
+        await member.roles.add(mutedRole);
+        userData.muted = true;
+        
+        // Delete spam messages
+        const messagesToDelete = spamData.messages.slice(0, SPAM_THRESHOLDS.DELETE_THRESHOLD);
+        let deletedCount = 0;
+        
+        for (const msg of messagesToDelete) {
+            try {
+                const channel = message.guild.channels.cache.get(msg.channelId);
+                if (channel) {
+                    const targetMessage = await channel.messages.fetch(msg.messageId).catch(() => null);
+                    if (targetMessage) {
+                        await targetMessage.delete();
+                        deletedCount++;
+                    }
+                }
+            } catch (error) {
+                console.error('Error deleting spam message:', error);
+            }
+        }
+        
+        // Log to moderation channel
+        if (logChannels.moderation) {
+            const embed = new EmbedBuilder()
+                .setColor('#ff0000')
+                .setTitle('🚨 Auto-Mute: Spam Detected')
+                .setThumbnail(message.author.displayAvatarURL())
+                .addFields(
+                    { name: 'User', value: `${message.author.tag} (${message.author.id})`, inline: true },
+                    { name: 'Spam Type', value: getSpamReasonText(spamData.reason), inline: true },
+                    { name: 'Messages Sent', value: spamData.count.toString(), inline: true }
+                );
+            
+            if (spamData.channels) {
+                embed.addFields({
+                    name: 'Channels Spammed',
+                    value: spamData.channels.toString(),
+                    inline: true
+                });
+            }
+            
+            embed.addFields(
+                { name: 'Messages Deleted', value: deletedCount.toString(), inline: true },
+                { name: 'Mute Duration', value: '1 hour (auto)', inline: true }
+            );
+            
+            // Add member join info if available
+            const memberInviteData = memberInvites.get(message.author.id);
+            if (memberInviteData) {
+                const joinedAt = memberInviteData.timestamp;
+                const accountAge = Date.now() - message.author.createdTimestamp;
+                const serverAge = Date.now() - joinedAt;
+                
+                embed.addFields({
+                    name: '📋 Account Info',
+                    value: `Created: <t:${Math.floor(message.author.createdTimestamp / 1000)}:R>\n` +
+                           `Joined: <t:${Math.floor(joinedAt / 1000)}:R>\n` +
+                           `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}`,
+                    inline: false
+                });
+                
+                // Flag suspicious new accounts
+                if (accountAge < 86400000) { // Less than 1 day old
+                    embed.addFields({
+                        name: '⚠️ Warning',
+                        value: '**New account** (< 1 day old) - Possible spam bot',
+                        inline: false
+                    });
+                }
+            }
+            
+            // Show sample spam messages
+            const sampleMessages = spamData.messages.slice(0, 3);
+            if (sampleMessages.length > 0) {
+                const samples = sampleMessages.map((m, i) => 
+                    `${i + 1}. <#${m.channelId}>: ${m.content.slice(0, 100)}`
+                ).join('\n');
+                
+                embed.addFields({
+                    name: '📝 Sample Messages',
+                    value: samples.slice(0, 1024),
+                    inline: false
+                });
+            }
+            
+            embed.setTimestamp();
+            embed.setFooter({ text: 'Auto-moderation system' });
+            
+            await logChannels.moderation.send({ embeds: [embed] });
+        }
+        
+// Auto-unmute after duration (if enabled)
+if (SPAM_THRESHOLDS.AUTO_UNMUTE) {
+    setTimeout(async () => {
+        try {
+            await member.roles.remove(mutedRole);
+            userData.muted = false;
+            
+            if (logChannels.moderation) {
+                const unmuteEmbed = new EmbedBuilder()
+                    .setColor('#00ff00')
+                    .setTitle('🔓 Auto-Unmute')
+                    .setDescription(`${message.author.tag} has been automatically unmuted`)
+                    .setTimestamp();
+                
+                await logChannels.moderation.send({ embeds: [unmuteEmbed] });
+            }
+        } catch (error) {
+            console.error('Error auto-unmuting:', error);
+        }
+    }, SPAM_THRESHOLDS.MUTE_DURATION);
+        
+        // Try to DM the user
+        try {
+            await message.author.send({
+                embeds: [new EmbedBuilder()
+                    .setColor('#ff0000')
+                    .setTitle('⚠️ You have been muted for spamming')
+                    .setDescription(`You were automatically muted in **${message.guild.name}** for spam behavior.`)
+                    .addFields(
+                        { name: 'Reason', value: getSpamReasonText(spamData.reason), inline: false },
+                        { name: 'Duration', value: '1 hour', inline: true },
+                        { name: 'Messages Deleted', value: deletedCount.toString(), inline: true }
+                    )
+                    .addFields({
+                        name: 'Appeal',
+                        value: 'If you believe this was a mistake, contact a moderator.',
+                        inline: false
+                    })
+                    .setTimestamp()
+                ]
+            });
+        } catch (error) {
+            // User has DMs disabled
+            console.log(`Could not DM ${message.author.tag} about mute`);
+        }
+        
+    } catch (error) {
+        console.error('Error handling spammer:', error);
+    }
+}
+
+function getSpamReasonText(reason) {
+    const reasons = {
+        'rapid_messages': '⚡ Rapid message spam',
+        'cross_channel_spam': '🔀 Cross-channel spam',
+        'identical_spam': '📋 Identical message spam'
+    };
+    return reasons[reason] || 'Unknown spam type';
+}
+
+// Add spam cleanup task (cleans old data every 5 minutes)
+setInterval(() => {
+    const now = Date.now();
+    for (const [userId, userData] of userSpamTracking.entries()) {
+        // Remove old messages
+        userData.messages = userData.messages.filter(msg => 
+            now - msg.timestamp < SPAM_THRESHOLDS.CROSS_CHANNEL_TIME
+        );
+        
+        // Remove user if no recent messages
+        if (userData.messages.length === 0 && !userData.muted) {
+            userSpamTracking.delete(userId);
+        }
+    }
+}, 300000); // 5 minutes
 
 const client = new Client({
     intents: [
@@ -507,6 +813,23 @@ client.on('messageDelete', async (message) => {
 });
 
 client.on('messageCreate', async (message) => {
+    // ========== SPAM DETECTION (runs for everyone, including bots) ==========
+    if (SPAM_THRESHOLDS.ENABLED && !message.author.bot && message.guild) {
+        const hasExemptRole = message.member?.roles.cache.some(role => 
+            SPAM_THRESHOLDS.EXEMPT_ROLES.includes(role.id)
+        );
+        
+        if (!hasExemptRole) {
+            const spamData = trackSpamBehavior(message);
+            
+            if (spamData.isSpam) {
+                console.log(`🚨 Spam detected from ${message.author.tag}: ${spamData.reason}`);
+                await handleSpammer(message, spamData);
+                return; // Stop processing this message
+            }
+        }
+    }
+    
     // Handle attachment logging for ALL messages (including bots)
     if (message.attachments.size > 0 || message.embeds.length > 0 || message.stickers.size > 0) {
       // Don't log messages from these bots (prevents infinite loop)
@@ -619,6 +942,121 @@ client.on('messageCreate', async (message) => {
 // Continue with command handling (keep the bot check here)
 if (message.author.bot) return;
 
+    // Anti-spam admin commands
+    if (message.content === '!spamstats' && isAdmin) {
+        const activeTracking = Array.from(userSpamTracking.entries())
+            .filter(([, data]) => data.messages.length > 0)
+            .sort((a, b) => b[1].messages.length - a[1].messages.length)
+            .slice(0, 10);
+        
+        if (activeTracking.length === 0) {
+            return message.reply('No active spam tracking data.');
+        }
+        
+        const embed = new EmbedBuilder()
+            .setColor('#ff6600')
+            .setTitle('📊 Current Spam Tracking')
+            .setDescription(`Monitoring ${userSpamTracking.size} users`)
+            .setTimestamp();
+        
+        activeTracking.forEach(([userId, data]) => {
+            const user = message.guild.members.cache.get(userId)?.user.tag || 'Unknown User';
+            const status = data.muted ? '🔇 MUTED' : '✅ Active';
+            
+            embed.addFields({
+                name: `${user} ${status}`,
+                value: `Messages: ${data.messages.length}\nChannels: ${data.channels.size}`,
+                inline: true
+            });
+        });
+        
+        await message.reply({ embeds: [embed] });
+    }
+
+    if (message.content.startsWith('!unmute ') && isAdmin) {
+        const userId = message.content.split(' ')[1];
+        const member = message.guild.members.cache.get(userId);
+        
+        if (!member) {
+            return message.reply('User not found in server.');
+        }
+        
+        const mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
+        if (!mutedRole) {
+            return message.reply('No Muted role found.');
+        }
+        
+        try {
+            await member.roles.remove(mutedRole);
+            
+            const userData = userSpamTracking.get(userId);
+            if (userData) {
+                userData.muted = false;
+            }
+            
+            await message.reply(`✅ Unmuted <@${userId}>`);
+            
+            if (logChannels.moderation) {
+                const embed = new EmbedBuilder()
+                    .setColor('#00ff00')
+                    .setTitle('🔓 Manual Unmute')
+                    .addFields(
+                        { name: 'User', value: `${member.user.tag} (${userId})`, inline: true },
+                        { name: 'Unmuted By', value: message.author.tag, inline: true }
+                    )
+                    .setTimestamp();
+                
+                await logChannels.moderation.send({ embeds: [embed] });
+            }
+        } catch (error) {
+            console.error('Error unmuting:', error);
+            await message.reply('Error unmuting user.');
+        }
+    }
+
+    if (message.content === '!spamhelp' && isAdmin) {
+        const helpEmbed = new EmbedBuilder()
+            .setColor('#ff6600')
+            .setTitle('🛡️ Anti-Spam System Commands')
+            .setDescription('Automatic spam detection and protection')
+            .addFields(
+                { 
+                    name: '🔍 Detection Methods',
+                    value: '• Rapid messages (5+ in 10s)\n' +
+                           '• Cross-channel spam (3+ channels in 15s)\n' +
+                           '• Identical message spam\n' +
+                           '• New account detection',
+                    inline: false
+                },
+                {
+                    name: '⚡ Auto-Actions',
+                    value: '• Auto-mute for 1 hour\n' +
+                           '• Delete spam messages\n' +
+                           '• Log to moderation channel\n' +
+                           '• DM notification to user',
+                    inline: false
+                },
+                {
+                    name: '🎛️ Commands',
+                    value: '`!spamstats` - View current tracking\n' +
+                           '`!unmute <user_id>` - Manually unmute\n' +
+                           '`!spamhelp` - This message',
+                    inline: false
+                },
+                {
+                    name: '⚙️ Settings',
+                    value: `Message threshold: ${SPAM_THRESHOLDS.MESSAGE_COUNT}\n` +
+                           `Time window: ${SPAM_THRESHOLDS.TIME_WINDOW / 1000}s\n` +
+                           `Cross-channel threshold: ${SPAM_THRESHOLDS.CROSS_CHANNEL_COUNT}\n` +
+                           `Mute duration: ${SPAM_THRESHOLDS.MUTE_DURATION / 60000}min`,
+                    inline: false
+                }
+            )
+            .setFooter({ text: 'Admins and mods are exempt from auto-moderation' });
+        
+        await message.reply({ embeds: [helpEmbed] });
+    }
+
 // ========== RATE LIMITING ==========
 const isAdmin = message.member?.permissions.has('Administrator');
 const bypassRoleIds = config.rateLimitBypassRoles || [];
@@ -630,9 +1068,6 @@ if (!isAdmin && !hasBypassRole && !checkRateLimit(message.author.id)) {
 }
     // ========== END RATE LIMITING ==========
     
-    if (message.content === '!test' && isAdmin) {
-        await message.reply('Bot is working and you have admin!');
-    }
 
     if (message.content === '!sessionstats' && isAdmin) {
         if (claudeTracker) {
