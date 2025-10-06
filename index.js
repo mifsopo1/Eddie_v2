@@ -991,7 +991,7 @@ if (message.attachments.size > 0 || message.embeds.length > 0 || message.sticker
     }
 }
     
-    // ========== BOT CHECK ==========
+    // ========== BOT CHECK ==========--
     if (message.author.bot) return;
 
     // ========== RATE LIMITING ==========
