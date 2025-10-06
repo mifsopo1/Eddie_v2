@@ -855,111 +855,141 @@ client.on('messageCreate', async (message) => {
     }
     
     // ========== ATTACHMENT LOGGING ==========
-    if (message.attachments.size > 0 || message.embeds.length > 0 || message.stickers.size > 0) {
-        const excludedBots = config.excludedBots || [];
-        if (excludedBots.includes(message.author.id)) return;
+if (message.attachments.size > 0 || message.embeds.length > 0 || message.stickers.size > 0) {
+    const excludedBots = config.excludedBots || [];
+    if (excludedBots.includes(message.author.id)) return;
+    
+    const attachmentChannel = logChannels.attachments;
+    if (attachmentChannel) {
+        // Determine what type of content was posted
+        let contentType = '';
+        let emoji = '';
         
-        const attachmentChannel = logChannels.attachments;
-        if (attachmentChannel) {
-            const embed = new EmbedBuilder()
-                .setColor(message.author.bot ? '#ff6b6b' : '#3498db')
-                .setTitle(message.author.bot ? '🤖 Bot Attachment/Media' : '📎 New Attachment/Media')
-                .setAuthor({
-                    name: `${message.author.tag}${message.author.bot ? ' [BOT]' : ''}`,
-                    iconURL: message.author.displayAvatarURL()
-                })
-                .addFields(
-                    { name: 'User', value: `${message.author.tag} (${message.author.id})`, inline: true },
-                    { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
-                    { name: 'Message', value: `[Jump to Message](${message.url})`, inline: true }
-                );
+        if (message.attachments.size > 0) {
+            const hasImage = message.attachments.some(a => a.contentType?.startsWith('image/'));
+            const hasVideo = message.attachments.some(a => a.contentType?.startsWith('video/'));
+            const hasAudio = message.attachments.some(a => a.contentType?.startsWith('audio/'));
             
-            if (message.author.bot) {
-                embed.addFields({
-                    name: '⚠️ Bot Account',
-                    value: 'This message was sent by a bot account',
-                    inline: false
-                });
+            if (hasImage) {
+                contentType = 'Image';
+                emoji = '🖼️';
+            } else if (hasVideo) {
+                contentType = 'Video';
+                emoji = '🎥';
+            } else if (hasAudio) {
+                contentType = 'Audio';
+                emoji = '🎵';
+            } else {
+                contentType = 'File';
+                emoji = '📎';
             }
+        } else if (message.embeds.length > 0) {
+            contentType = 'Embed';
+            emoji = '📰';
+        } else if (message.stickers.size > 0) {
+            contentType = 'Sticker';
+            emoji = '🎨';
+        }
+        
+        const embed = new EmbedBuilder()
+            .setColor(message.author.bot ? '#ff6b6b' : '#3498db')
+            .setTitle(message.author.bot ? `🤖 Bot ${contentType}` : `${emoji} ${contentType} Posted`)
+            .setAuthor({
+                name: `${message.author.tag}${message.author.bot ? ' [BOT]' : ''}`,
+                iconURL: message.author.displayAvatarURL()
+            })
+            .addFields(
+                { name: 'User', value: `<@${message.author.id}>`, inline: true }, // Just clickable mention
+                { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                { name: 'Message', value: `[Jump to Message](${message.url})`, inline: true }
+            );
+        
+        if (message.author.bot) {
+            embed.addFields({
+                name: '⚠️ Bot Account',
+                value: 'This message was sent by a bot account',
+                inline: false
+            });
+        }
+        
+        if (message.content) {
+            embed.addFields({
+                name: '💬 Message Content',
+                value: message.content.slice(0, 1024),
+                inline: false
+            });
+        }
+        
+        if (message.attachments.size > 0) {
+            const attachmentList = message.attachments.map(a => {
+                const size = (a.size / 1024).toFixed(2);
+                const type = a.contentType || 'unknown';
+                return `**${a.name}**\nType: ${type}\nSize: ${size} KB\n[Download](${a.url})`;
+            }).join('\n\n');
             
-            if (message.content) {
-                embed.addFields({
-                    name: '💬 Message Content',
-                    value: message.content.slice(0, 1024),
-                    inline: false
-                });
-            }
-            
-            if (message.attachments.size > 0) {
-                const attachmentList = message.attachments.map(a => {
-                    const size = (a.size / 1024).toFixed(2);
-                    const type = a.contentType || 'unknown';
-                    return `**${a.name}**\nType: ${type}\nSize: ${size} KB\n[Download](${a.url})`;
-                }).join('\n\n');
-                
-                embed.addFields({
-                    name: `📎 Attachments (${message.attachments.size})`,
-                    value: attachmentList.slice(0, 1024),
-                    inline: false
-                });
-                
-                const firstImage = message.attachments.find(a => 
-                    a.contentType?.startsWith('image/')
-                );
-                if (firstImage) {
-                    embed.setImage(firstImage.url);
-                }
-            }
-            
-            if (message.embeds.length > 0) {
-                const embedInfo = message.embeds.map((e, i) => {
-                    let info = `**Embed ${i + 1}**\n`;
-                    if (e.title) info += `Title: ${e.title}\n`;
-                    if (e.description) info += `Description: ${e.description.slice(0, 100)}...\n`;
-                    if (e.url) info += `URL: ${e.url}\n`;
-                    if (e.image) info += `Image: [Link](${e.image.url})\n`;
-                    return info;
-                }).join('\n');
-                
-                embed.addFields({
-                    name: `📰 Embeds (${message.embeds.length})`,
-                    value: embedInfo.slice(0, 1024),
-                    inline: false
-                });
-            }
-            
-            if (message.stickers.size > 0) {
-                const stickerList = message.stickers.map(s => 
-                    `**${s.name}** (${s.format})`
-                ).join(', ');
-                
-                embed.addFields({
-                    name: '🎨 Stickers',
-                    value: stickerList,
-                    inline: false
-                });
-            }
-            
-            embed.setTimestamp();
-            embed.setFooter({
-                text: `Message ID: ${message.id}`
+            embed.addFields({
+                name: `📎 Attachments (${message.attachments.size})`,
+                value: attachmentList.slice(0, 1024),
+                inline: false
             });
             
-            try {
-                await attachmentChannel.send({ embeds: [embed] });
-                
-                const forwardableAttachments = message.attachments.filter(a => a.size < 8388608);
-                if (forwardableAttachments.size > 0) {
-                    await attachmentChannel.send({
-                        content: `📦 **Files from ${message.author.tag}${message.author.bot ? ' [BOT]' : ''}:**`,
-                        files: forwardableAttachments.map(a => a.url)
-                    });
-                }
-            } catch (error) {
-                console.error('Error forwarding attachment:', error);
+            const firstImage = message.attachments.find(a => 
+                a.contentType?.startsWith('image/')
+            );
+            if (firstImage) {
+                embed.setImage(firstImage.url);
             }
         }
+        
+        if (message.embeds.length > 0) {
+            const embedInfo = message.embeds.map((e, i) => {
+                let info = `**Embed ${i + 1}**\n`;
+                if (e.title) info += `Title: ${e.title}\n`;
+                if (e.description) info += `Description: ${e.description.slice(0, 100)}...\n`;
+                if (e.url) info += `URL: ${e.url}\n`;
+                if (e.image) info += `Image: [Link](${e.image.url})\n`;
+                return info;
+            }).join('\n');
+            
+            embed.addFields({
+                name: `📰 Embeds (${message.embeds.length})`,
+                value: embedInfo.slice(0, 1024),
+                inline: false
+            });
+        }
+        
+        if (message.stickers.size > 0) {
+            const stickerList = message.stickers.map(s => 
+                `**${s.name}** (${s.format})`
+            ).join(', ');
+            
+            embed.addFields({
+                name: '🎨 Stickers',
+                value: stickerList,
+                inline: false
+            });
+        }
+        
+        embed.setTimestamp();
+        embed.setFooter({
+            text: `${message.author.tag} (${message.author.id})`
+        });
+        
+        try {
+            await attachmentChannel.send({ embeds: [embed] });
+            
+            const forwardableAttachments = message.attachments.filter(a => a.size < 8388608);
+            if (forwardableAttachments.size > 0) {
+                await attachmentChannel.send({
+                    content: `📦 **Files from ${message.author.tag}${message.author.bot ? ' [BOT]' : ''}:**`,
+                    files: forwardableAttachments.map(a => a.url)
+                });
+            }
+        } catch (error) {
+            console.error('Error forwarding attachment:', error);
+        }
     }
+}
     
     // ========== BOT CHECK ==========
     if (message.author.bot) return;
