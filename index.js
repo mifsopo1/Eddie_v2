@@ -192,15 +192,15 @@ async function handleSpammer(message, spamData) {
             }
         }
         
-        if (logChannels.moderation) {
-            const embed = new EmbedBuilder()
-                .setColor('#ff0000')
-                .setTitle('🚨 Auto-Mute: Spam Detected')
-                .setThumbnail(message.author.displayAvatarURL())
-                .addFields(
-                    { name: 'User', value: `${message.author.tag} (${message.author.id})`, inline: true },
-                    { name: 'Spam Type', value: getSpamReasonText(spamData.reason), inline: true },
-                    { name: 'Messages Sent', value: spamData.count.toString(), inline: true }
+    if (logChannels.moderation) {
+        const embed = new EmbedBuilder()
+            .setColor('#ff0000')
+            .setTitle('🚨 Auto-Mute: Spam Detected')
+            .setThumbnail(message.author.displayAvatarURL())
+            .addFields(
+                { name: 'User', value: `<@${message.author.id}>\n${message.author.tag} (${message.author.id})`, inline: true }, // Made clickable
+                { name: 'Spam Type', value: getSpamReasonText(spamData.reason), inline: true },
+                { name: 'Messages Sent', value: spamData.count.toString(), inline: true }
                 );
             
             if (spamData.channels) {
@@ -519,7 +519,7 @@ client.on('guildMemberAdd', async (member) => {
         .setTitle('Member Joined')
         .setThumbnail(member.user.displayAvatarURL())
         .addFields(
-            { name: 'User', value: `${member.user.tag} (${member.id})`, inline: true },
+            { name: 'User', value: `<@${member.id}>\n${member.user.tag} (${member.id})`, inline: true }, // Made clickable
             { name: 'Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
             { name: 'Member Count', value: member.guild.memberCount.toString(), inline: true }
         )
@@ -571,7 +571,7 @@ client.on('guildMemberRemove', async (member) => {
         .setTitle('Member Left')
         .setThumbnail(member.user.displayAvatarURL())
         .addFields(
-            { name: 'User', value: `${member.user.tag} (${member.id})`, inline: true },
+            { name: 'User', value: `<@${member.id}>\n${member.user.tag} (${member.id})`, inline: true }, // Made clickable
             { name: 'Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
             { name: 'Member Count', value: member.guild.memberCount.toString(), inline: true }
         );
@@ -718,7 +718,7 @@ client.on('messageDelete', async (message) => {
         .setColor('#ff0000')
         .setTitle('Message Deleted')
         .addFields(
-            { name: 'Author', value: message.author ? `${message.author.tag} (${message.author.id})` : 'Unknown', inline: true },
+            { name: 'Author', value: message.author ? `<@${message.author.id}>\n${message.author.tag} (${message.author.id})` : 'Unknown', inline: true }, // Made clickable
             { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
             { name: 'Message ID', value: message.id, inline: true }
         );
@@ -1648,7 +1648,7 @@ async function sendRoleUpdateLog(member, queueEntry) {
         .setTitle('Member Roles Updated')
         .setThumbnail(member.user.displayAvatarURL())
         .addFields(
-            { name: 'Member', value: `${member.user.tag} (${member.id})`, inline: true },
+            { name: 'Member', value: `<@${member.id}>\n${member.user.tag} (${member.id})`, inline: true }, // Made clickable
             { name: 'Total Changes', value: `${addedRoles.size + removedRoles.size}`, inline: true },
             { name: '\u200b', value: '\u200b', inline: true }
         );
@@ -2013,10 +2013,32 @@ client.on('guildBanAdd', async ban => {
         .setTitle('Member Banned')
         .setThumbnail(ban.user.displayAvatarURL())
         .addFields(
-            { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: true },
+            { name: 'User', value: `<@${ban.user.id}>\n${ban.user.tag} (${ban.user.id})`, inline: true }, // Made clickable
             { name: 'Account Created', value: `<t:${Math.floor(ban.user.createdTimestamp / 1000)}:R>`, inline: true },
             { name: '\u200b', value: '\u200b', inline: true }
         );
+    
+    // Try to DM the banned user with appeal form
+    try {
+        await ban.user.send({
+            embeds: [new EmbedBuilder()
+                .setColor('#ff0000')
+                .setTitle('⚠️ You have been banned')
+                .setDescription(`You were banned from **${ban.guild.name}**.`)
+                .addFields(
+                    { 
+                        name: '📋 Appeal Your Ban', 
+                        value: 'If you believe this ban was unjustified, you can submit an appeal:\n[Click here to submit an appeal form](https://docs.google.com/forms/d/e/1FAIpQLSe8xo6UfTjTGCuc-1VxWx1s-bnGIhUuRDLUNFxWmC7uzUZATw/viewform?usp=dialog)', 
+                        inline: false 
+                    }
+                )
+                .setTimestamp()
+            ]
+        });
+        console.log(`✅ Sent ban appeal form to ${ban.user.tag}`);
+    } catch (error) {
+        console.log(`❌ Could not DM ${ban.user.tag} about their ban (DMs may be closed)`);
+    }
     
     try {
         const fetchedLogs = await ban.guild.fetchAuditLogs({
@@ -2028,7 +2050,7 @@ client.on('guildBanAdd', async ban => {
         if (banLog && banLog.target.id === ban.user.id) {
             embed.addFields({
                 name: 'Banned By',
-                value: `${banLog.executor.tag}`,
+                value: `<@${banLog.executor.id}>\n${banLog.executor.tag}`, // Made clickable
                 inline: true
             });
             
@@ -2085,7 +2107,7 @@ client.on('guildBanRemove', async ban => {
         .setTitle('Member Unbanned')
         .setThumbnail(ban.user.displayAvatarURL())
         .addFields(
-            { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: true },
+            { name: 'User', value: `<@${ban.user.id}>\n${ban.user.tag} (${ban.user.id})`, inline: true }, // Made clickable
             { name: 'Account Created', value: `<t:${Math.floor(ban.user.createdTimestamp / 1000)}:R>`, inline: true },
             { name: '\u200b', value: '\u200b', inline: true }
         );
@@ -2100,7 +2122,7 @@ client.on('guildBanRemove', async ban => {
         if (unbanLog && unbanLog.target.id === ban.user.id && (Date.now() - unbanLog.createdTimestamp) < 5000) {
             embed.addFields({
                 name: 'Unbanned By',
-                value: unbanLog.executor.tag,
+                value: `<@${unbanLog.executor.id}>\n${unbanLog.executor.tag}`, // Made clickable
                 inline: true
             });
             
