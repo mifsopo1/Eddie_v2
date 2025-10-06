@@ -299,6 +299,7 @@ if (SPAM_THRESHOLDS.AUTO_UNMUTE) {
             console.error('Error auto-unmuting:', error);
         }
     }, SPAM_THRESHOLDS.MUTE_DURATION);
+}
         
         // Try to DM the user
         try {
@@ -465,6 +466,7 @@ client.once('ready', async () => {
 });  // ← This closes client.once('ready') - line 115
 
 client.on('guildMemberAdd', async (member) => {
+    // Auto-assign pending approved roles
     try {
         if (fs.existsSync('pending-approvals.json')) {
             const pendingApprovals = JSON.parse(fs.readFileSync('pending-approvals.json'));
@@ -501,6 +503,7 @@ client.on('guildMemberAdd', async (member) => {
         )
         .setTimestamp();
     
+    // Invite tracking
     try {
         const newInvites = await member.guild.invites.fetch();
         const oldInvites = invites.get(member.guild.id) || new Map();
@@ -555,7 +558,8 @@ client.on('guildMemberRemove', async (member) => {
     let wasKicked = false;
     let wasBanned = false;
     
-    try {
+    // ADD TRY BLOCK HERE
+    try {  // ← ADD THIS LINE!
         const kickLogs = await member.guild.fetchAuditLogs({
             limit: 1,
             type: AuditLogEvent.MemberKick
@@ -579,7 +583,7 @@ client.on('guildMemberRemove', async (member) => {
             embed.setColor('#8b0000');
             embed.setTitle('Member Banned');
         }
-    } catch (error) {
+    } catch (error) {  // ← This was your line 328 error
         console.error('Error fetching moderation logs:', error);
     }
     
