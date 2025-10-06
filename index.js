@@ -24,7 +24,7 @@ const SteamSaleMonitor = require('./steamSaleMonitor');
 const ClaudeTokenTracker = require('./claudeTokenTracker');
 const fs = require('fs');
 
-// Global variables
+// Global variables--
 const roleUpdateQueue = new Map();
 
 // Anti-spam configuration with fallback to defaults
