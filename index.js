@@ -946,6 +946,23 @@ client.on('messageCreate', async (message) => {
 // Continue with command handling (keep the bot check here)
 if (message.author.bot) return;
 
+    if (message.content === '!test' && isAdmin) {
+    const embed = new EmbedBuilder()
+        .setColor('#00ff00')
+        .setTitle('✅ Bot Status Check')
+        .addFields(
+            { name: 'Status', value: '🟢 Online', inline: true },
+            { name: 'Admin Access', value: '✅ Confirmed', inline: true },
+            { name: 'Ping', value: `${client.ws.ping}ms`, inline: true },
+            { name: 'Uptime', value: `${Math.floor(client.uptime / 1000 / 60)} minutes`, inline: true },
+            { name: 'Server', value: message.guild.name, inline: true },
+            { name: 'Members', value: message.guild.memberCount.toString(), inline: true }
+        )
+        .setTimestamp();
+    
+    await message.reply({ embeds: [embed] });
+    }
+
     // Anti-spam admin commands
     if (message.content === '!spamstats' && isAdmin) {
         const activeTracking = Array.from(userSpamTracking.entries())
