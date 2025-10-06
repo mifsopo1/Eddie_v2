@@ -973,13 +973,25 @@ client.on('messageCreate', async (message) => {
         return;
     }
     // ========== END RATE LIMITING ==========
-<<<<<<< HEAD
-    if (message.content === '!botstatus' && isAdmin) {
+
+if (message.content === '!botstatus' && isAdmin) {
     const uptime = Math.floor(client.uptime / 1000);
     const days = Math.floor(uptime / 86400);
     const hours = Math.floor((uptime % 86400) / 3600);
     const minutes = Math.floor((uptime % 3600) / 60);
     const seconds = uptime % 60;
+    
+    // Get git info
+    let gitInfo = 'Not available';
+    try {
+        const { execSync } = require('child_process');
+        const gitHash = execSync('git rev-parse --short HEAD').toString().trim();
+        const gitMessage = execSync('git log -1 --pretty=%B').toString().trim();
+        const gitBranch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+        gitInfo = `\`${gitHash}\` on \`${gitBranch}\`\n${gitMessage}`;
+    } catch (error) {
+        gitInfo = 'Git not initialized';
+    }
     
     const statusEmbed = new EmbedBuilder()
         .setColor('#0099ff')
@@ -996,13 +1008,15 @@ client.on('messageCreate', async (message) => {
             { name: '📦 Discord.js', value: require('discord.js').version, inline: true },
             { name: '🛡️ Anti-Spam', value: SPAM_THRESHOLDS.ENABLED ? 'Enabled' : 'Disabled', inline: true }
         )
+        .addFields({
+            name: '📝 Current Version',
+            value: gitInfo,
+            inline: false
+        })
         .setTimestamp();
     
     await message.reply({ embeds: [statusEmbed] });
-    }
-=======
-    
->>>>>>> 463f2a16fbededf4daee5f20848060369009600a
+}
     // ========== ANTI-SPAM COMMANDS ==========
     if (message.content === '!spamstats' && isAdmin) {
         const activeTracking = Array.from(userSpamTracking.entries())
@@ -2153,7 +2167,7 @@ process.on('SIGTERM', () => {
     process.exit(0);
 });
 
-<<<<<<< HEAD
+
 // Enhanced shutdown handlers with Discord notification
 async function sendShutdownNotification(reason) {
     if (config.startupNotification?.enabled && config.startupNotification?.channelId) {
@@ -2209,6 +2223,5 @@ process.on('SIGTERM', async () => {
     setTimeout(() => process.exit(0), 2000);
 });
 
-=======
->>>>>>> 463f2a16fbededf4daee5f20848060369009600a
+
 client.login(config.token);
