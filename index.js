@@ -973,6 +973,7 @@ client.on('messageCreate', async (message) => {
         return;
     }
     // ========== END RATE LIMITING ==========
+<<<<<<< HEAD
     if (message.content === '!botstatus' && isAdmin) {
     const uptime = Math.floor(client.uptime / 1000);
     const days = Math.floor(uptime / 86400);
@@ -999,6 +1000,9 @@ client.on('messageCreate', async (message) => {
     
     await message.reply({ embeds: [statusEmbed] });
     }
+=======
+    
+>>>>>>> 463f2a16fbededf4daee5f20848060369009600a
     // ========== ANTI-SPAM COMMANDS ==========
     if (message.content === '!spamstats' && isAdmin) {
         const activeTracking = Array.from(userSpamTracking.entries())
@@ -2149,6 +2153,7 @@ process.on('SIGTERM', () => {
     process.exit(0);
 });
 
+<<<<<<< HEAD
 // Enhanced shutdown handlers with Discord notification
 async function sendShutdownNotification(reason) {
     if (config.startupNotification?.enabled && config.startupNotification?.channelId) {
@@ -2204,4 +2209,6 @@ process.on('SIGTERM', async () => {
     setTimeout(() => process.exit(0), 2000);
 });
 
+=======
+>>>>>>> 463f2a16fbededf4daee5f20848060369009600a
 client.login(config.token);
