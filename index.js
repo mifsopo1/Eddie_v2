@@ -518,6 +518,47 @@ function getSpamReasonText(reason) {
     return reasons[reason] || 'Unknown spam type';
 }
 
+function getGitVersion() {
+    try {
+        // Get current branch
+        const branch = execSync('git rev-parse --abbrev-ref HEAD')
+            .toString()
+            .trim();
+        
+        // Get current commit hash (short)
+        const commit = execSync('git rev-parse --short HEAD')
+            .toString()
+            .trim();
+        
+        // Get commit date
+        const commitDate = execSync('git log -1 --format=%cd --date=short')
+            .toString()
+            .trim();
+        
+        // Check if there are uncommitted changes
+        const hasChanges = execSync('git status --porcelain')
+            .toString()
+            .trim().length > 0;
+        
+        return {
+            branch: branch,
+            commit: commit,
+            date: commitDate,
+            dirty: hasChanges,
+            full: `${branch}@${commit}${hasChanges ? '*' : ''}`
+        };
+    } catch (error) {
+        console.log('⚠️ Could not read git version (not a git repository?)');
+        return {
+            branch: 'unknown',
+            commit: 'unknown',
+            date: 'unknown',
+            dirty: false,
+            full: 'Not a git repository'
+        };
+    }
+}
+
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
     
