@@ -520,6 +520,10 @@ function getSpamReasonText(reason) {
 
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
+    
+    // Get git version info
+    const gitVersion = getGitVersion();
+    
     console.log('='.repeat(50));
     console.log(`Bot: ${client.user.tag}`);
     console.log(`Bot ID: ${client.user.id}`);
@@ -533,6 +537,7 @@ client.once('ready', async () => {
     console.log(`Total Users: ${totalUsers.toLocaleString()}`);
     console.log(`Node Version: ${process.version}`);
     console.log(`Discord.js Version: ${require('discord.js').version}`);
+    console.log(`Git Version: ${gitVersion.full}`);
     console.log('='.repeat(50));
     
     // Load member invites
@@ -578,7 +583,7 @@ client.once('ready', async () => {
                 .addFields(
                     { name: 'Node Version', value: process.version, inline: true },
                     { name: 'Discord.js', value: require('discord.js').version, inline: true },
-                    { name: 'Uptime', value: 'Just started', inline: true }
+                    { name: 'Git Version', value: `\`${gitVersion.full}\``, inline: true }
                 )
                 .setTimestamp();
             
