@@ -70,20 +70,27 @@ function trackSpamBehavior(message) {
             messages: [],
             channels: new Set(),
             muted: false,
-            warnings: 0
+            warnings: 0,
+            contentHashes: new Map() // Track content across channels
         });
     }
     
     const userData = userSpamTracking.get(userId);
     
+    // Create a simple hash of the message content
+    const contentHash = createContentHash(message);
+    
     userData.messages.push({
         timestamp: now,
         channelId: message.channel.id,
         messageId: message.id,
-        content: message.content
+        content: message.content,
+        contentHash: contentHash,
+        hasAttachments: message.attachments.size > 0
     });
     userData.channels.add(message.channel.id);
     
+    // Clean old messages (keep last 15 seconds for cross-channel detection)
     userData.messages = userData.messages.filter(msg => 
         now - msg.timestamp < SPAM_THRESHOLDS.CROSS_CHANNEL_TIME
     );
@@ -93,12 +100,39 @@ function trackSpamBehavior(message) {
     );
     userData.channels = recentChannels;
     
+    // NEW: Check for cross-channel posting (same content in 2+ channels)
+    const contentChannelMap = new Map();
+    
+    userData.messages.forEach(msg => {
+        if (!contentChannelMap.has(msg.contentHash)) {
+            contentChannelMap.set(msg.contentHash, {
+                channels: new Set(),
+                messages: []
+            });
+        }
+        
+        const hashData = contentChannelMap.get(msg.contentHash);
+        hashData.channels.add(msg.channelId);
+        hashData.messages.push(msg);
+    });
+    
+    // Check if any content appears in 2+ channels
+    for (const [hash, data] of contentChannelMap.entries()) {
+        if (data.channels.size >= 2) { // Changed from 3 to 2
+            return {
+                isSpam: true,
+                reason: 'cross_channel_duplicate',
+                count: data.messages.length,
+                channels: data.channels.size,
+                messages: data.messages,
+                contentHash: hash
+            };
+        }
+    }
+    
+    // Keep existing rapid message detection
     const recentMessages = userData.messages.filter(msg => 
         now - msg.timestamp < SPAM_THRESHOLDS.TIME_WINDOW
-    );
-    
-    const crossChannelMessages = userData.messages.filter(msg => 
-        now - msg.timestamp < SPAM_THRESHOLDS.CROSS_CHANNEL_TIME
     );
     
     if (recentMessages.length >= SPAM_THRESHOLDS.MESSAGE_COUNT) {
@@ -110,17 +144,7 @@ function trackSpamBehavior(message) {
         };
     }
     
-    if (crossChannelMessages.length >= SPAM_THRESHOLDS.CROSS_CHANNEL_COUNT && 
-        userData.channels.size >= 3) {
-        return {
-            isSpam: true,
-            reason: 'cross_channel_spam',
-            count: crossChannelMessages.length,
-            channels: userData.channels.size,
-            messages: userData.messages
-        };
-    }
-    
+    // Keep existing identical spam detection
     const recentContent = recentMessages.map(m => m.content.toLowerCase().trim());
     const uniqueContent = new Set(recentContent);
     if (recentContent.length >= 3 && uniqueContent.size === 1) {
@@ -135,49 +159,65 @@ function trackSpamBehavior(message) {
     return { isSpam: false };
 }
 
+// Add this new helper function after trackSpamBehavior
+function createContentHash(message) {
+    // Create a simple hash based on:
+    // 1. Message content (trimmed and lowercased)
+    // 2. Attachment names and sizes
+    // 3. Embed URLs
+    
+    let hashString = message.content.toLowerCase().trim();
+    
+    // Add attachment info to hash
+    if (message.attachments.size > 0) {
+        const attachmentInfo = message.attachments.map(a => 
+            `${a.name}:${a.size}:${a.contentType}`
+        ).join('|');
+        hashString += `|ATT:${attachmentInfo}`;
+    }
+    
+    // Add embed info to hash
+    if (message.embeds.length > 0) {
+        const embedInfo = message.embeds.map(e => 
+            `${e.url}:${e.title}:${e.description?.slice(0, 50)}`
+        ).join('|');
+        hashString += `|EMB:${embedInfo}`;
+    }
+    
+    // Add sticker info to hash
+    if (message.stickers.size > 0) {
+        const stickerInfo = message.stickers.map(s => s.id).join('|');
+        hashString += `|STK:${stickerInfo}`;
+    }
+    
+    // Simple hash function (for matching, not cryptographic security)
+    let hash = 0;
+    for (let i = 0; i < hashString.length; i++) {
+        const char = hashString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    return hash.toString();
+}
+
 async function handleSpammer(message, spamData) {
     const member = message.member;
     if (!member) return;
     
+    // Skip admins/mods
     if (member.permissions.has('Administrator') || member.permissions.has('ModerateMembers')) {
         return;
     }
     
     const userData = userSpamTracking.get(message.author.id);
-    if (userData.muted) return;
     
     try {
-        let mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
-        
-        if (!mutedRole) {
-            console.log('Creating Muted role...');
-            mutedRole = await message.guild.roles.create({
-                name: 'Muted',
-                color: '#808080',
-                permissions: [],
-                reason: 'Auto-spam protection'
-            });
-            
-            const channels = message.guild.channels.cache;
-            for (const [, channel] of channels) {
-                if (channel.isTextBased() || channel.type === 2) {
-                    await channel.permissionOverwrites.create(mutedRole, {
-                        SendMessages: false,
-                        AddReactions: false,
-                        Speak: false
-                    }).catch(err => console.error(`Error setting permissions for ${channel.name}:`, err));
-                }
-            }
-            console.log('✅ Muted role created and configured');
-        }
-        
-        await member.roles.add(mutedRole);
-        userData.muted = true;
-        
-        const messagesToDelete = spamData.messages.slice(0, SPAM_THRESHOLDS.DELETE_THRESHOLD);
+        // Delete ALL messages that match this spam
         let deletedCount = 0;
+        const deletedChannels = new Set();
         
-        for (const msg of messagesToDelete) {
+        for (const msg of spamData.messages) {
             try {
                 const channel = message.guild.channels.cache.get(msg.channelId);
                 if (channel) {
@@ -185,6 +225,7 @@ async function handleSpammer(message, spamData) {
                     if (targetMessage) {
                         await targetMessage.delete();
                         deletedCount++;
+                        deletedChannels.add(channel.name);
                     }
                 }
             } catch (error) {
@@ -192,117 +233,97 @@ async function handleSpammer(message, spamData) {
             }
         }
         
-    if (logChannels.moderation) {
-        const embed = new EmbedBuilder()
-            .setColor('#ff0000')
-            .setTitle('🚨 Auto-Mute: Spam Detected')
-            .setThumbnail(message.author.displayAvatarURL())
-            .addFields(
-                { name: 'User', value: `<@${message.author.id}>\n${message.author.tag} (${message.author.id})`, inline: true }, // Made clickable
-                { name: 'Spam Type', value: getSpamReasonText(spamData.reason), inline: true },
-                { name: 'Messages Sent', value: spamData.count.toString(), inline: true }
+        // Log to moderation channel
+        if (logChannels.moderation) {
+            const embed = new EmbedBuilder()
+                .setColor('#ff9900')
+                .setTitle('🗑️ Cross-Channel Spam Deleted')
+                .setThumbnail(message.author.displayAvatarURL())
+                .addFields(
+                    { name: 'User', value: `<@${message.author.id}>\n${message.author.tag} (${message.author.id})`, inline: true },
+                    { name: 'Spam Type', value: getSpamReasonText(spamData.reason), inline: true },
+                    { name: 'Messages Deleted', value: deletedCount.toString(), inline: true }
                 );
             
             if (spamData.channels) {
                 embed.addFields({
-                    name: 'Channels Spammed',
-                    value: spamData.channels.toString(),
-                    inline: true
+                    name: 'Channels Affected',
+                    value: Array.from(deletedChannels).map(c => `#${c}`).join(', ') || 'Unknown',
+                    inline: false
                 });
             }
             
-            embed.addFields(
-                { name: 'Messages Deleted', value: deletedCount.toString(), inline: true },
-                { name: 'Mute Duration', value: '1 hour (auto)', inline: true }
-            );
-            
+            // Account info
             const memberInviteData = memberInvites.get(message.author.id);
             if (memberInviteData) {
-                const joinedAt = memberInviteData.timestamp;
                 const accountAge = Date.now() - message.author.createdTimestamp;
                 
                 embed.addFields({
                     name: '📋 Account Info',
                     value: `Created: <t:${Math.floor(message.author.createdTimestamp / 1000)}:R>\n` +
-                           `Joined: <t:${Math.floor(joinedAt / 1000)}:R>\n` +
+                           `Joined: <t:${Math.floor(memberInviteData.timestamp / 1000)}:R>\n` +
                            `Invite: \`${memberInviteData.code}\` by ${memberInviteData.inviter}`,
                     inline: false
                 });
                 
                 if (accountAge < 86400000) {
                     embed.addFields({
-                        name: '⚠️ Warning',
-                        value: '**New account** (< 1 day old) - Possible spam bot',
+                        name: '⚠️ New Account',
+                        value: 'Account is less than 1 day old',
                         inline: false
                     });
                 }
             }
             
-            const sampleMessages = spamData.messages.slice(0, 3);
+            // Sample of deleted content
+            const sampleMessages = spamData.messages.slice(0, 2);
             if (sampleMessages.length > 0) {
-                const samples = sampleMessages.map((m, i) => 
-                    `${i + 1}. <#${m.channelId}>: ${m.content.slice(0, 100)}`
-                ).join('\n');
+                const samples = sampleMessages.map((m, i) => {
+                    let sample = `${i + 1}. <#${m.channelId}>`;
+                    if (m.content) sample += `: ${m.content.slice(0, 100)}`;
+                    if (m.hasAttachments) sample += ` 📎`;
+                    return sample;
+                }).join('\n');
                 
                 embed.addFields({
-                    name: '📝 Sample Messages',
+                    name: '📝 Deleted Content',
                     value: samples.slice(0, 1024),
                     inline: false
                 });
             }
             
             embed.setTimestamp();
-            embed.setFooter({ text: 'Auto-moderation system' });
+            embed.setFooter({ text: 'Auto-moderation: Cross-channel spam deletion' });
             
             await logChannels.moderation.send({ embeds: [embed] });
         }
         
-        if (SPAM_THRESHOLDS.AUTO_UNMUTE) {
-            setTimeout(async () => {
-                try {
-                    await member.roles.remove(mutedRole);
-                    userData.muted = false;
-                    
-                    if (logChannels.moderation) {
-                        const unmuteEmbed = new EmbedBuilder()
-                            .setColor('#00ff00')
-                            .setTitle('🔓 Auto-Unmute')
-                            .setDescription(`${message.author.tag} has been automatically unmuted`)
-                            .setTimestamp();
-                        
-                        await logChannels.moderation.send({ embeds: [unmuteEmbed] });
-                    }
-                } catch (error) {
-                    console.error('Error auto-unmuting:', error);
-                }
-            }, SPAM_THRESHOLDS.MUTE_DURATION);
-        }
-        
+        // Warn the user via DM
         try {
             await message.author.send({
                 embeds: [new EmbedBuilder()
-                    .setColor('#ff0000')
-                    .setTitle('⚠️ You have been muted for spamming')
-                    .setDescription(`You were automatically muted in **${message.guild.name}** for spam behavior.`)
+                    .setColor('#ff9900')
+                    .setTitle('⚠️ Cross-Channel Posting Detected')
+                    .setDescription(`Your messages were automatically deleted in **${message.guild.name}**`)
                     .addFields(
-                        { name: 'Reason', value: getSpamReasonText(spamData.reason), inline: false },
-                        { name: 'Duration', value: '1 hour', inline: true },
-                        { name: 'Messages Deleted', value: deletedCount.toString(), inline: true }
+                        { name: 'Reason', value: 'Posting the same content in multiple channels', inline: false },
+                        { name: 'Messages Deleted', value: deletedCount.toString(), inline: true },
+                        { name: 'Channels', value: Array.from(deletedChannels).join(', '), inline: true }
                     )
                     .addFields({
-                        name: 'Appeal',
-                        value: 'If you believe this was a mistake, contact a moderator.',
+                        name: '💡 Tip',
+                        value: 'Please post your content in only one appropriate channel. Cross-posting is considered spam.',
                         inline: false
                     })
                     .setTimestamp()
                 ]
             });
         } catch (error) {
-            console.log(`Could not DM ${message.author.tag} about mute`);
+            console.log(`Could not DM ${message.author.tag} about deleted messages`);
         }
         
     } catch (error) {
-        console.error('Error handling spammer:', error);
+        console.error('Error handling cross-channel spam:', error);
     }
 }
 
@@ -310,6 +331,7 @@ function getSpamReasonText(reason) {
     const reasons = {
         'rapid_messages': '⚡ Rapid message spam',
         'cross_channel_spam': '🔀 Cross-channel spam',
+        'cross_channel_duplicate': '📋 Same content in multiple channels',
         'identical_spam': '📋 Identical message spam'
     };
     return reasons[reason] || 'Unknown spam type';
