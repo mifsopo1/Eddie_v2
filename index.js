@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const config = require('./config.json');
 
 // Safety check - prevent using example config
@@ -213,7 +213,41 @@ async function handleSpammer(message, spamData) {
     const userData = userSpamTracking.get(message.author.id);
     
     try {
-        // Delete ALL messages that match this spam
+        // Collect attachment URLs BEFORE deleting messages
+        const attachmentUrls = [];
+        const attachmentFiles = [];
+        
+        for (const msg of spamData.messages) {
+            try {
+                const channel = message.guild.channels.cache.get(msg.channelId);
+                if (channel) {
+                    const targetMessage = await channel.messages.fetch(msg.messageId).catch(() => null);
+                    if (targetMessage) {
+                        // Save attachments before deletion
+                        if (targetMessage.attachments.size > 0) {
+                            targetMessage.attachments.forEach(att => {
+                                attachmentUrls.push({
+                                    url: att.url,
+                                    name: att.name,
+                                    size: att.size,
+                                    contentType: att.contentType,
+                                    channelId: msg.channelId
+                                });
+                                
+                                // If small enough, save for re-upload (8MB Discord limit)
+                                if (att.size < 8388608) {
+                                    attachmentFiles.push(att.url);
+                                }
+                            });
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching message for attachments:', error);
+            }
+        }
+        
+        // NOW delete the messages
         let deletedCount = 0;
         const deletedChannels = new Set();
         
@@ -233,7 +267,7 @@ async function handleSpammer(message, spamData) {
             }
         }
         
-        // Log to moderation channel
+        // Log to moderation channel WITH attachments and buttons
         if (logChannels.moderation) {
             const embed = new EmbedBuilder()
                 .setColor('#ff9900')
@@ -292,10 +326,95 @@ async function handleSpammer(message, spamData) {
                 });
             }
             
-            embed.setTimestamp();
-            embed.setFooter({ text: 'Auto-moderation: Cross-channel spam deletion' });
+            // Add attachment info if any
+            if (attachmentUrls.length > 0) {
+                const attachmentInfo = attachmentUrls.slice(0, 5).map(att => {
+                    const channel = message.guild.channels.cache.get(att.channelId);
+                    const size = (att.size / 1024).toFixed(2);
+                    return `📎 **${att.name}** (${size} KB) - <#${att.channelId}>`;
+                }).join('\n');
+                
+                embed.addFields({
+                    name: `📎 Attachments (${attachmentUrls.length} total)`,
+                    value: attachmentInfo.slice(0, 1024),
+                    inline: false
+                });
+                
+                // Set first image as embed thumbnail if available
+                const firstImage = attachmentUrls.find(att => 
+                    att.contentType?.startsWith('image/')
+                );
+                if (firstImage) {
+                    embed.setImage(firstImage.url);
+                }
+            }
             
-            await logChannels.moderation.send({ embeds: [embed] });
+            embed.addFields({
+                name: '⚠️ Action Required',
+                value: '<@&1425240787544965301> Please review and take action',
+                inline: false
+            });
+            
+            embed.setTimestamp();
+            embed.setFooter({ text: 'Auto-moderation: Awaiting review' });
+            
+            // Create action buttons
+            const unbanButton = new ButtonBuilder()
+                .setCustomId(`unban_${message.author.id}`)
+                .setLabel('Not Spam - Restore Access')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('✅');
+            
+            const ignoreButton = new ButtonBuilder()
+                .setCustomId(`ignore_${message.author.id}`)
+                .setLabel('Confirmed Spam - Keep Deleted')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🚫');
+            
+            const row = new ActionRowBuilder()
+                .addComponents(unbanButton, ignoreButton);
+            
+            // Send with ping
+            await logChannels.moderation.send({
+                content: `<@&1425240787544965301> Cross-channel spam detected - requires review`,
+                embeds: [embed],
+                components: [row]
+            });
+            
+            // Re-upload the actual attachment files (if they're small enough)
+            if (attachmentFiles.length > 0) {
+                try {
+                    const attachmentChannelMap = new Map();
+                    attachmentUrls.forEach(att => {
+                        if (!attachmentChannelMap.has(att.url)) {
+                            attachmentChannelMap.set(att.url, []);
+                        }
+                        const channel = message.guild.channels.cache.get(att.channelId);
+                        if (channel) {
+                            attachmentChannelMap.get(att.url).push(channel.name);
+                        }
+                    });
+                    
+                    const fileDetails = attachmentUrls.map(att => {
+                        const channels = attachmentChannelMap.get(att.url) || [];
+                        return `**${att.name}**\nPosted in: ${channels.join(', ')}`;
+                    }).join('\n\n');
+                    
+                    await logChannels.moderation.send({
+                        content: `**📦 Deleted Files from ${message.author.tag}:**\n\n${fileDetails.slice(0, 1900)}`,
+                        files: attachmentFiles
+                    });
+                } catch (error) {
+                    console.error('Error re-uploading attachments:', error);
+                    const urlList = attachmentUrls.map(att => 
+                        `${att.name}: ${att.url}`
+                    ).join('\n');
+                    
+                    await logChannels.moderation.send({
+                        content: `⚠️ Could not re-upload files, but here are the original URLs (may expire):\n\`\`\`${urlList.slice(0, 1900)}\`\`\``
+                    });
+                }
+            }
         }
         
         // Warn the user via DM
@@ -2297,5 +2416,114 @@ process.on('SIGTERM', async () => {
     setTimeout(() => process.exit(0), 2000);
 });
 
+// Button interaction handler for spam review
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isButton()) return;
+    
+    const [action, userId] = interaction.customId.split('_');
+    
+    if (action === 'unban' || action === 'ignore') {
+        try {
+            // Get the user
+            const targetUser = await client.users.fetch(userId).catch(() => null);
+            const guild = interaction.guild;
+            const member = await guild.members.fetch(userId).catch(() => null);
+            
+            // Get original embed
+            const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+            
+            if (action === 'unban') {
+                // User was not actually banned, just messages deleted
+                // Send them an apology/notification
+                originalEmbed.setColor('#00ff00');
+                originalEmbed.setTitle('✅ Spam Review - Not Spam');
+                
+                // Update the action required field
+                const actionFieldIndex = originalEmbed.data.fields.findIndex(f => f.name === '⚠️ Action Required');
+                if (actionFieldIndex !== -1) {
+                    originalEmbed.data.fields[actionFieldIndex] = {
+                        name: '✅ Resolution',
+                        value: `Reviewed by ${interaction.user.tag} - **Not spam**\nUser has been notified.`,
+                        inline: false
+                    };
+                }
+                
+                originalEmbed.setFooter({ 
+                    text: `Reviewed by ${interaction.user.tag} (${interaction.user.id}) - Marked as not spam` 
+                });
+                originalEmbed.setTimestamp();
+                
+                // Notify the user
+                if (targetUser) {
+                    try {
+                        await targetUser.send({
+                            embeds: [new EmbedBuilder()
+                                .setColor('#00ff00')
+                                .setTitle('✅ Spam Review Complete')
+                                .setDescription(`Your messages in **${guild.name}** have been reviewed by a moderator.`)
+                                .addFields(
+                                    { name: 'Result', value: 'Not spam - False positive', inline: false },
+                                    { name: 'Status', value: 'Your account is in good standing', inline: false }
+                                )
+                                .addFields({
+                                    name: '💡 Note',
+                                    value: 'While your content wasn\'t spam, please avoid posting the same content in multiple channels to prevent future automatic removals.',
+                                    inline: false
+                                })
+                                .setTimestamp()
+                            ]
+                        });
+                    } catch (error) {
+                        console.log(`Could not DM ${targetUser.tag} about review`);
+                    }
+                }
+                
+                await interaction.reply({
+                    content: `✅ Marked as **not spam** by ${interaction.user}. User has been notified.`,
+                    ephemeral: true
+                });
+                
+            } else if (action === 'ignore') {
+                // Confirmed spam - just update embed
+                originalEmbed.setColor('#8b0000');
+                originalEmbed.setTitle('🚫 Spam Review - Confirmed Spam');
+                
+                // Update the action required field
+                const actionFieldIndex = originalEmbed.data.fields.findIndex(f => f.name === '⚠️ Action Required');
+                if (actionFieldIndex !== -1) {
+                    originalEmbed.data.fields[actionFieldIndex] = {
+                        name: '🚫 Resolution',
+                        value: `Reviewed by ${interaction.user.tag} - **Confirmed spam**\nMessages remain deleted.`,
+                        inline: false
+                    };
+                }
+                
+                originalEmbed.setFooter({ 
+                    text: `Reviewed by ${interaction.user.tag} (${interaction.user.id}) - Confirmed as spam` 
+                });
+                originalEmbed.setTimestamp();
+                
+                await interaction.reply({
+                    content: `🚫 Marked as **spam** by ${interaction.user}. Messages remain deleted.`,
+                    ephemeral: true
+                });
+            }
+            
+            // Update the message with new embed and remove buttons
+            await interaction.message.edit({
+                content: interaction.message.content,
+                embeds: [originalEmbed],
+                components: [] // Remove buttons after action is taken
+            });
+            
+        } catch (error) {
+            console.error('Error handling spam review button:', error);
+            await interaction.reply({
+                content: '❌ Error processing action. Please check logs.',
+                ephemeral: true
+            });
+        }
+    }
+});
 
 client.login(config.token);
