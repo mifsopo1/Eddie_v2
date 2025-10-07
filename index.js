@@ -33,7 +33,7 @@ function loadMemberInvites() {
             Object.entries(data).forEach(([userId, inviteData]) => {
                 memberInvites.set(userId, inviteData);
             });
-            console.log(`Loaded ${memberInvites.size} member invite records`);
+            console.log(`✅ Loaded ${memberInvites.size} member invite records`);
         }
     } catch (error) {
         console.error('Error loading member invites:', error);
@@ -518,67 +518,22 @@ function getSpamReasonText(reason) {
     return reasons[reason] || 'Unknown spam type';
 }
 
-function getGitVersion() {
-    try {
-        // Get current branch
-        const branch = execSync('git rev-parse --abbrev-ref HEAD')
-            .toString()
-            .trim();
-        
-        // Get current commit hash (short)
-        const commit = execSync('git rev-parse --short HEAD')
-            .toString()
-            .trim();
-        
-        // Get commit date
-        const commitDate = execSync('git log -1 --format=%cd --date=short')
-            .toString()
-            .trim();
-        
-        // Check if there are uncommitted changes
-        const hasChanges = execSync('git status --porcelain')
-            .toString()
-            .trim().length > 0;
-        
-        return {
-            branch: branch,
-            commit: commit,
-            date: commitDate,
-            dirty: hasChanges,
-            full: `${branch}@${commit}${hasChanges ? '*' : ''}`
-        };
-    } catch (error) {
-        console.log('⚠️ Could not read git version (not a git repository?)');
-        return {
-            branch: 'unknown',
-            commit: 'unknown',
-            date: 'unknown',
-            dirty: false,
-            full: 'Not a git repository'
-        };
-    }
-}
-
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
     
-    // Get git version info
-    const gitVersion = getGitVersion();
-    
     console.log('='.repeat(50));
-    console.log(`Bot: ${client.user.tag}`);
-    console.log(`Bot ID: ${client.user.id}`);
-    console.log(`Servers: ${client.guilds.cache.size}`);
+    console.log(`🤖 Bot: ${client.user.tag}`);
+    console.log(`🆔 Bot ID: ${client.user.id}`);
+    console.log(`🌐 Servers: ${client.guilds.cache.size}`);
     
     // Count total users across all servers
     let totalUsers = 0;
     client.guilds.cache.forEach(guild => {
         totalUsers += guild.memberCount;
     });
-    console.log(`Total Users: ${totalUsers.toLocaleString()}`);
-    console.log(`Node Version: ${process.version}`);
-    console.log(`Discord.js Version: ${require('discord.js').version}`);
-    console.log(`Git Version: ${gitVersion.full}`);
+    console.log(`👥 Total Users: ${totalUsers.toLocaleString()}`);
+    console.log(`⚙️ Node Version: ${process.version}`);
+    console.log(`📦 Discord.js Version: ${require('discord.js').version}`);
     console.log('='.repeat(50));
     
     // Load member invites
@@ -590,9 +545,9 @@ client.once('ready', async () => {
         const channel = await client.channels.fetch(channelId).catch(() => null);
         if (channel) {
             logChannels[key] = channel;
-            console.log(`✓ ${key} log channel found: #${channel.name}`);
+            console.log(`  ✓ ${key} → #${channel.name}`);
         } else {
-            console.log(`✗ ${key} log channel not found (ID: ${channelId})`);
+            console.log(`  ✗ ${key} → Not found (${channelId})`);
         }
     }
     
@@ -601,7 +556,7 @@ client.once('ready', async () => {
     for (const guild of client.guilds.cache.values()) {
         const invites = await guild.invites.fetch();
         serverInvites.set(guild.id, new Map(invites.map(invite => [invite.code, invite.uses])));
-        console.log(`✓ Cached ${invites.size} invites for ${guild.name}`);
+        console.log(`  ✓ ${guild.name}: ${invites.size} invites`);
     }
     
     console.log('\n' + '='.repeat(50));
@@ -614,22 +569,24 @@ client.once('ready', async () => {
         if (notifChannel) {
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
-                .setTitle('🤖 Eddie Bot Online')
-                .setDescription('Bot has successfully started up and is now monitoring the server.')
+                .setTitle('🟢 Bot Started Successfully')
+                .setDescription(`**${client.user.tag}** is now online and ready!`)
                 .addFields(
-                    { name: 'Status', value: '✅ All systems operational', inline: true },
-                    { name: 'Servers', value: client.guilds.cache.size.toString(), inline: true },
-                    { name: 'Total Users', value: totalUsers.toLocaleString(), inline: true }
+                    { name: '🕐 Started At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+                    { name: '📊 Servers', value: client.guilds.cache.size.toString(), inline: true },
+                    { name: '👥 Total Users', value: totalUsers.toLocaleString(), inline: true }
                 )
                 .addFields(
-                    { name: 'Node Version', value: process.version, inline: true },
-                    { name: 'Discord.js', value: require('discord.js').version, inline: true },
-                    { name: 'Git Version', value: `\`${gitVersion.full}\``, inline: true }
+                    { name: '⚙️ Node Version', value: process.version, inline: true },
+                    { name: '📦 Discord.js', value: require('discord.js').version, inline: true },
+                    { name: '💾 Memory', value: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`, inline: true }
                 )
-                .setTimestamp();
+                .setThumbnail(client.user.displayAvatarURL())
+                .setTimestamp()
+                .setFooter({ text: 'System Status' });
             
             await notifChannel.send({ embeds: [embed] });
-            console.log('✓ Startup notification sent to #' + notifChannel.name);
+            console.log(`✓ Startup notification sent to #${notifChannel.name}\n`);
         }
     }
 });
@@ -778,8 +735,7 @@ client.on('messageCreate', async message => {
                     } catch (error) {
                         console.error('Error sending image files:', error);
                         // If sending fails, just send the URLs
-                        const urlList = images.map((attData, i) => 
-                            `${i + 1}. [${attData.attachment.name}](${attData.attachment.url})`
+                        const urlList = images.map((attData, i) => `${i + 1}. [${attData.attachment.name}](${attData.attachment.url})`
                         ).join('\n');
                         await logChannels.attachments.send({
                             content: `**Images from ${firstMsg.author.tag}** (URLs):\n${urlList}`
