@@ -520,27 +520,47 @@ function getSpamReasonText(reason) {
 
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
+    console.log('='.repeat(50));
+    console.log(`Bot: ${client.user.tag}`);
+    console.log(`Bot ID: ${client.user.id}`);
+    console.log(`Servers: ${client.guilds.cache.size}`);
+    
+    // Count total users across all servers
+    let totalUsers = 0;
+    client.guilds.cache.forEach(guild => {
+        totalUsers += guild.memberCount;
+    });
+    console.log(`Total Users: ${totalUsers.toLocaleString()}`);
+    console.log(`Node Version: ${process.version}`);
+    console.log(`Discord.js Version: ${require('discord.js').version}`);
+    console.log('='.repeat(50));
     
     // Load member invites
     loadMemberInvites();
     
     // Get log channels
+    console.log('\n📋 Loading log channels...');
     for (const [key, channelId] of Object.entries(config.logChannels)) {
         const channel = await client.channels.fetch(channelId).catch(() => null);
         if (channel) {
             logChannels[key] = channel;
-            console.log(`✓ ${key} log channel found`);
+            console.log(`✓ ${key} log channel found: #${channel.name}`);
         } else {
-            console.log(`✗ ${key} log channel not found`);
+            console.log(`✗ ${key} log channel not found (ID: ${channelId})`);
         }
     }
     
     // Cache invites for all guilds
+    console.log('\n🔗 Caching invites...');
     for (const guild of client.guilds.cache.values()) {
         const invites = await guild.invites.fetch();
         serverInvites.set(guild.id, new Map(invites.map(invite => [invite.code, invite.uses])));
-        console.log(`Cached ${invites.size} invites for ${guild.name}`);
+        console.log(`✓ Cached ${invites.size} invites for ${guild.name}`);
     }
+    
+    console.log('\n' + '='.repeat(50));
+    console.log('✅ Bot is ready and monitoring!');
+    console.log('='.repeat(50) + '\n');
     
     // Send startup notification if enabled
     if (config.startupNotification && config.startupNotification.enabled) {
@@ -548,16 +568,22 @@ client.once('ready', async () => {
         if (notifChannel) {
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
-                .setTitle('🤖 Bot Online')
-                .setDescription('Eddie Bot has successfully started up and is now monitoring the server.')
+                .setTitle('🤖 Eddie Bot Online')
+                .setDescription('Bot has successfully started up and is now monitoring the server.')
                 .addFields(
                     { name: 'Status', value: '✅ All systems operational', inline: true },
-                    { name: 'Guilds', value: client.guilds.cache.size.toString(), inline: true }
+                    { name: 'Servers', value: client.guilds.cache.size.toString(), inline: true },
+                    { name: 'Total Users', value: totalUsers.toLocaleString(), inline: true }
+                )
+                .addFields(
+                    { name: 'Node Version', value: process.version, inline: true },
+                    { name: 'Discord.js', value: require('discord.js').version, inline: true },
+                    { name: 'Uptime', value: 'Just started', inline: true }
                 )
                 .setTimestamp();
             
             await notifChannel.send({ embeds: [embed] });
-            console.log('✓ Startup notification sent');
+            console.log('✓ Startup notification sent to #' + notifChannel.name);
         }
     }
 });
