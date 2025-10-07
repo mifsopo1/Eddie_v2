@@ -213,32 +213,44 @@ async function handleSpammer(message, spamData) {
     const userData = userSpamTracking.get(message.author.id);
     
     try {
-        // Collect attachment URLs BEFORE deleting messages
+        // Collect attachment URLs AND download them BEFORE deleting messages
         const attachmentUrls = [];
         const attachmentFiles = [];
+        
+        console.log('📎 Collecting attachments before deletion...');
         
         for (const msg of spamData.messages) {
             try {
                 const channel = message.guild.channels.cache.get(msg.channelId);
                 if (channel) {
                     const targetMessage = await channel.messages.fetch(msg.messageId).catch(() => null);
-                    if (targetMessage) {
-                        // Save attachments before deletion
-                        if (targetMessage.attachments.size > 0) {
-                            targetMessage.attachments.forEach(att => {
-                                attachmentUrls.push({
-                                    url: att.url,
-                                    name: att.name,
-                                    size: att.size,
-                                    contentType: att.contentType,
-                                    channelId: msg.channelId
-                                });
-                                
-                                // If small enough, save for re-upload (8MB Discord limit)
-                                if (att.size < 8388608) {
-                                    attachmentFiles.push(att.url);
-                                }
+                    if (targetMessage && targetMessage.attachments.size > 0) {
+                        for (const att of targetMessage.attachments.values()) {
+                            attachmentUrls.push({
+                                url: att.url,
+                                name: att.name,
+                                size: att.size,
+                                contentType: att.contentType,
+                                channelId: msg.channelId
                             });
+                            
+                            // If small enough, download it NOW (before deletion)
+                            if (att.size < 8388608) { // 8MB limit
+                                try {
+                                    console.log(`⬇️ Downloading ${att.name} (${(att.size / 1024).toFixed(2)} KB)...`);
+                                    const response = await fetch(att.url);
+                                    const buffer = await response.arrayBuffer();
+                                    
+                                    attachmentFiles.push({
+                                        attachment: Buffer.from(buffer),
+                                        name: att.name
+                                    });
+                                    console.log(`✅ Downloaded ${att.name}`);
+                                } catch (downloadError) {
+                                    console.error(`❌ Failed to download ${att.name}:`, downloadError);
+                                    // Fall back to URL if download fails
+                                }
+                            }
                         }
                     }
                 }
@@ -247,7 +259,9 @@ async function handleSpammer(message, spamData) {
             }
         }
         
-        // NOW delete the messages
+        console.log(`📦 Collected ${attachmentFiles.length} files to re-upload`);
+        
+        // NOW delete the messages (after we've downloaded attachments)
         let deletedCount = 0;
         const deletedChannels = new Set();
         
@@ -329,7 +343,6 @@ async function handleSpammer(message, spamData) {
             // Add attachment info if any
             if (attachmentUrls.length > 0) {
                 const attachmentInfo = attachmentUrls.slice(0, 5).map(att => {
-                    const channel = message.guild.channels.cache.get(att.channelId);
                     const size = (att.size / 1024).toFixed(2);
                     return `📎 **${att.name}** (${size} KB) - <#${att.channelId}>`;
                 }).join('\n');
@@ -351,7 +364,7 @@ async function handleSpammer(message, spamData) {
             
             embed.addFields({
                 name: '⚠️ Action Required',
-                value: '<@&1425240787544965301> Please review and take action',
+                value: '<@&645744514576809984> Please review and take action',
                 inline: false
             });
             
@@ -359,61 +372,72 @@ async function handleSpammer(message, spamData) {
             embed.setFooter({ text: 'Auto-moderation: Awaiting review' });
             
             // Create action buttons
-            const unbanButton = new ButtonBuilder()
-                .setCustomId(`unban_${message.author.id}`)
+            const banButton = new ButtonBuilder()
+                .setCustomId(`ban_${message.author.id}`)
+                .setLabel('Confirmed Spam - BAN User')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🔨');
+            
+            const ignoreButton = new ButtonBuilder()
+                .setCustomId(`ignore_${message.author.id}`)
                 .setLabel('Not Spam - Restore Access')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('✅');
             
-            const ignoreButton = new ButtonBuilder()
-                .setCustomId(`ignore_${message.author.id}`)
-                .setLabel('Confirmed Spam - Keep Deleted')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('🚫');
-            
             const row = new ActionRowBuilder()
-                .addComponents(unbanButton, ignoreButton);
+                .addComponents(banButton, ignoreButton);
             
             // Send with ping
-            await logChannels.moderation.send({
-                content: `<@&1425240787544965301> Cross-channel spam detected - requires review`,
+            const alertMessage = await logChannels.moderation.send({
+                content: `<@&645744514576809984> Cross-channel spam detected - requires review`,
                 embeds: [embed],
                 components: [row]
             });
             
-            // Re-upload the actual attachment files (if they're small enough)
+            // Re-upload the actual attachment files
             if (attachmentFiles.length > 0) {
                 try {
                     const attachmentChannelMap = new Map();
                     attachmentUrls.forEach(att => {
-                        if (!attachmentChannelMap.has(att.url)) {
-                            attachmentChannelMap.set(att.url, []);
+                        if (!attachmentChannelMap.has(att.name)) {
+                            attachmentChannelMap.set(att.name, []);
                         }
                         const channel = message.guild.channels.cache.get(att.channelId);
                         if (channel) {
-                            attachmentChannelMap.get(att.url).push(channel.name);
+                            attachmentChannelMap.get(att.name).push(channel.name);
                         }
                     });
                     
-                    const fileDetails = attachmentUrls.map(att => {
-                        const channels = attachmentChannelMap.get(att.url) || [];
-                        return `**${att.name}**\nPosted in: ${channels.join(', ')}`;
+                    const fileDetails = Array.from(attachmentChannelMap.entries()).map(([name, channels]) => {
+                        return `**${name}**\nPosted in: ${channels.join(', ')}`;
                     }).join('\n\n');
                     
+                    console.log(`📤 Uploading ${attachmentFiles.length} files...`);
                     await logChannels.moderation.send({
                         content: `**📦 Deleted Files from ${message.author.tag}:**\n\n${fileDetails.slice(0, 1900)}`,
                         files: attachmentFiles
                     });
+                    console.log(`✅ Successfully uploaded ${attachmentFiles.length} files`);
                 } catch (error) {
-                    console.error('Error re-uploading attachments:', error);
+                    console.error('❌ Error re-uploading attachments:', error);
+                    // If re-upload fails, at least send the URLs
                     const urlList = attachmentUrls.map(att => 
                         `${att.name}: ${att.url}`
                     ).join('\n');
                     
                     await logChannels.moderation.send({
-                        content: `⚠️ Could not re-upload files, but here are the original URLs (may expire):\n\`\`\`${urlList.slice(0, 1900)}\`\`\``
+                        content: `⚠️ Could not re-upload files, here are the original URLs:\n\`\`\`${urlList.slice(0, 1900)}\`\`\``
                     });
                 }
+            } else if (attachmentUrls.length > 0) {
+                // Had attachments but couldn't download them
+                const urlList = attachmentUrls.map(att => 
+                    `${att.name} (${(att.size / 1024).toFixed(2)} KB): ${att.url}`
+                ).join('\n');
+                
+                await logChannels.moderation.send({
+                    content: `⚠️ Attachments were too large or couldn't be downloaded. Original URLs:\n\`\`\`${urlList.slice(0, 1900)}\`\`\``
+                });
             }
         }
         
@@ -431,7 +455,7 @@ async function handleSpammer(message, spamData) {
                     )
                     .addFields({
                         name: '💡 Tip',
-                        value: 'Please post your content in only one appropriate channel. Cross-posting is considered spam.',
+                        value: 'Please post your content in only one appropriate channel. Cross-posting is considered spam.\n\n⚠️ Your case is under review by moderators.',
                         inline: false
                     })
                     .setTimestamp()
@@ -2422,9 +2446,11 @@ client.on('interactionCreate', async interaction => {
     
     const [action, userId] = interaction.customId.split('_');
     
-    if (action === 'unban' || action === 'ignore') {
+    if (action === 'ban' || action === 'ignore') {
         try {
-            // Get the user
+            // Defer the reply since banning might take a moment
+            await interaction.deferReply({ ephemeral: true });
+            
             const targetUser = await client.users.fetch(userId).catch(() => null);
             const guild = interaction.guild;
             const member = await guild.members.fetch(userId).catch(() => null);
@@ -2432,9 +2458,79 @@ client.on('interactionCreate', async interaction => {
             // Get original embed
             const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
             
-            if (action === 'unban') {
-                // User was not actually banned, just messages deleted
-                // Send them an apology/notification
+            if (action === 'ban') {
+                // BAN THE USER
+                if (!member) {
+                    await interaction.editReply({
+                        content: '❌ User is no longer in the server. Cannot ban.',
+                    });
+                    return;
+                }
+                
+                try {
+                    // Try to DM them before banning
+                    if (targetUser) {
+                        try {
+                            await targetUser.send({
+                                embeds: [new EmbedBuilder()
+                                    .setColor('#ff0000')
+                                    .setTitle('🔨 You have been banned')
+                                    .setDescription(`You have been banned from **${guild.name}** for spam.`)
+                                    .addFields(
+                                        { name: 'Reason', value: 'Cross-channel spam (Confirmed by moderator)', inline: false },
+                                        { name: 'Reviewed By', value: interaction.user.tag, inline: false }
+                                    )
+                                    .addFields({
+                                        name: 'Appeal',
+                                        value: 'You can submit an appeal here:\n[Click to submit appeal form](https://docs.google.com/forms/d/e/1FAIpQLSe8xo6UfTjTGCuc-1VxWx1s-bnGIhUuRDLUNFxWmC7uzUZATw/viewform?usp=dialog)',
+                                        inline: false
+                                    })
+                                    .setTimestamp()
+                                ]
+                            });
+                        } catch (dmError) {
+                            console.log(`Could not DM ${targetUser.tag} about ban`);
+                        }
+                    }
+                    
+                    // BAN
+                    await member.ban({
+                        reason: `Confirmed spam by ${interaction.user.tag} - Cross-channel posting`,
+                        deleteMessageSeconds: 60 * 60 * 24 // Delete last 24h of messages
+                    });
+                    
+                    originalEmbed.setColor('#8b0000');
+                    originalEmbed.setTitle('🔨 Spam Review - USER BANNED');
+                    
+                    // Update the action required field
+                    const actionFieldIndex = originalEmbed.data.fields.findIndex(f => f.name === '⚠️ Action Required');
+                    if (actionFieldIndex !== -1) {
+                        originalEmbed.data.fields[actionFieldIndex] = {
+                            name: '🔨 Resolution',
+                            value: `Reviewed by ${interaction.user.tag}\n**Action: BANNED**\nReason: Confirmed spam`,
+                            inline: false
+                        };
+                    }
+                    
+                    originalEmbed.setFooter({ 
+                        text: `Banned by ${interaction.user.tag} (${interaction.user.id}) at ${new Date().toLocaleString()}` 
+                    });
+                    originalEmbed.setTimestamp();
+                    
+                    await interaction.editReply({
+                        content: `🔨 **${targetUser?.tag || 'User'}** has been **BANNED** by ${interaction.user}.`,
+                    });
+                    
+                } catch (banError) {
+                    console.error('Error banning user:', banError);
+                    await interaction.editReply({
+                        content: `❌ Failed to ban user: ${banError.message}`,
+                    });
+                    return;
+                }
+                
+            } else if (action === 'ignore') {
+                // NOT SPAM - Clear and notify
                 originalEmbed.setColor('#00ff00');
                 originalEmbed.setTitle('✅ Spam Review - Not Spam');
                 
@@ -2443,13 +2539,13 @@ client.on('interactionCreate', async interaction => {
                 if (actionFieldIndex !== -1) {
                     originalEmbed.data.fields[actionFieldIndex] = {
                         name: '✅ Resolution',
-                        value: `Reviewed by ${interaction.user.tag} - **Not spam**\nUser has been notified.`,
+                        value: `Reviewed by ${interaction.user.tag}\n**Action: Cleared - Not spam**\nUser has been notified.`,
                         inline: false
                     };
                 }
                 
                 originalEmbed.setFooter({ 
-                    text: `Reviewed by ${interaction.user.tag} (${interaction.user.id}) - Marked as not spam` 
+                    text: `Cleared by ${interaction.user.tag} (${interaction.user.id}) at ${new Date().toLocaleString()}` 
                 });
                 originalEmbed.setTimestamp();
                 
@@ -2463,6 +2559,7 @@ client.on('interactionCreate', async interaction => {
                                 .setDescription(`Your messages in **${guild.name}** have been reviewed by a moderator.`)
                                 .addFields(
                                     { name: 'Result', value: 'Not spam - False positive', inline: false },
+                                    { name: 'Reviewed By', value: interaction.user.tag, inline: false },
                                     { name: 'Status', value: 'Your account is in good standing', inline: false }
                                 )
                                 .addFields({
@@ -2478,49 +2575,22 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
                 
-                await interaction.reply({
+                await interaction.editReply({
                     content: `✅ Marked as **not spam** by ${interaction.user}. User has been notified.`,
-                    ephemeral: true
-                });
-                
-            } else if (action === 'ignore') {
-                // Confirmed spam - just update embed
-                originalEmbed.setColor('#8b0000');
-                originalEmbed.setTitle('🚫 Spam Review - Confirmed Spam');
-                
-                // Update the action required field
-                const actionFieldIndex = originalEmbed.data.fields.findIndex(f => f.name === '⚠️ Action Required');
-                if (actionFieldIndex !== -1) {
-                    originalEmbed.data.fields[actionFieldIndex] = {
-                        name: '🚫 Resolution',
-                        value: `Reviewed by ${interaction.user.tag} - **Confirmed spam**\nMessages remain deleted.`,
-                        inline: false
-                    };
-                }
-                
-                originalEmbed.setFooter({ 
-                    text: `Reviewed by ${interaction.user.tag} (${interaction.user.id}) - Confirmed as spam` 
-                });
-                originalEmbed.setTimestamp();
-                
-                await interaction.reply({
-                    content: `🚫 Marked as **spam** by ${interaction.user}. Messages remain deleted.`,
-                    ephemeral: true
                 });
             }
             
             // Update the message with new embed and remove buttons
             await interaction.message.edit({
-                content: interaction.message.content,
+                content: `~~<@&645744514576809984> Cross-channel spam detected - requires review~~ **RESOLVED**`,
                 embeds: [originalEmbed],
                 components: [] // Remove buttons after action is taken
             });
             
         } catch (error) {
             console.error('Error handling spam review button:', error);
-            await interaction.reply({
-                content: '❌ Error processing action. Please check logs.',
-                ephemeral: true
+            await interaction.editReply({
+                content: `❌ Error processing action: ${error.message}`,
             });
         }
     }
