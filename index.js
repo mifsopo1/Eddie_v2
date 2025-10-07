@@ -403,7 +403,7 @@ async function handleSpammer(message, spamData) {
             
             embed.addFields({
                 name: '⚠️ Action Required',
-                value: '<@&645744514576809984> Please review: **Ban** or **Unmute**?',
+                value: '<@&1425260355420160100> Please review: **Ban** or **Unmute**?',
                 inline: false
             });
             
@@ -428,7 +428,7 @@ async function handleSpammer(message, spamData) {
             
             // Send with ping
             await logChannels.moderation.send({
-                content: `<@&645744514576809984> Cross-channel spam detected - User has been **muted**. Please review:`,
+                content: `<@&1425260355420160100> Cross-channel spam detected - User has been **muted**. Please review:`,
                 embeds: [embed],
                 components: [row]
             });
@@ -950,7 +950,7 @@ client.on('interactionCreate', async interaction => {
             
             // Update the message
             await interaction.message.edit({
-                content: `~~<@&645744514576809984> Cross-channel spam detected - User has been **muted**. Please review:~~ **RESOLVED**`,
+                content: `~~<@&1425260355420160100> Cross-channel spam detected - User has been **muted**. Please review:~~ **RESOLVED**`,
                 embeds: [originalEmbed],
                 components: []
             });
