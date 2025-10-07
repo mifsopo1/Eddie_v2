@@ -751,7 +751,7 @@ client.on('messageCreate', async message => {
                 
                 // Wait a moment to collect all messages before processing
                 setTimeout(async () => {
-                    await handleSpammer(message, spamawait handleSpammer(message, spamData);
+                    await handleSpammer(message, spamData);
                     spamReportCooldown.delete(userId); // Clear cooldown after handling
                 }, 2000); // 2 second delay to collect all spam messages
             } else {
