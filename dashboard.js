@@ -38,17 +38,18 @@ class Dashboard {
         }));
         
         this.app.use(express.static('public'));
-
-        this.app.use(express.static('public'));
-
-// EJS Configuration
-this.app.set('view engine', 'ejs');
-this.app.set('views', path.join(__dirname, 'views'));
-this.app.engine('ejs', (filePath, options, callback) => {
-    options.filename = filePath;
-    options.root = path.join(__dirname, 'views');
-    return ejs.renderFile(filePath, options, callback);
-});
+        
+        // EJS Configuration
+        this.app.set('view engine', 'ejs');
+        this.app.set('views', path.join(__dirname, 'views'));
+        
+        // Custom EJS engine with proper include support
+        this.app.engine('ejs', (filePath, options, callback) => {
+            options.filename = filePath;
+            options.views = [path.join(__dirname, 'views')];
+            options.root = path.join(__dirname, 'views');
+            return ejs.renderFile(filePath, options, callback);
+        });
     }
 
     requireAuth(req, res, next) {
