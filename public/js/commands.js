@@ -251,20 +251,25 @@ function handleEveryoneRole(listId) {
     }
 }
 
-// Update response type visibility
+// Update response type visibility (for both create and edit forms)
 function updateResponseType() {
-    const responseType = document.getElementById('responseType').value;
+    const isEdit = event.target.id.includes('edit_');
+    const prefix = isEdit ? 'edit_' : '';
     
-    document.getElementById('textResponse').style.display = 'none';
-    document.getElementById('embedResponse').style.display = 'none';
-    document.getElementById('reactionResponse').style.display = 'none';
+    const responseType = document.getElementById(prefix + 'responseType').value;
+    
+    document.getElementById(prefix + 'textResponse').style.display = 'none';
+    document.getElementById(prefix + 'embedResponse').style.display = 'none';
+    document.getElementById(prefix + 'reactionResponse').style.display = 'none';
     
     if (responseType === 'text' || responseType === 'dm' || responseType === 'multiple') {
-        document.getElementById('textResponse').style.display = 'block';
-    } else if (responseType === 'embed') {
-        document.getElementById('embedResponse').style.display = 'block';
-    } else if (responseType === 'react' || responseType === 'multiple') {
-        document.getElementById('reactionResponse').style.display = 'block';
+        document.getElementById(prefix + 'textResponse').style.display = 'block';
+    }
+    if (responseType === 'embed') {
+        document.getElementById(prefix + 'embedResponse').style.display = 'block';
+    }
+    if (responseType === 'react' || responseType === 'multiple') {
+        document.getElementById(prefix + 'reactionResponse').style.display = 'block';
     }
 }
 

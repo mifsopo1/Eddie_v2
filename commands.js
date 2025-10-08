@@ -2218,6 +2218,91 @@ class CommandHandler {
             message.reply('❌ There was an error executing that command!');
         }
     }
+
+    // Load command data into edit form
+async function editCommand(commandId) {
+    try {
+        const response = await fetch(`/api/commands/${commandId}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            alert('Error loading command: ' + data.error);
+            return;
+        }
+        
+        const command = data.command;
+        
+        // Populate form fields
+        document.getElementById('edit_id').value = command._id;
+        document.getElementById('edit_name').value = command.name;
+        document.getElementById('edit_category').value = command.category || 'general';
+        document.getElementById('edit_description').value = command.description || '';
+        document.getElementById('edit_triggerType').value = command.triggerType || 'command';
+        
+        // Handle trigger (array or string)
+        const trigger = Array.isArray(command.trigger) ? command.trigger.join(', ') : command.trigger;
+        document.getElementById('edit_trigger').value = trigger;
+        
+        document.getElementById('edit_responseType').value = command.responseType || 'text';
+        document.getElementById('edit_response').value = command.response || '';
+        
+        // Embed fields
+        document.getElementById('edit_embedTitle').value = command.embedTitle || '';
+        document.getElementById('edit_embedDescription').value = command.embedDescription || '';
+        document.getElementById('edit_embedColor').value = command.embedColor || '#5865f2';
+        document.getElementById('edit_embedFooter').value = command.embedFooter || '';
+        
+        // Reaction
+        document.getElementById('edit_reactionEmoji').value = command.reactionEmoji || '';
+        
+        // Checkboxes
+        document.getElementById('edit_enabled').checked = command.enabled !== false;
+        document.getElementById('edit_deleteTrigger').checked = command.deleteTrigger === true;
+        
+        // Update form action
+        document.getElementById('editForm').action = `/commands/edit/${commandId}`;
+        
+        // Show correct response type fields
+        updateEditResponseType();
+        
+        // Show modal
+        document.getElementById('editModal').style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading command:', error);
+        alert('Error loading command: ' + error.message);
+    }
 }
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
+function updateEditResponseType() {
+    const responseType = document.getElementById('edit_responseType').value;
+    
+    document.getElementById('edit_textResponse').style.display = 'none';
+    document.getElementById('edit_embedResponse').style.display = 'none';
+    document.getElementById('edit_reactionResponse').style.display = 'none';
+    
+    if (responseType === 'text' || responseType === 'dm' || responseType === 'multiple') {
+        document.getElementById('edit_textResponse').style.display = 'block';
+    }
+    if (responseType === 'embed') {
+        document.getElementById('edit_embedResponse').style.display = 'block';
+    }
+    if (responseType === 'react' || responseType === 'multiple') {
+        document.getElementById('edit_reactionResponse').style.display = 'block';
+    }
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('editModal');
+    if (event.target === modal) {
+        closeEditModal();
+    }
+}
+
 
 module.exports = CommandHandler;

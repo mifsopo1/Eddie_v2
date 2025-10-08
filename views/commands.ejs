@@ -279,7 +279,10 @@
                                     </span>
                                 </div>
                                 <div class="command-actions">
-                                    <button class="btn-icon" onclick="toggleCommand('<%= cmd._id %>')" title="Toggle Enable/Disable">
+                                    <button class="btn-icon" onclick="editCommand('<%= cmd._id %>')" title="Edit">
+                                        ✏️
+                                    </button>
+                                    <button class="btn-icon toggle" onclick="toggleCommand('<%= cmd._id %>')" title="Toggle Enable/Disable">
                                         <%= cmd.enabled ? '⏸️' : '▶️' %>
                                     </button>
                                     <button class="btn-icon delete" onclick="if(confirm('Delete this command?')) { window.location.href='/commands/delete/<%= cmd._id %>' }" title="Delete Command">
@@ -314,6 +317,127 @@
                     </div>
                 <% } %>
             </div>
+        </div>
+    </div>
+
+    <!-- Edit Command Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ Edit Command</h2>
+                <span class="close" onclick="closeEditModal()">&times;</span>
+            </div>
+            <form id="editForm" method="POST">
+                <input type="hidden" id="edit_id" name="id">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Command Name *</label>
+                        <input type="text" id="edit_name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="edit_category" name="category">
+                            <option value="general">General</option>
+                            <option value="fun">Fun</option>
+                            <option value="moderation">Moderation</option>
+                            <option value="info">Info</option>
+                            <option value="utility">Utility</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="edit_description" name="description">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Trigger Type</label>
+                        <select id="edit_triggerType" name="triggerType" onchange="updateTriggerHelp()">
+                            <option value="command">Command (!trigger)</option>
+                            <option value="exact">Exact Match</option>
+                            <option value="contains">Contains Word/Phrase</option>
+                            <option value="startswith">Starts With</option>
+                            <option value="regex">Regex Pattern</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Trigger(s) *</label>
+                        <input type="text" id="edit_trigger" name="trigger" required>
+                        <small id="edit_triggerHelp" class="help-text">Separate multiple with commas</small>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Response Type</label>
+                    <select id="edit_responseType" name="responseType" onchange="updateResponseType()">
+                        <option value="text">Text Message</option>
+                        <option value="embed">Embed</option>
+                        <option value="react">Reaction Only</option>
+                        <option value="multiple">Text + Reaction</option>
+                        <option value="dm">DM User</option>
+                    </select>
+                </div>
+                
+                <div id="edit_textResponse" class="form-group">
+                    <label>Response Text</label>
+                    <textarea id="edit_response" name="response" rows="4"></textarea>
+                    <small>Variables: {user}, {user.mention}, {channel}, {server}, {args}</small>
+                </div>
+                
+                <div id="edit_embedResponse" style="display: none;">
+                    <div class="form-group">
+                        <label>Embed Title</label>
+                        <input type="text" id="edit_embedTitle" name="embedTitle">
+                    </div>
+                    <div class="form-group">
+                        <label>Embed Description</label>
+                        <textarea id="edit_embedDescription" name="embedDescription" rows="4"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Embed Color</label>
+                            <input type="color" id="edit_embedColor" name="embedColor" value="#5865f2">
+                        </div>
+                        <div class="form-group">
+                            <label>Footer Text</label>
+                            <input type="text" id="edit_embedFooter" name="embedFooter">
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="edit_reactionResponse" style="display: none;">
+                    <div class="form-group">
+                        <label>Reaction Emoji</label>
+                        <input type="text" id="edit_reactionEmoji" name="reactionEmoji" placeholder="👍 or custom:emojiname">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="edit_enabled" name="enabled">
+                            Enabled
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="edit_deleteTrigger" name="deleteTrigger">
+                            Delete Trigger Message
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -387,6 +511,110 @@
                 }
             } catch (error) {
                 alert('Error: ' + error.message);
+            }
+        }
+
+        // Edit command function
+        async function editCommand(id) {
+            try {
+                // Fetch command data
+                const response = await fetch(`/commands/get/${id}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const cmd = result.command;
+                    
+                    // Populate form fields
+                    document.getElementById('edit_id').value = cmd._id;
+                    document.getElementById('edit_name').value = cmd.name;
+                    document.getElementById('edit_category').value = cmd.category || 'general';
+                    document.getElementById('edit_description').value = cmd.description || '';
+                    document.getElementById('edit_triggerType').value = cmd.triggerType || 'command';
+                    document.getElementById('edit_trigger').value = Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger;
+                    document.getElementById('edit_responseType').value = cmd.responseType || 'text';
+                    document.getElementById('edit_response').value = cmd.response || '';
+                    document.getElementById('edit_enabled').checked = cmd.enabled;
+                    document.getElementById('edit_deleteTrigger').checked = cmd.deleteTrigger || false;
+                    
+                    // Handle embed fields if they exist
+                    if (cmd.embedTitle) document.getElementById('edit_embedTitle').value = cmd.embedTitle;
+                    if (cmd.embedDescription) document.getElementById('edit_embedDescription').value = cmd.embedDescription;
+                    if (cmd.embedColor) document.getElementById('edit_embedColor').value = cmd.embedColor;
+                    if (cmd.embedFooter) document.getElementById('edit_embedFooter').value = cmd.embedFooter;
+                    if (cmd.reactionEmoji) document.getElementById('edit_reactionEmoji').value = cmd.reactionEmoji;
+                    
+                    // Update form action
+                    document.getElementById('editForm').action = `/commands/edit/${cmd._id}`;
+                    
+                    // Show/hide response type sections
+                    updateResponseType();
+                    
+                    // Show modal
+                    document.getElementById('editModal').style.display = 'block';
+                } else {
+                    alert('Error loading command: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Close modal
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        // Update response type visibility
+        function updateResponseType() {
+            const responseType = document.getElementById('edit_responseType').value;
+            const textResponse = document.getElementById('edit_textResponse');
+            const embedResponse = document.getElementById('edit_embedResponse');
+            const reactionResponse = document.getElementById('edit_reactionResponse');
+            
+            textResponse.style.display = 'none';
+            embedResponse.style.display = 'none';
+            reactionResponse.style.display = 'none';
+            
+            if (responseType === 'text' || responseType === 'dm' || responseType === 'multiple') {
+                textResponse.style.display = 'block';
+            }
+            if (responseType === 'embed') {
+                embedResponse.style.display = 'block';
+            }
+            if (responseType === 'react' || responseType === 'multiple') {
+                reactionResponse.style.display = 'block';
+            }
+        }
+
+        // Update trigger help text
+        function updateTriggerHelp() {
+            const triggerType = document.getElementById('edit_triggerType').value;
+            const helpText = document.getElementById('edit_triggerHelp');
+            
+            switch(triggerType) {
+                case 'command':
+                    helpText.textContent = 'Separate multiple with commas (e.g., hello, hi, hey)';
+                    break;
+                case 'exact':
+                    helpText.textContent = 'Exact phrase match (case-insensitive)';
+                    break;
+                case 'contains':
+                    helpText.textContent = 'Triggers if message contains this text';
+                    break;
+                case 'startswith':
+                    helpText.textContent = 'Triggers if message starts with this text';
+                    break;
+                case 'regex':
+                    helpText.textContent = 'Advanced: Use regex pattern (e.g., /hello|hi/i)';
+                    break;
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target == modal) {
+                closeEditModal();
             }
         }
 

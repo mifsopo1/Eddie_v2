@@ -640,6 +640,71 @@ class Dashboard {
             }
         });
 
+        // Get single command (API)
+this.app.get('/api/commands/:id', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const command = await this.mongoLogger.db.collection('customCommands')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        if (!command) {
+            return res.json({ success: false, error: 'Command not found' });
+        }
+        
+        res.json({ success: true, command });
+    } catch (error) {
+        console.error('Get command error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Update command
+this.app.post('/commands/edit/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const triggers = req.body.trigger.split(',').map(t => t.trim().toLowerCase());
+        
+        const updateData = {
+            name: req.body.name,
+            category: req.body.category || 'general',
+            description: req.body.description || '',
+            triggerType: req.body.triggerType || 'command',
+            trigger: triggers.length === 1 ? triggers[0] : triggers,
+            responseType: req.body.responseType || 'text',
+            response: req.body.response || '',
+            enabled: req.body.enabled === 'on',
+            deleteTrigger: req.body.deleteTrigger === 'on',
+            updatedAt: new Date()
+        };
+        
+        // Add embed fields if response type is embed
+        if (req.body.responseType === 'embed') {
+            updateData.embedTitle = req.body.embedTitle || '';
+            updateData.embedDescription = req.body.embedDescription || '';
+            updateData.embedColor = req.body.embedColor || '#5865f2';
+            updateData.embedFooter = req.body.embedFooter || '';
+        }
+        
+        // Add reaction emoji if applicable
+        if (req.body.responseType === 'react' || req.body.responseType === 'multiple') {
+            updateData.reactionEmoji = req.body.reactionEmoji || '';
+        }
+        
+        await this.mongoLogger.db.collection('customCommands')
+            .updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: updateData }
+            );
+        
+        req.flash('success', `Command "${req.body.name}" updated!`);
+        res.redirect('/commands');
+    } catch (error) {
+        console.error('Update command error:', error);
+        req.flash('error', 'Error updating command');
+        res.redirect('/commands');
+    }
+});
+
         this.app.get('/commands/delete/:id', this.requireAdmin.bind(this), async (req, res) => {
             try {
                 const { ObjectId } = require('mongodb');
