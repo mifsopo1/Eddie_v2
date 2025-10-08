@@ -909,3 +909,215 @@ textarea {
 .mt-3 { margin-top: 2rem; }
 .mb-3 { margin-bottom: 2rem; }
 
+/* Attachments Grid */
+.attachments-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.attachment-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.attachment-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(88, 101, 242, 0.5);
+    box-shadow: 0 8px 24px rgba(88, 101, 242, 0.2);
+}
+
+.attachment-card-header {
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid var(--border);
+}
+
+.file-type-badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.file-type-badge.image {
+    background: rgba(67, 181, 129, 0.2);
+    color: var(--success);
+}
+
+.file-type-badge.video {
+    background: rgba(88, 101, 242, 0.2);
+    color: var(--primary);
+}
+
+.file-type-badge.audio {
+    background: rgba(250, 166, 26, 0.2);
+    color: var(--warning);
+}
+
+.file-type-badge.file {
+    background: rgba(153, 170, 181, 0.2);
+    color: #99aab5;
+}
+
+.attachment-card-preview {
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.attachment-card-preview a {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.attachment-card-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.attachment-card-preview img:hover {
+    transform: scale(1.05);
+}
+
+.attachment-card-placeholder {
+    width: 100%;
+    height: 200px;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.placeholder-icon {
+    font-size: 4rem;
+    opacity: 0.5;
+}
+
+.placeholder-text {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 0 1rem;
+    word-break: break-word;
+}
+
+.attachment-card-content {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.attachment-filename {
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    word-break: break-word;
+}
+
+.attachment-user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.user-avatar-tiny {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+}
+
+.user-link {
+    color: #00b0f4;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.user-link:hover {
+    text-decoration: underline;
+}
+
+.attachment-metadata {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.attachment-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+}
+
+.btn-small {
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    flex: 1;
+    text-align: center;
+}
+
+.btn-small.btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+}
+
+.btn-small.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+}
+
+.btn-small.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.btn-small.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Responsive adjustments for attachments */
+@media (max-width: 768px) {
+    .attachments-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .attachment-card-preview {
+        height: 250px;
+    }
+}
