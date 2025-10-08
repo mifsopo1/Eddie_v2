@@ -584,6 +584,43 @@ this.app.get('/analytics', this.requireAuth.bind(this), async (req, res) => {
     }
 });
 
+// Execute command manually
+this.app.post('/execute', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { channelId, command } = req.body;
+        
+        if (!channelId || !command) {
+            return res.json({ success: false, error: 'Missing channel or command' });
+        }
+        
+        // Get the channel
+        const channel = await this.client.channels.fetch(channelId).catch(() => null);
+        
+        if (!channel) {
+            return res.json({ success: false, error: 'Channel not found' });
+        }
+        
+        if (!channel.isTextBased()) {
+            return res.json({ success: false, error: 'Channel is not a text channel' });
+        }
+        
+        // Send the command
+        await channel.send(command);
+        
+        res.json({ 
+            success: true, 
+            message: `Command executed in #${channel.name}` 
+        });
+        
+    } catch (error) {
+        console.error('Execute command error:', error);
+        res.json({ 
+            success: false, 
+            error: error.message || 'Failed to execute command' 
+        });
+    }
+});
+
         // ============================================
 // CUSTOM COMMANDS PAGE
 // ============================================
@@ -800,25 +837,49 @@ this.app.get('/api/channels', this.requireAuth.bind(this), async (req, res) => {
             return res.json({ success: false, error: 'No guild found' });
         }
         
-        // Fetch all channels to ensure we get everything
         await guild.channels.fetch();
         
         const channels = guild.channels.cache
-            .filter(c => c.isTextBased() && c.type !== 4) // Exclude categories (type 4)
+            .filter(c => c.isTextBased() && c.type !== 4)
             .map(c => ({
                 id: c.id,
                 name: c.name,
                 type: c.type,
-                position: c.position,
-                parentId: c.parentId
+                position: c.position
             }))
             .sort((a, b) => a.position - b.position);
-        
-        console.log(`✅ API: Loaded ${channels.length} channels`);
         
         res.json({ success: true, channels });
     } catch (error) {
         console.error('Error fetching channels:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Get all roles
+this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        const guild = this.client.guilds.cache.first();
+        
+        if (!guild) {
+            return res.json({ success: false, error: 'No guild found' });
+        }
+        
+        await guild.roles.fetch();
+        
+        const roles = guild.roles.cache
+            .filter(r => r.name !== '@everyone')
+            .map(r => ({
+                id: r.id,
+                name: r.name,
+                color: r.hexColor,
+                position: r.position
+            }))
+            .sort((a, b) => b.position - a.position);
+        
+        res.json({ success: true, roles });
+    } catch (error) {
+        console.error('Error fetching roles:', error);
         res.json({ success: false, error: error.message });
     }
 });
