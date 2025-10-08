@@ -3,19 +3,18 @@ const fs = require('fs');
 
 class CommandHandler {
     constructor(client, config) {
-    this.client = client;
-    this.config = config;
-    this.prefix = config.prefix || '!';
-    this.commands = new Map();
-    this.warnings = new Map();
-    this.afkUsers = new Map();
-    
-    this.loadWarnings();
-    this.registerCommands();
-    
-    // ADD THIS DEBUG LINE:
-    console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
-}
+        this.client = client;
+        this.config = config;
+        this.prefix = config.prefix || '!';
+        this.commands = new Map();
+        this.warnings = new Map();
+        this.afkUsers = new Map();
+        
+        this.loadWarnings();
+        this.registerCommands();
+        
+        console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
+    }
 
     registerCommands() {
         // Help Command
@@ -26,7 +25,6 @@ class CommandHandler {
             aliases: ['h', 'commands'],
             execute: async (message, args) => {
                 if (args[0]) {
-                    // Show specific command help
                     const cmd = this.commands.get(args[0].toLowerCase()) || 
                                Array.from(this.commands.values()).find(c => c.aliases?.includes(args[0].toLowerCase()));
                     
@@ -50,7 +48,6 @@ class CommandHandler {
                     return message.reply({ embeds: [embed] });
                 }
                 
-                // Show all commands
                 const embed = new EmbedBuilder()
                     .setColor('#3498db')
                     .setTitle('📚 Bot Commands')
@@ -58,7 +55,6 @@ class CommandHandler {
                     .setFooter({ text: `Requested by ${message.author.tag}` })
                     .setTimestamp();
                 
-                // Group commands by category
                 const categories = {
                     'Moderation': [],
                     'Information': [],
@@ -156,7 +152,6 @@ class CommandHandler {
                 const target = message.mentions.members.first() || message.member;
                 const user = target.user;
                 
-                // Load invite data
                 let inviteInfo = '';
                 try {
                     const memberInvites = JSON.parse(fs.readFileSync('member-invites.json', 'utf8'));
@@ -322,6 +317,139 @@ class CommandHandler {
             }
         });
 
+        // Warn Command
+        this.commands.set('warn', {
+            name: 'warn',
+            description: 'Warn a user',
+            usage: '!warn @user [reason]',
+            aliases: [],
+            category: 'Moderation',
+            permissions: ['ModerateMembers'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+                    return message.reply('❌ You need **Moderate Members** permission!');
+                }
+                
+                const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user to warn!');
+                }
+                
+                const reason = args.slice(1).join(' ') || 'No reason provided';
+                
+                const userWarnings = this.warnings.get(target.id) || [];
+                userWarnings.push({
+                    moderator: message.author.id,
+                    reason: reason,
+                    timestamp: Date.now()
+                });
+                this.warnings.set(target.id, userWarnings);
+                this.saveWarnings();
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#ff9900')
+                    .setTitle('⚠️ User Warned')
+                    .addFields(
+                        { name: 'User', value: `${target.user.tag}`, inline: true },
+                        { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                        { name: 'Total Warnings', value: userWarnings.length.toString(), inline: true },
+                        { name: 'Reason', value: reason, inline: false }
+                    )
+                    .setTimestamp();
+                
+                await message.reply({ embeds: [embed] });
+                
+                try {
+                    await target.send(`You have been warned in **${message.guild.name}**\nReason: ${reason}\nTotal warnings: ${userWarnings.length}`);
+                } catch (error) {
+                    console.log(`Could not DM ${target.user.tag}`);
+                }
+            }
+        });
+
+        // Warnings Command
+        this.commands.set('warnings', {
+            name: 'warnings',
+            description: 'View warnings for a user',
+            usage: '!warnings @user',
+            aliases: ['warns'],
+            category: 'Moderation',
+            permissions: ['ModerateMembers'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+                    return message.reply('❌ You need **Moderate Members** permission!');
+                }
+                
+                const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user to check warnings!');
+                }
+                
+                const userWarnings = this.warnings.get(target.id) || [];
+                
+                if (userWarnings.length === 0) {
+                    return message.reply(`✅ ${target.user.tag} has no warnings!`);
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#ff9900')
+                    .setTitle(`⚠️ Warnings for ${target.user.tag}`)
+                    .setDescription(`Total Warnings: ${userWarnings.length}`)
+                    .setTimestamp();
+                
+                userWarnings.forEach((warn, index) => {
+                    embed.addFields({
+                        name: `Warning #${index + 1}`,
+                        value: `**Moderator:** <@${warn.moderator}>\n**Reason:** ${warn.reason}\n**Date:** <t:${Math.floor(warn.timestamp / 1000)}:R>`,
+                        inline: false
+                    });
+                });
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Clear Warnings Command
+        this.commands.set('clearwarnings', {
+            name: 'clearwarnings',
+            description: 'Clear all warnings for a user',
+            usage: '!clearwarnings @user',
+            aliases: ['clearwarns'],
+            category: 'Moderation',
+            permissions: ['Administrator'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+                    return message.reply('❌ You need **Administrator** permission!');
+                }
+                
+                const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user to clear warnings!');
+                }
+                
+                const userWarnings = this.warnings.get(target.id) || [];
+                
+                if (userWarnings.length === 0) {
+                    return message.reply(`✅ ${target.user.tag} has no warnings to clear!`);
+                }
+                
+                this.warnings.delete(target.id);
+                this.saveWarnings();
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#00ff00')
+                    .setTitle('✅ Warnings Cleared')
+                    .addFields(
+                        { name: 'User', value: `${target.user.tag}`, inline: true },
+                        { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                        { name: 'Warnings Cleared', value: userWarnings.length.toString(), inline: true }
+                    )
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
         // Mute Command
         this.commands.set('mute', {
             name: 'mute',
@@ -340,7 +468,6 @@ class CommandHandler {
                     return message.reply('❌ Please mention a user to mute!');
                 }
                 
-                // Get or create Muted role
                 let mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
                 if (!mutedRole) {
                     mutedRole = await message.guild.roles.create({
@@ -349,7 +476,6 @@ class CommandHandler {
                         permissions: []
                     });
                     
-                    // Set permissions for all channels
                     message.guild.channels.cache.forEach(async (channel) => {
                         await channel.permissionOverwrites.create(mutedRole, {
                             SendMessages: false,
@@ -506,6 +632,27 @@ class CommandHandler {
         });
     }
 
+    loadWarnings() {
+        try {
+            if (fs.existsSync('warnings.json')) {
+                const data = JSON.parse(fs.readFileSync('warnings.json', 'utf8'));
+                this.warnings = new Map(Object.entries(data));
+                console.log(`✅ Loaded ${this.warnings.size} user warnings`);
+            }
+        } catch (error) {
+            console.error('Error loading warnings:', error);
+        }
+    }
+
+    saveWarnings() {
+        try {
+            const data = Object.fromEntries(this.warnings);
+            fs.writeFileSync('warnings.json', JSON.stringify(data, null, 2));
+        } catch (error) {
+            console.error('Error saving warnings:', error);
+        }
+    }
+
     formatUptime(ms) {
         const seconds = Math.floor(ms / 1000);
         const minutes = Math.floor(seconds / 60);
@@ -522,41 +669,26 @@ class CommandHandler {
         const args = message.content.slice(this.prefix.length).trim().split(/ +/);
         const commandName = args.shift().toLowerCase();
         
+        console.log(`🔍 Command received: "${commandName}" from ${message.author.tag}`);
+        console.log(`📝 Args:`, args);
+        
         const command = this.commands.get(commandName) || 
                        Array.from(this.commands.values()).find(cmd => cmd.aliases?.includes(commandName));
         
-        if (!command) return;
+        if (!command) {
+            console.log(`❌ Command not found: ${commandName}`);
+            return;
+        }
+        
+        console.log(`✅ Command found: ${command.name}`);
         
         try {
             await command.execute(message, args);
+            console.log(`✅ Command executed successfully: ${command.name}`);
         } catch (error) {
-            console.error(`Error executing command ${commandName}:`, error);
+            console.error(`❌ Error executing command ${commandName}:`, error);
             message.reply('❌ There was an error executing that command!');
         }
-    }
-}
-
-module.exports = CommandHandler;).toLowerCase();
-    
-    console.log(`🔍 Command received: "${commandName}" from ${message.author.tag}`);
-    console.log(`📝 Args:`, args);
-    
-    const command = this.commands.get(commandName) || 
-                   Array.from(this.commands.values()).find(cmd => cmd.aliases?.includes(commandName));
-    
-    if (!command) {
-        console.log(`❌ Command not found: ${commandName}`);
-        return;
-    }
-    
-    console.log(`✅ Command found: ${command.name}`);
-    
-    try {
-        await command.execute(message, args);
-        console.log(`✅ Command executed successfully: ${command.name}`);
-    } catch (error) {
-        console.error(`❌ Error executing command ${commandName}:`, error);
-        message.reply('❌ There was an error executing that command!');
     }
 }
 
