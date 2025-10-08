@@ -39,16 +39,22 @@ class Dashboard {
         
         this.app.use(express.static('public'));
         
-        // EJS Configuration
+        // EJS Configuration - Complete rewrite
+        const viewsPath = path.join(__dirname, 'views');
         this.app.set('view engine', 'ejs');
-        this.app.set('views', path.join(__dirname, 'views'));
+        this.app.set('views', viewsPath);
         
-        // Custom EJS engine with proper include support
-        this.app.engine('ejs', (filePath, options, callback) => {
-            options.filename = filePath;
-            options.views = [path.join(__dirname, 'views')];
-            options.root = path.join(__dirname, 'views');
-            return ejs.renderFile(filePath, options, callback);
+        // Remove any custom engine and let Express use EJS defaults
+        // But we need to pass includeFile function manually
+        this.app.use((req, res, next) => {
+            const originalRender = res.render;
+            res.render = function(view, options, callback) {
+                options = options || {};
+                options.filename = path.join(viewsPath, view + '.ejs');
+                options.includeFile = ejs.includeFile;
+                return originalRender.call(this, view, options, callback);
+            };
+            next();
         });
     }
 
