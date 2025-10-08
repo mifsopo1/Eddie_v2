@@ -15,6 +15,10 @@ const client = new Client({
     ]
 });
 
+// Create command handler AFTER client
+const CommandHandler = require('./commands');
+const commandHandler = new CommandHandler(client, config);
+
 // Store log channels
 const logChannels = {};
 
@@ -593,6 +597,12 @@ client.once('ready', async () => {
 
 // Message Create Event
 client.on('messageCreate', async message => {
+    // ===== COMMAND HANDLER - MUST BE FIRST =====
+    if (!message.author.bot && message.guild) {
+        await commandHandler.handleCommand(message);
+    }
+    
+    // ===== EXISTING CODE BELOW =====
     if (message.author.bot) return;
     if (!message.guild) return;
 
