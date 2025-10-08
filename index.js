@@ -44,7 +44,7 @@ const customCommandCooldowns = {
 };
 
 // Attachments directory
-const ATTACHMENTS_DIR = path.join(__dirname, 'saved-attachments');
+const ATTACHMENTS_DIR = '/var/lib/jenkins/discord-logger-bot/saved-attachments';
 
 // Create attachments directory if it doesn't exist
 if (!fs.existsSync(ATTACHMENTS_DIR)) {
