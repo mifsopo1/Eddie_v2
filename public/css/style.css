@@ -414,4 +414,279 @@ body {
         flex-direction: column;
         text-align: center;
     }
+
+/* Analytics Page Styles */
+.chart-container {
+    background: #2c2c2c;
+    padding: 2rem;
+    border-radius: 10px;
+    margin: 2rem 0;
+}
+
+.chart-container h2 {
+    margin-bottom: 1rem;
+    color: #5865f2;
+}
+
+.leaderboard-section {
+    margin: 3rem 0;
+}
+
+.leaderboard {
+    background: #2c2c2c;
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.leaderboard-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: #383838;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s;
+}
+
+.leaderboard-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 8px rgba(88, 101, 242, 0.3);
+}
+
+.leaderboard-item.rank-1 {
+    border-left: 4px solid #ffd700;
+}
+
+.leaderboard-item.rank-2 {
+    border-left: 4px solid #c0c0c0;
+}
+
+.leaderboard-item.rank-3 {
+    border-left: 4px solid #cd7f32;
+}
+
+.rank-badge {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #5865f2;
+    min-width: 50px;
+    text-align: center;
+}
+
+.leaderboard-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+}
+
+.leaderboard-info {
+    flex: 1;
+}
+
+.leaderboard-name {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #fff;
+    text-decoration: none;
+}
+
+.leaderboard-name:hover {
+    color: #5865f2;
+}
+
+.leaderboard-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #72767d;
+    margin-top: 0.25rem;
+}
+
+.leaderboard-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(88, 101, 242, 0.1) 0%, rgba(88, 101, 242, 0) 100%);
+    z-index: 0;
+}
+
+.channels-section {
+    margin: 3rem 0;
+}
+
+.channels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.channel-card {
+    background: #2c2c2c;
+    padding: 1.5rem;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+}
+
+.channel-name {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 0.5rem;
+}
+
+.channel-count {
+    color: #5865f2;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.channel-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    background: #5865f2;
+}
+
+.invite-section {
+    margin: 3rem 0;
+}
+
+.attachment-section {
+    margin: 3rem 0;
+}
+
+.file-types {
+    background: #2c2c2c;
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.file-type-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem;
+    background: #383838;
+    margin-bottom: 0.5rem;
+    border-radius: 5px;
+}
+
+.file-type-name {
+    color: #fff;
+    font-weight: bold;
+}
+
+.file-type-count,
+.file-type-size {
+    color: #72767d;
+}
+
+.top-uploaders {
+    background: #2c2c2c;
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.uploader-item {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+    background: #383838;
+    margin-bottom: 0.5rem;
+    border-radius: 5px;
+}
+
+.uploader-rank {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #5865f2;
+    min-width: 40px;
+}
+
+.uploader-name {
+    flex: 1;
+    color: #fff;
+    text-decoration: none;
+}
+
+.uploader-name:hover {
+    color: #5865f2;
+}
+
+.uploader-count,
+.uploader-size {
+    color: #72767d;
+}
+
+.new-accounts-section {
+    margin: 3rem 0;
+}
+
+.new-accounts-list {
+    background: #2c2c2c;
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.new-account-item {
+    background: #383838;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 5px;
+    border-left: 4px solid #ff9900;
+}
+
+.account-info {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.account-info a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.account-age {
+    color: #ff9900;
+    font-size: 0.9rem;
+}
+
+.join-info {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #72767d;
+}
+
+.stat-value.positive {
+    color: #43b581;
+}
+
+.stat-value.negative {
+    color: #ed4245;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    background: #2c2c2c;
+    border-radius: 10px;
+    margin: 2rem 0;
+}
+
+.empty-state h2 {
+    color: #72767d;
+    margin-bottom: 1rem;
 }

@@ -537,6 +537,49 @@ class Dashboard {
         });
     }
 
+            // Analytics page
+        this.app.get('/analytics', this.requireAuth.bind(this), async (req, res) => {
+            try {
+                if (!this.mongoLogger || !this.mongoLogger.connected) {
+                    return res.status(500).send('MongoDB not connected. <a href="/">Go back</a>');
+                }
+                
+                const [
+                    analytics,
+                    topUsers,
+                    inviteStats,
+                    timeline,
+                    attachmentStats,
+                    newAccounts
+                ] = await Promise.all([
+                    this.mongoLogger.getServerAnalytics(),
+                    this.mongoLogger.getTopUsers(7, 15),
+                    this.mongoLogger.getInviteStats(),
+                    this.mongoLogger.getMessageTimeline(14),
+                    this.mongoLogger.getAttachmentStats(),
+                    this.mongoLogger.getNewAccountJoins(7)
+                ]);
+                
+                res.render('analytics', {
+                    analytics: analytics || {},
+                    topUsers: topUsers || [],
+                    inviteStats: inviteStats || [],
+                    timeline: timeline || [],
+                    attachmentStats: attachmentStats || {},
+                    newAccounts: newAccounts || [],
+                    client: this.client
+                });
+            } catch (error) {
+                console.error('Analytics page error:', error);
+                res.status(500).send(`
+                    <h1>Error Loading Analytics</h1>
+                    <p>${error.message}</p>
+                    <pre>${error.stack}</pre>
+                    <a href="/">Go back</a>
+                `);
+            }
+        });
+
     start() {
         this.app.listen(this.port, () => {
             console.log(`🌐 Dashboard running at http://localhost:${this.port}`);

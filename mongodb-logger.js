@@ -443,6 +443,310 @@ class MongoDBLogger {
             console.log('MongoDB connection closed');
         }
     }
+
+        // ===== ANALYTICS METHODS =====
+    
+    async getServerAnalytics() {
+        if (!this.connected) return null;
+        
+        try {
+            const now = new Date();
+            const last24h = new Date(now - 86400000);
+            const last7d = new Date(now - 7 * 86400000);
+            const last30d = new Date(now - 30 * 86400000);
+            
+            const [
+                // Message stats
+                totalMessages,
+                messages24h,
+                messages7d,
+                messages30d,
+                
+                // Member stats
+                totalJoins,
+                joins24h,
+                joins7d,
+                leaves7d,
+                
+                // Activity stats
+                activeUsers24h,
+                activeUsers7d,
+                
+                // Channel stats
+                channelActivity,
+                
+                // Attachment stats
+                totalAttachments,
+                attachments24h,
+                imageAttachments,
+                
+                // Voice stats
+                voiceActivity24h,
+                
+                // Moderation stats
+                totalBans,
+                totalMutes,
+                recentModerationActions
+                
+            ] = await Promise.all([
+                // Messages
+                this.db.collection('messages').countDocuments({ eventType: 'create' }),
+                this.db.collection('messages').countDocuments({ eventType: 'create', timestamp: { $gte: last24h } }),
+                this.db.collection('messages').countDocuments({ eventType: 'create', timestamp: { $gte: last7d } }),
+                this.db.collection('messages').countDocuments({ eventType: 'create', timestamp: { $gte: last30d } }),
+                
+                // Members
+                this.db.collection('members').countDocuments({ eventType: 'join' }),
+                this.db.collection('members').countDocuments({ eventType: 'join', timestamp: { $gte: last24h } }),
+                this.db.collection('members').countDocuments({ eventType: 'join', timestamp: { $gte: last7d } }),
+                this.db.collection('members').countDocuments({ eventType: 'leave', timestamp: { $gte: last7d } }),
+                
+                // Activity
+                this.db.collection('messages').distinct('userId', { eventType: 'create', timestamp: { $gte: last24h } }),
+                this.db.collection('messages').distinct('userId', { eventType: 'create', timestamp: { $gte: last7d } }),
+                
+                // Channels
+                this.db.collection('messages').aggregate([
+                    { $match: { eventType: 'create', timestamp: { $gte: last7d } } },
+                    { $group: { _id: '$channelId', channelName: { $first: '$channelName' }, count: { $sum: 1 } } },
+                    { $sort: { count: -1 } },
+                    { $limit: 10 }
+                ]).toArray(),
+                
+                // Attachments
+                this.db.collection('attachments').countDocuments(),
+                this.db.collection('attachments').countDocuments({ timestamp: { $gte: last24h } }),
+                this.db.collection('attachments').countDocuments({ contentType: /^image\// }),
+                
+                // Voice
+                this.db.collection('voice').countDocuments({ timestamp: { $gte: last24h } }),
+                
+                // Moderation
+                this.db.collection('moderation').countDocuments({ actionType: 'ban' }),
+                this.db.collection('moderation').countDocuments({ actionType: { $in: ['mute', 'timeout'] } }),
+                this.db.collection('moderation').countDocuments({ timestamp: { $gte: last7d } })
+            ]);
+            
+            return {
+                messages: {
+                    total: totalMessages,
+                    last24h: messages24h,
+                    last7d: messages7d,
+                    last30d: messages30d,
+                    avgPerDay: Math.round(messages30d / 30)
+                },
+                members: {
+                    totalJoins: totalJoins,
+                    joins24h: joins24h,
+                    joins7d: joins7d,
+                    leaves7d: leaves7d,
+                    netGrowth7d: joins7d - leaves7d
+                },
+                activity: {
+                    activeUsers24h: activeUsers24h.length,
+                    activeUsers7d: activeUsers7d.length
+                },
+                channels: {
+                    topChannels: channelActivity
+                },
+                attachments: {
+                    total: totalAttachments,
+                    last24h: attachments24h,
+                    images: imageAttachments
+                },
+                voice: {
+                    activity24h: voiceActivity24h
+                },
+                moderation: {
+                    totalBans: totalBans,
+                    totalMutes: totalMutes,
+                    recent7d: recentModerationActions
+                }
+            };
+        } catch (error) {
+            console.error('Error getting server analytics:', error);
+            return null;
+        }
+    }
+    
+    async getTopUsers(timeframe = 7, limit = 10) {
+        if (!this.connected) return [];
+        
+        try {
+            const daysAgo = new Date(Date.now() - (timeframe * 86400000));
+            
+            const topUsers = await this.db.collection('messages').aggregate([
+                { 
+                    $match: { 
+                        eventType: 'create',
+                        timestamp: { $gte: daysAgo }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$userId',
+                        userName: { $first: '$userName' },
+                        userAvatar: { $first: '$userAvatar' },
+                        messageCount: { $sum: 1 },
+                        channels: { $addToSet: '$channelId' }
+                    }
+                },
+                {
+                    $project: {
+                        userId: '$_id',
+                        userName: 1,
+                        userAvatar: 1,
+                        messageCount: 1,
+                        channelCount: { $size: '$channels' }
+                    }
+                },
+                { $sort: { messageCount: -1 } },
+                { $limit: limit }
+            ]).toArray();
+            
+            return topUsers;
+        } catch (error) {
+            console.error('Error getting top users:', error);
+            return [];
+        }
+    }
+    
+    async getInviteStats() {
+        if (!this.connected) return [];
+        
+        try {
+            const inviteStats = await this.db.collection('members').aggregate([
+                { 
+                    $match: { 
+                        eventType: 'join',
+                        'inviteData.code': { $exists: true }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$inviteData.code',
+                        inviter: { $first: '$inviteData.inviter' },
+                        inviterId: { $first: '$inviteData.inviterId' },
+                        uses: { $sum: 1 },
+                        members: { $push: { id: '$userId', name: '$userName', timestamp: '$timestamp' } }
+                    }
+                },
+                { $sort: { uses: -1 } },
+                { $limit: 20 }
+            ]).toArray();
+            
+            return inviteStats;
+        } catch (error) {
+            console.error('Error getting invite stats:', error);
+            return [];
+        }
+    }
+    
+    async getMessageTimeline(days = 7) {
+        if (!this.connected) return [];
+        
+        try {
+            const daysAgo = new Date(Date.now() - (days * 86400000));
+            
+            const timeline = await this.db.collection('messages').aggregate([
+                { 
+                    $match: { 
+                        eventType: 'create',
+                        timestamp: { $gte: daysAgo }
+                    }
+                },
+                {
+                    $group: {
+                        _id: {
+                            $dateToString: { format: '%Y-%m-%d', date: '$timestamp' }
+                        },
+                        count: { $sum: 1 }
+                    }
+                },
+                { $sort: { _id: 1 } }
+            ]).toArray();
+            
+            return timeline;
+        } catch (error) {
+            console.error('Error getting message timeline:', error);
+            return [];
+        }
+    }
+    
+    async getAttachmentStats() {
+        if (!this.connected) return null;
+        
+        try {
+            const [
+                totalSize,
+                byType,
+                topUploaders
+            ] = await Promise.all([
+                // Total size
+                this.db.collection('attachments').aggregate([
+                    { $group: { _id: null, totalSize: { $sum: '$size' } } }
+                ]).toArray(),
+                
+                // By content type
+                this.db.collection('attachments').aggregate([
+                    {
+                        $group: {
+                            _id: '$contentType',
+                            count: { $sum: 1 },
+                            totalSize: { $sum: '$size' }
+                        }
+                    },
+                    { $sort: { count: -1 } },
+                    { $limit: 10 }
+                ]).toArray(),
+                
+                // Top uploaders
+                this.db.collection('attachments').aggregate([
+                    {
+                        $group: {
+                            _id: '$userId',
+                            userName: { $first: '$userName' },
+                            count: { $sum: 1 },
+                            totalSize: { $sum: '$size' }
+                        }
+                    },
+                    { $sort: { count: -1 } },
+                    { $limit: 10 }
+                ]).toArray()
+            ]);
+            
+            return {
+                totalSize: totalSize[0]?.totalSize || 0,
+                byType: byType,
+                topUploaders: topUploaders
+            };
+        } catch (error) {
+            console.error('Error getting attachment stats:', error);
+            return null;
+        }
+    }
+    
+    async getNewAccountJoins(daysOld = 7) {
+        if (!this.connected) return [];
+        
+        try {
+            const joins = await this.db.collection('members').aggregate([
+                { 
+                    $match: { 
+                        eventType: 'join',
+                        accountAgeDays: { $lte: daysOld }
+                    }
+                },
+                { $sort: { timestamp: -1 } },
+                { $limit: 50 }
+            ]).toArray();
+            
+            return joins;
+        } catch (error) {
+            console.error('Error getting new account joins:', error);
+            return [];
+        }
+    }
 }
 
 module.exports = MongoDBLogger;
