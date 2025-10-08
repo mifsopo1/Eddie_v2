@@ -11,8 +11,10 @@ class CommandHandler {
         this.afkUsers = new Map();
         this.reminders = new Map();
         this.logChannels = {}; // Store log channels reference
+        this.commandSettings = new Map(); // Store custom command settings
         
         this.loadWarnings();
+        this.loadCommandSettings();
         this.registerCommands();
         
         console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
@@ -33,6 +35,54 @@ class CommandHandler {
                 console.error('Error logging moderation action:', error);
             }
         }
+    }
+
+    // Load command settings from file
+    loadCommandSettings() {
+        try {
+            if (fs.existsSync('command-settings.json')) {
+                const data = JSON.parse(fs.readFileSync('command-settings.json', 'utf8'));
+                this.commandSettings = new Map(Object.entries(data));
+                console.log(`✅ Loaded custom settings for ${this.commandSettings.size} commands`);
+            }
+        } catch (error) {
+            console.error('Error loading command settings:', error);
+        }
+    }
+
+    // Save command settings to file
+    saveCommandSettings() {
+        try {
+            const data = Object.fromEntries(this.commandSettings);
+            fs.writeFileSync('command-settings.json', JSON.stringify(data, null, 2));
+        } catch (error) {
+            console.error('Error saving command settings:', error);
+        }
+    }
+
+    // Get custom message or use default
+    getCommandMessage(commandName, messageType, defaultMessage) {
+        const settings = this.commandSettings.get(commandName);
+        if (settings && settings.messages && settings.messages[messageType]) {
+            return settings.messages[messageType];
+        }
+        return defaultMessage;
+    }
+
+    // Check if DM should be sent
+    shouldSendDM(commandName) {
+        const settings = this.commandSettings.get(commandName);
+        if (settings && settings.dmUser !== undefined) {
+            return settings.dmUser;
+        }
+        return true; // Default: send DM
+    }
+
+    // Update command settings
+    updateCommandSettings(commandName, settings) {
+        const current = this.commandSettings.get(commandName) || {};
+        this.commandSettings.set(commandName, { ...current, ...settings });
+        this.saveCommandSettings();
     }
 
     registerCommands() {
@@ -239,7 +289,314 @@ class CommandHandler {
             }
         });
 
-        // ========== MODERATION COMMANDS WITH LOGGING ==========
+        // Role Info Command
+        this.commands.set('roleinfo', {
+            name: 'roleinfo',
+            description: 'Get detailed role information',
+            usage: '!roleinfo @role',
+            aliases: ['ri'],
+            category: 'Information',
+            execute: async (message, args) => {
+                const role = message.mentions.roles.first() || message.guild.roles.cache.get(args[0]);
+                
+                if (!role) {
+                    return message.reply('❌ Please mention a role or provide a role ID!');
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor(role.color || '#3498db')
+                    .setTitle(`🎭 Role Info: ${role.name}`)
+                    .addFields(
+                        { name: 'ID', value: role.id, inline: true },
+                        { name: 'Color', value: role.hexColor, inline: true },
+                        { name: 'Position', value: role.position.toString(), inline: true },
+                        { name: 'Members', value: role.members.size.toString(), inline: true },
+                        { name: 'Mentionable', value: role.mentionable ? 'Yes' : 'No', inline: true },
+                        { name: 'Hoisted', value: role.hoist ? 'Yes' : 'No', inline: true },
+                        { name: 'Created', value: `<t:${Math.floor(role.createdTimestamp / 1000)}:R>`, inline: true }
+                    )
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Roles Command
+        this.commands.set('roles', {
+            name: 'roles',
+            description: 'List all server roles',
+            usage: '!roles',
+            aliases: ['rolelist'],
+            category: 'Information',
+            execute: async (message) => {
+                const roles = message.guild.roles.cache
+                    .sort((a, b) => b.position - a.position)
+                    .filter(role => role.id !== message.guild.id);
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(`📋 Server Roles (${roles.size})`)
+                    .setDescription(`Total roles in **${message.guild.name}**`)
+                    .setTimestamp();
+                
+                const roleChunks = [];
+                let currentChunk = [];
+                let currentLength = 0;
+                
+                roles.forEach(role => {
+                    const memberCount = role.members.size;
+                    const roleText = `${role} - ${memberCount} member${memberCount !== 1 ? 's' : ''}`;
+                    
+                    if (currentLength + roleText.length > 1000) {
+                        roleChunks.push(currentChunk.join('\n'));
+                        currentChunk = [roleText];
+                        currentLength = roleText.length;
+                    } else {
+                        currentChunk.push(roleText);
+                        currentLength += roleText.length;
+                    }
+                });
+                
+                if (currentChunk.length > 0) {
+                    roleChunks.push(currentChunk.join('\n'));
+                }
+                
+                roleChunks.forEach((chunk, index) => {
+                    embed.addFields({
+                        name: index === 0 ? 'Roles' : '\u200b',
+                        value: chunk,
+                        inline: false
+                    });
+                });
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Emojis Command
+        this.commands.set('emojis', {
+            name: 'emojis',
+            description: 'List all server emojis',
+            usage: '!emojis',
+            aliases: ['emojilist'],
+            category: 'Information',
+            execute: async (message) => {
+                const emojis = message.guild.emojis.cache;
+                
+                if (emojis.size === 0) {
+                    return message.reply('❌ This server has no custom emojis!');
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(`😀 Server Emojis (${emojis.size})`)
+                    .setTimestamp();
+                
+                const emojiList = emojis.map(e => `${e} \`:${e.name}:\``).join(' ');
+                
+                if (emojiList.length > 4096) {
+                    embed.setDescription(emojiList.slice(0, 4090) + '...');
+                } else {
+                    embed.setDescription(emojiList);
+                }
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Channel Info Command
+        this.commands.set('channelinfo', {
+            name: 'channelinfo',
+            description: 'Get channel information',
+            usage: '!channelinfo [#channel]',
+            aliases: ['ci'],
+            category: 'Information',
+            execute: async (message, args) => {
+                const channel = message.mentions.channels.first() || message.channel;
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(`💬 Channel Info: ${channel.name}`)
+                    .addFields(
+                        { name: 'ID', value: channel.id, inline: true },
+                        { name: 'Type', value: channel.type.toString(), inline: true },
+                        { name: 'Created', value: `<t:${Math.floor(channel.createdTimestamp / 1000)}:R>`, inline: true }
+                    )
+                    .setTimestamp();
+                
+                if (channel.topic) {
+                    embed.addFields({ name: 'Topic', value: channel.topic, inline: false });
+                }
+                
+                if (channel.rateLimitPerUser) {
+                    embed.addFields({ name: 'Slowmode', value: `${channel.rateLimitPerUser}s`, inline: true });
+                }
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Member Count Command
+        this.commands.set('membercount', {
+            name: 'membercount',
+            description: 'Show member statistics',
+            usage: '!membercount',
+            aliases: ['members', 'mc'],
+            category: 'Information',
+            execute: async (message) => {
+                const guild = message.guild;
+                const members = guild.members.cache;
+                const bots = members.filter(m => m.user.bot).size;
+                const humans = members.size - bots;
+                const online = members.filter(m => m.presence?.status === 'online').size;
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle('👥 Member Statistics')
+                    .addFields(
+                        { name: 'Total Members', value: guild.memberCount.toString(), inline: true },
+                        { name: 'Humans', value: humans.toString(), inline: true },
+                        { name: 'Bots', value: bots.toString(), inline: true },
+                        { name: 'Online', value: online.toString(), inline: true }
+                    )
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Bot Permissions Command
+        this.commands.set('botperms', {
+            name: 'botperms',
+            description: 'Check bot permissions',
+            usage: '!botperms',
+            aliases: [],
+            category: 'Information',
+            execute: async (message) => {
+                const permissions = message.guild.members.me.permissions.toArray();
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle('🔐 Bot Permissions')
+                    .setDescription(permissions.map(p => `✅ ${p}`).join('\n'))
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Uptime Command
+        this.commands.set('uptime', {
+            name: 'uptime',
+            description: 'Show bot uptime',
+            usage: '!uptime',
+            aliases: [],
+            category: 'Information',
+            execute: async (message) => {
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle('⏱️ Bot Uptime')
+                    .setDescription(`Bot has been online for:\n**${this.formatUptime(this.client.uptime)}**`)
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Bans Command
+        this.commands.set('bans', {
+            name: 'bans',
+            description: 'List all banned users',
+            usage: '!bans',
+            aliases: ['banlist'],
+            category: 'Information',
+            permissions: ['BanMembers'],
+            execute: async (message) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+                    return message.reply('❌ You need **Ban Members** permission!');
+                }
+                
+                const bans = await message.guild.bans.fetch();
+                
+                if (bans.size === 0) {
+                    return message.reply('✅ No banned users!');
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#ff0000')
+                    .setTitle(`🔨 Banned Users (${bans.size})`)
+                    .setDescription(bans.map(ban => `**${ban.user.tag}** - ${ban.reason || 'No reason'}`).join('\n').slice(0, 4096))
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Invites Command
+        this.commands.set('invites', {
+            name: 'invites',
+            description: 'List all active invites',
+            usage: '!invites',
+            aliases: ['invitelist'],
+            category: 'Information',
+            permissions: ['ManageGuild'],
+            execute: async (message) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+                    return message.reply('❌ You need **Manage Server** permission!');
+                }
+                
+                const invites = await message.guild.invites.fetch();
+                
+                if (invites.size === 0) {
+                    return message.reply('❌ No active invites!');
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(`🔗 Active Invites (${invites.size})`)
+                    .setDescription(invites.map(inv => 
+                        `**${inv.code}** - ${inv.inviter?.tag || 'Unknown'} (${inv.uses || 0} uses)`
+                    ).join('\n').slice(0, 4096))
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Audit Log Command
+        this.commands.set('audit', {
+            name: 'audit',
+            description: 'View recent audit log entries',
+            usage: '!audit [amount]',
+            aliases: ['auditlog', 'logs'],
+            category: 'Information',
+            permissions: ['ViewAuditLog'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ViewAuditLog)) {
+                    return message.reply('❌ You need **View Audit Log** permission!');
+                }
+                
+                const limit = parseInt(args[0]) || 5;
+                const auditLogs = await message.guild.fetchAuditLogs({ limit: Math.min(limit, 10) });
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle('📋 Recent Audit Log')
+                    .setTimestamp();
+                
+                auditLogs.entries.forEach(entry => {
+                    embed.addFields({
+                        name: `${entry.action} by ${entry.executor.tag}`,
+                        value: `Target: ${entry.target?.tag || 'Unknown'}\n<t:${Math.floor(entry.createdTimestamp / 1000)}:R>`,
+                        inline: false
+                    });
+                });
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // ========== MODERATION COMMANDS ==========
 
         // Kick Command
         this.commands.set('kick', {
@@ -251,21 +608,20 @@ class CommandHandler {
             permissions: ['KickMembers'],
             execute: async (message, args) => {
                 if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) {
-                    return message.reply('❌ You need **Kick Members** permission!');
+                    return message.reply(this.getCommandMessage('kick', 'noPermission', '❌ You need **Kick Members** permission!'));
                 }
                 
                 const target = message.mentions.members.first();
                 if (!target) {
-                    return message.reply('❌ Please mention a user to kick!');
+                    return message.reply(this.getCommandMessage('kick', 'noTarget', '❌ Please mention a user to kick!'));
                 }
                 
                 if (!target.kickable) {
-                    return message.reply('❌ I cannot kick this user!');
+                    return message.reply(this.getCommandMessage('kick', 'cannotKick', '❌ I cannot kick this user!'));
                 }
                 
                 const reason = args.slice(1).join(' ') || 'No reason provided';
                 
-                // Get invite info before kicking
                 let inviteInfo = '';
                 try {
                     const memberInvites = JSON.parse(fs.readFileSync('member-invites.json', 'utf8'));
@@ -274,17 +630,17 @@ class CommandHandler {
                         inviteInfo = `**Invited by:** ${invite.inviter}\n**Invite Code:** \`${invite.code}\``;
                     }
                 } catch (error) {
-                    // File doesn't exist or error reading
+                    // File doesn't exist
                 }
                 
                 try {
-                    // Try to DM user before kicking
-                    await target.send(`You have been kicked from **${message.guild.name}**\nReason: ${reason}`).catch(() => {});
+                    if (this.shouldSendDM('kick')) {
+                        const dmMessage = this.getCommandMessage('kick', 'dmMessage', `You have been kicked from **${message.guild.name}**\nReason: ${reason}`);
+                        await target.send(dmMessage.replace('{server}', message.guild.name).replace('{reason}', reason)).catch(() => {});
+                    }
                     
-                    // Kick the user
                     await target.kick(reason);
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#ff6600')
                         .setTitle('👢 Member Kicked')
@@ -297,7 +653,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#ff6600')
                         .setTitle('👢 Member Kicked')
@@ -319,7 +674,7 @@ class CommandHandler {
                     
                 } catch (error) {
                     console.error('Error kicking user:', error);
-                    return message.reply('❌ Failed to kick user!');
+                    return message.reply(this.getCommandMessage('kick', 'error', '❌ Failed to kick user!'));
                 }
             }
         });
@@ -334,21 +689,20 @@ class CommandHandler {
             permissions: ['BanMembers'],
             execute: async (message, args) => {
                 if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-                    return message.reply('❌ You need **Ban Members** permission!');
+                    return message.reply(this.getCommandMessage('ban', 'noPermission', '❌ You need **Ban Members** permission!'));
                 }
                 
                 const target = message.mentions.members.first();
                 if (!target) {
-                    return message.reply('❌ Please mention a user to ban!');
+                    return message.reply(this.getCommandMessage('ban', 'noTarget', '❌ Please mention a user to ban!'));
                 }
                 
                 if (!target.bannable) {
-                    return message.reply('❌ I cannot ban this user!');
+                    return message.reply(this.getCommandMessage('ban', 'cannotBan', '❌ I cannot ban this user!'));
                 }
                 
                 const reason = args.slice(1).join(' ') || 'No reason provided';
                 
-                // Get invite info before banning
                 let inviteInfo = '';
                 try {
                     const memberInvites = JSON.parse(fs.readFileSync('member-invites.json', 'utf8'));
@@ -357,17 +711,17 @@ class CommandHandler {
                         inviteInfo = `**Invited by:** ${invite.inviter}\n**Invite Code:** \`${invite.code}\``;
                     }
                 } catch (error) {
-                    // File doesn't exist or error reading
+                    // File doesn't exist
                 }
                 
                 try {
-                    // Try to DM user before banning
-                    await target.send(`You have been banned from **${message.guild.name}**\nReason: ${reason}`).catch(() => {});
+                    if (this.shouldSendDM('ban')) {
+                        const dmMessage = this.getCommandMessage('ban', 'dmMessage', `You have been banned from **${message.guild.name}**\nReason: ${reason}`);
+                        await target.send(dmMessage.replace('{server}', message.guild.name).replace('{reason}', reason)).catch(() => {});
+                    }
                     
-                    // Ban the user
                     await target.ban({ reason, deleteMessageSeconds: 86400 });
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#8b0000')
                         .setTitle('🔨 Member Banned')
@@ -380,7 +734,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#8b0000')
                         .setTitle('🔨 Member Banned')
@@ -403,7 +756,7 @@ class CommandHandler {
                     
                 } catch (error) {
                     console.error('Error banning user:', error);
-                    return message.reply('❌ Failed to ban user!');
+                    return message.reply(this.getCommandMessage('ban', 'error', '❌ Failed to ban user!'));
                 }
             }
         });
@@ -429,7 +782,6 @@ class CommandHandler {
                 const reason = args.slice(1).join(' ') || 'No reason provided';
                 
                 try {
-                    // Fetch ban to get user info
                     const banInfo = await message.guild.bans.fetch(userId).catch(() => null);
                     
                     if (!banInfo) {
@@ -437,11 +789,8 @@ class CommandHandler {
                     }
                     
                     const user = banInfo.user;
-                    
-                    // Unban the user
                     await message.guild.members.unban(userId, reason);
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#00ff00')
                         .setTitle('✅ User Unbanned')
@@ -454,7 +803,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#00ff00')
                         .setTitle('✅ User Unbanned')
@@ -472,7 +820,7 @@ class CommandHandler {
                     
                 } catch (error) {
                     console.error('Error unbanning user:', error);
-                    return message.reply('❌ Failed to unban user! Make sure they are banned.');
+                    return message.reply('❌ Failed to unban user!');
                 }
             }
         });
@@ -495,7 +843,6 @@ class CommandHandler {
                     return message.reply('❌ Please mention a user to mute!');
                 }
                 
-                // Parse duration (e.g., 10m, 1h, 1d)
                 let duration = null;
                 let durationText = 'Permanent';
                 let reasonIndex = 1;
@@ -535,7 +882,6 @@ class CommandHandler {
                 try {
                     await target.roles.add(mutedRole);
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#ffa500')
                         .setTitle('🔇 Member Muted')
@@ -549,7 +895,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#ffa500')
                         .setTitle('🔇 Member Muted')
@@ -567,7 +912,6 @@ class CommandHandler {
                     
                     await this.logModerationAction(logEmbed);
                     
-                    // Auto-unmute if duration is set
                     if (duration) {
                         setTimeout(async () => {
                             try {
@@ -628,7 +972,6 @@ class CommandHandler {
                 try {
                     await target.roles.remove(mutedRole);
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#00ff00')
                         .setTitle('🔊 Member Unmuted')
@@ -641,7 +984,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#00ff00')
                         .setTitle('🔊 Member Unmuted')
@@ -675,7 +1017,9 @@ class CommandHandler {
             execute: async (message, args) => {
                 if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
                     return message.reply('❌ You need **Moderate Members** permission!');
-                }const target = message.mentions.members.first();
+                }
+                
+                const target = message.mentions.members.first();
                 if (!target) {
                     return message.reply('❌ Please mention a user to warn!');
                 }
@@ -694,7 +1038,6 @@ class CommandHandler {
                 this.warnings.set(target.id, userWarnings);
                 this.saveWarnings();
                 
-                // User confirmation embed
                 const confirmEmbed = new EmbedBuilder()
                     .setColor('#ff9900')
                     .setTitle('⚠️ User Warned')
@@ -708,7 +1051,6 @@ class CommandHandler {
                 
                 await message.reply({ embeds: [confirmEmbed] });
                 
-                // Log to moderation channel
                 const logEmbed = new EmbedBuilder()
                     .setColor('#ff9900')
                     .setTitle('⚠️ User Warned')
@@ -726,7 +1068,6 @@ class CommandHandler {
                 
                 await this.logModerationAction(logEmbed);
                 
-                // Try to DM the user
                 try {
                     await target.send(`You have been warned in **${message.guild.name}**\nReason: ${reason}\nTotal warnings: ${userWarnings.length}`);
                 } catch (error) {
@@ -806,7 +1147,6 @@ class CommandHandler {
                 this.warnings.delete(target.id);
                 this.saveWarnings();
                 
-                // User confirmation embed
                 const confirmEmbed = new EmbedBuilder()
                     .setColor('#00ff00')
                     .setTitle('✅ Warnings Cleared')
@@ -819,7 +1159,6 @@ class CommandHandler {
                 
                 await message.reply({ embeds: [confirmEmbed] });
                 
-                // Log to moderation channel
                 const logEmbed = new EmbedBuilder()
                     .setColor('#00ff00')
                     .setTitle('✅ Warnings Cleared')
@@ -846,8 +1185,8 @@ class CommandHandler {
             category: 'Moderation',
             permissions: ['ManageMessages'],
             execute: async (message, args) => {
-                if (!message.member.roles.cache.has('645744514576809984')) {
-                    return message.reply('❌ Overwatch required!');
+                if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+                    return message.reply('❌ You need **Manage Messages** permission!');
                 }
                 
                 const amount = parseInt(args[0]);
@@ -878,7 +1217,6 @@ class CommandHandler {
                         setTimeout(() => reply.delete().catch(() => {}), 5000);
                     }
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#3498db')
                         .setTitle('🗑️ Messages Purged')
@@ -926,7 +1264,6 @@ class CommandHandler {
                 try {
                     await channel.setRateLimitPerUser(seconds);
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#3498db')
                         .setTitle('⏱️ Slowmode Updated')
@@ -939,7 +1276,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#3498db')
                         .setTitle('⏱️ Slowmode Changed')
@@ -981,7 +1317,6 @@ class CommandHandler {
                         SendMessages: false
                     });
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#ff0000')
                         .setTitle('🔒 Channel Locked')
@@ -994,7 +1329,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#ff0000')
                         .setTitle('🔒 Channel Locked')
@@ -1036,7 +1370,6 @@ class CommandHandler {
                         SendMessages: null
                     });
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#00ff00')
                         .setTitle('🔓 Channel Unlocked')
@@ -1049,7 +1382,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#00ff00')
                         .setTitle('🔓 Channel Unlocked')
@@ -1079,8 +1411,8 @@ class CommandHandler {
             category: 'Moderation',
             permissions: ['ManageChannels'],
             execute: async (message, args) => {
-                if (!message.member.roles.cache.has('645744514576809984')) {
-                    return message.reply('❌ Overwatch required!');
+                if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+                    return message.reply('❌ You need **Manage Channels** permission!');
                 }
                 
                 const channel = message.mentions.channels.first() || message.channel;
@@ -1101,7 +1433,6 @@ class CommandHandler {
                     
                     await newChannel.send({ embeds: [embed] });
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#ff6600')
                         .setTitle('💥 Channel Nuked')
@@ -1146,7 +1477,6 @@ class CommandHandler {
                 try {
                     await target.setNickname(newNick);
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#3498db')
                         .setTitle('✏️ Nickname Changed')
@@ -1158,7 +1488,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to moderation channel
                     const logEmbed = new EmbedBuilder()
                         .setColor('#3498db')
                         .setTitle('✏️ Nickname Changed')
@@ -1192,8 +1521,8 @@ class CommandHandler {
             category: 'Server Management',
             permissions: ['ManageRoles'],
             execute: async (message, args) => {
-                if (!message.member.roles.cache.has('645744514576809984')) {
-                    return message.reply('❌ Overwatch required!');
+                if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) {
+                    return message.reply('❌ You need **Manage Roles** permission!');
                 }
                 
                 const target = message.mentions.members.first();
@@ -1206,7 +1535,6 @@ class CommandHandler {
                 try {
                     await target.roles.add(role);
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#00ff00')
                         .setTitle('✅ Role Added')
@@ -1218,7 +1546,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to role channel (or moderation if role channel doesn't exist)
                     const logEmbed = new EmbedBuilder()
                         .setColor('#00ff00')
                         .setTitle('✅ Role Added')
@@ -1253,8 +1580,8 @@ class CommandHandler {
             category: 'Server Management',
             permissions: ['ManageRoles'],
             execute: async (message, args) => {
-                if (!message.member.roles.cache.has('645744514576809984')) {
-                    return message.reply('❌ Overwatch required!');
+                if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) {
+                    return message.reply('❌ You need **Manage Roles** permission!');
                 }
                 
                 const target = message.mentions.members.first();
@@ -1267,7 +1594,6 @@ class CommandHandler {
                 try {
                     await target.roles.remove(role);
                     
-                    // User confirmation embed
                     const confirmEmbed = new EmbedBuilder()
                         .setColor('#ff0000')
                         .setTitle('❌ Role Removed')
@@ -1279,7 +1605,6 @@ class CommandHandler {
                     
                     await message.reply({ embeds: [confirmEmbed] });
                     
-                    // Log to role channel (or moderation if role channel doesn't exist)
                     const logEmbed = new EmbedBuilder()
                         .setColor('#ff0000')
                         .setTitle('❌ Role Removed')
@@ -1345,7 +1670,82 @@ class CommandHandler {
             }
         });
 
-        // ========== UTILITY COMMANDS (keeping original implementations) ==========
+        // Command Settings Command
+        this.commands.set('cmdsettings', {
+            name: 'cmdsettings',
+            description: 'Manage command settings and custom messages',
+            usage: '!cmdsettings <command> <setting> <value>',
+            aliases: ['commandsettings', 'customizecommand'],
+            category: 'Server Management',
+            permissions: ['Administrator'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+                    return message.reply('❌ You need **Administrator** permission!');
+                }
+
+                if (args.length < 3) {
+                    const embed = new EmbedBuilder()
+                        .setColor('#3498db')
+                        .setTitle('⚙️ Command Settings')
+                        .setDescription('Customize command messages and behaviors')
+                        .addFields(
+                            { name: 'Usage', value: '`!cmdsettings <command> <setting> <value>`', inline: false },
+                            { name: 'Settings', value: '• `dmUser` - Enable/disable DMs (true/false)\n• `message.<type>` - Custom message\n• `view` - View current settings', inline: false },
+                            { name: 'Message Types', value: '• `noPermission` - No permission message\n• `noTarget` - No target mentioned\n• `dmMessage` - DM sent to user\n• `success` - Success message\n• `error` - Error message', inline: false },
+                            { name: 'Examples', value: '`!cmdsettings kick dmUser false`\n`!cmdsettings ban message.dmMessage You were banned from {server}! Reason: {reason}`\n`!cmdsettings kick view`', inline: false }
+                        )
+                        .setTimestamp();
+                    
+                    return message.reply({ embeds: [embed] });
+                }
+
+                const commandName = args[0].toLowerCase();
+                const setting = args[1].toLowerCase();
+                const value = args.slice(2).join(' ');
+
+                if (!this.commands.has(commandName)) {
+                    return message.reply('❌ Command not found!');
+                }
+
+                if (setting === 'view') {
+                    const settings = this.commandSettings.get(commandName) || {};
+                    const embed = new EmbedBuilder()
+                        .setColor('#3498db')
+                        .setTitle(`⚙️ Settings for ${commandName}`)
+                        .addFields(
+                            { name: 'DM User', value: settings.dmUser !== undefined ? settings.dmUser.toString() : 'true (default)', inline: true }
+                        )
+                        .setTimestamp();
+
+                    if (settings.messages) {
+                        Object.entries(settings.messages).forEach(([type, msg]) => {
+                            embed.addFields({ name: `Message: ${type}`, value: msg, inline: false });
+                        });
+                    }
+
+                    return message.reply({ embeds: [embed] });
+                }
+
+                if (setting === 'dmuser') {
+                    const dmValue = value.toLowerCase() === 'true';
+                    this.updateCommandSettings(commandName, { dmUser: dmValue });
+                    return message.reply(`✅ DM setting for **${commandName}** set to: **${dmValue}**`);
+                }
+
+                if (setting.startsWith('message.')) {
+                    const messageType = setting.split('.')[1];
+                    const current = this.commandSettings.get(commandName) || {};
+                    const messages = current.messages || {};
+                    messages[messageType] = value;
+                    this.updateCommandSettings(commandName, { messages });
+                    return message.reply(`✅ Custom **${messageType}** message set for **${commandName}**`);
+                }
+
+                return message.reply('❌ Invalid setting! Use `!cmdsettings` for help.');
+            }
+        });
+
+        // ========== UTILITY COMMANDS ==========
         
         // Avatar Command
         this.commands.set('avatar', {
@@ -1608,317 +2008,6 @@ class CommandHandler {
             }
         });
 
-        // Role Info Command
-        this.commands.set('roleinfo', {
-            name: 'roleinfo',
-            description: 'Get detailed role information',
-            usage: '!roleinfo @role',
-            aliases: ['ri'],
-            category: 'Information',
-            execute: async (message, args) => {
-                const role = message.mentions.roles.first() || message.guild.roles.cache.get(args[0]);
-                
-                if (!role) {
-                    return message.reply('❌ Please mention a role or provide a role ID!');
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor(role.color || '#3498db')
-                    .setTitle(`🎭 Role Info: ${role.name}`)
-                    .addFields(
-                        { name: 'ID', value: role.id, inline: true },
-                        { name: 'Color', value: role.hexColor, inline: true },
-                        { name: 'Position', value: role.position.toString(), inline: true },
-                        { name: 'Members', value: role.members.size.toString(), inline: true },
-                        { name: 'Mentionable', value: role.mentionable ? 'Yes' : 'No', inline: true },
-                        { name: 'Hoisted', value: role.hoist ? 'Yes' : 'No', inline: true },
-                        { name: 'Created', value: `<t:${Math.floor(role.createdTimestamp / 1000)}:R>`, inline: true }
-                    )
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Roles Command
-        this.commands.set('roles', {
-            name: 'roles',
-            description: 'List all server roles',
-            usage: '!roles',
-            aliases: ['rolelist'],
-            category: 'Information',
-            execute: async (message) => {
-                const roles = message.guild.roles.cache
-                    .sort((a, b) => b.position - a.position)
-                    .filter(role => role.id !== message.guild.id);
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle(`📋 Server Roles (${roles.size})`)
-                    .setDescription(`Total roles in **${message.guild.name}**`)
-                    .setTimestamp();
-                
-                const roleChunks = [];
-                let currentChunk = [];
-                let currentLength = 0;
-                
-                roles.forEach(role => {
-                    const memberCount = role.members.size;
-                    const roleText = `${role} - ${memberCount} member${memberCount !== 1 ? 's' : ''}`;
-                    
-                    if (currentLength + roleText.length > 1000) {
-                        roleChunks.push(currentChunk.join('\n'));
-                        currentChunk = [roleText];
-                        currentLength = roleText.length;
-                    } else {
-                        currentChunk.push(roleText);
-                        currentLength += roleText.length;
-                    }
-                });
-                
-                if (currentChunk.length > 0) {
-                    roleChunks.push(currentChunk.join('\n'));
-                }
-                
-                roleChunks.forEach((chunk, index) => {
-                    embed.addFields({
-                        name: index === 0 ? 'Roles' : '\u200b',
-                        value: chunk,
-                        inline: false
-                    });
-                });
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Emojis Command
-        this.commands.set('emojis', {
-            name: 'emojis',
-            description: 'List all server emojis',
-            usage: '!emojis',
-            aliases: ['emojilist'],
-            category: 'Information',
-            execute: async (message) => {
-                const emojis = message.guild.emojis.cache;
-                
-                if (emojis.size === 0) {
-                    return message.reply('❌ This server has no custom emojis!');
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle(`😀 Server Emojis (${emojis.size})`)
-                    .setTimestamp();
-                
-                const emojiList = emojis.map(e => `${e} \`:${e.name}:\``).join(' ');
-                
-                if (emojiList.length > 4096) {
-                    embed.setDescription(emojiList.slice(0, 4090) + '...');
-                } else {
-                    embed.setDescription(emojiList);
-                }
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Channel Info Command
-        this.commands.set('channelinfo', {
-            name: 'channelinfo',
-            description: 'Get channel information',
-            usage: '!channelinfo [#channel]',
-            aliases: ['ci'],
-            category: 'Information',
-            execute: async (message, args) => {
-                const channel = message.mentions.channels.first() || message.channel;
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle(`💬 Channel Info: ${channel.name}`)
-                    .addFields(
-                        { name: 'ID', value: channel.id, inline: true },
-                        { name: 'Type', value: channel.type.toString(), inline: true },
-                        { name: 'Created', value: `<t:${Math.floor(channel.createdTimestamp / 1000)}:R>`, inline: true }
-                    )
-                    .setTimestamp();
-                
-                if (channel.topic) {
-                    embed.addFields({ name: 'Topic', value: channel.topic, inline: false });
-                }
-                
-                if (channel.rateLimitPerUser) {
-                    embed.addFields({ name: 'Slowmode', value: `${channel.rateLimitPerUser}s`, inline: true });
-                }
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Member Count Command
-        this.commands.set('membercount', {
-            name: 'membercount',
-            description: 'Show member statistics',
-            usage: '!membercount',
-            aliases: ['members', 'mc'],
-            category: 'Information',
-            execute: async (message) => {
-                const guild = message.guild;
-                const members = guild.members.cache;
-                const bots = members.filter(m => m.user.bot).size;
-                const humans = members.size - bots;
-                const online = members.filter(m => m.presence?.status === 'online').size;
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle('👥 Member Statistics')
-                    .addFields(
-                        { name: 'Total Members', value: guild.memberCount.toString(), inline: true },
-                        { name: 'Humans', value: humans.toString(), inline: true },
-                        { name: 'Bots', value: bots.toString(), inline: true },
-                        { name: 'Online', value: online.toString(), inline: true }
-                    )
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Bot Permissions Command
-        this.commands.set('botperms', {
-            name: 'botperms',
-            description: 'Check bot permissions',
-            usage: '!botperms',
-            aliases: [],
-            category: 'Information',
-            execute: async (message) => {
-                if (!message.member.roles.cache.has('645744514576809984')) {
-                    return message.reply('❌ Overwatch required!');
-                }
-                
-                const permissions = message.guild.members.me.permissions.toArray();
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle('🔐 Bot Permissions')
-                    .setDescription(permissions.map(p => `✅ ${p}`).join('\n'))
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Uptime Command
-        this.commands.set('uptime', {
-            name: 'uptime',
-            description: 'Show bot uptime',
-            usage: '!uptime',
-            aliases: [],
-            category: 'Information',
-            execute: async (message) => {
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle('⏱️ Bot Uptime')
-                    .setDescription(`Bot has been online for:\n**${this.formatUptime(this.client.uptime)}**`)
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Bans Command
-        this.commands.set('bans', {
-            name: 'bans',
-            description: 'List all banned users',
-            usage: '!bans',
-            aliases: ['banlist'],
-            category: 'Information',
-            permissions: ['BanMembers'],
-            execute: async (message) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-                    return message.reply('❌ You need **Ban Members** permission!');
-                }
-                
-                const bans = await message.guild.bans.fetch();
-                
-                if (bans.size === 0) {
-                    return message.reply('✅ No banned users!');
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#ff0000')
-                    .setTitle(`🔨 Banned Users (${bans.size})`)
-                    .setDescription(bans.map(ban => `**${ban.user.tag}** - ${ban.reason || 'No reason'}`).join('\n').slice(0, 4096))
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Invites Command
-        this.commands.set('invites', {
-            name: 'invites',
-            description: 'List all active invites',
-            usage: '!invites',
-            aliases: ['invitelist'],
-            category: 'Information',
-            permissions: ['ManageGuild'],
-            execute: async (message) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-                    return message.reply('❌ You need **Manage Server** permission!');
-                }
-                
-                const invites = await message.guild.invites.fetch();
-                
-                if (invites.size === 0) {
-                    return message.reply('❌ No active invites!');
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle(`🔗 Active Invites (${invites.size})`)
-                    .setDescription(invites.map(inv => 
-                        `**${inv.code}** - ${inv.inviter?.tag || 'Unknown'} (${inv.uses || 0} uses)`
-                    ).join('\n').slice(0, 4096))
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Audit Log Command
-        this.commands.set('audit', {
-            name: 'audit',
-            description: 'View recent audit log entries',
-            usage: '!audit [amount]',
-            aliases: ['auditlog', 'logs'],
-            category: 'Information',
-            permissions: ['ViewAuditLog'],
-            execute: async (message, args) => {
-                if (!message.member.roles.cache.has('645744514576809984')) {
-                    return message.reply('❌ Overwatch required!');
-                }
-                
-                const limit = parseInt(args[0]) || 5;
-                const auditLogs = await message.guild.fetchAuditLogs({ limit: Math.min(limit, 10) });
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle('📋 Recent Audit Log')
-                    .setTimestamp();
-                
-                auditLogs.entries.forEach(entry => {
-                    embed.addFields({
-                        name: `${entry.action} by ${entry.executor.tag}`,
-                        value: `Target: ${entry.target?.tag || 'Unknown'}\n<t:${Math.floor(entry.createdTimestamp / 1000)}:R>`,
-                        inline: false
-                    });
-                });
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
         // ========== FUN COMMANDS ==========
 
         // 8ball Command
@@ -2141,6 +2230,8 @@ class CommandHandler {
             }
         });
     }
+
+    // ========== HELPER METHODS ==========
 
     loadWarnings() {
         try {

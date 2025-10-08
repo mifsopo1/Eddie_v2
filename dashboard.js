@@ -566,24 +566,170 @@ class Dashboard {
         // COMMANDS PAGE
         // ============================================
         
-        this.app.get('/commands', this.requireAuth.bind(this), async (req, res) => {
-            try {
-                const commands = await this.mongoLogger.db.collection('customCommands')
-                    .find({})
-                    .sort({ category: 1, trigger: 1 })
-                    .toArray();
-                
-                res.render('commands', {
-                    client: this.client,
-                    commands: commands || [],
-                    page: 'commands'
-                });
-            } catch (error) {
-                console.error('Commands page error:', error);
-                req.flash('error', 'Error loading commands');
-                res.redirect('/');
+        // ============================================
+// ALL COMMANDS PAGE (Built-in + Custom)
+// ============================================
+
+this.app.get('/commands/all', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        // Get custom commands from MongoDB
+        const customCommands = await this.mongoLogger.db.collection('customCommands')
+            .find({})
+            .sort({ category: 1, name: 1 })
+            .toArray();
+        
+        // Get command states from MongoDB
+        const commandStates = await this.mongoLogger.db.collection('commandStates')
+            .find({})
+            .toArray();
+        
+        // Convert to Map for easy lookup
+        const stateMap = new Map(commandStates.map(s => [s.commandName, s.enabled]));
+        
+        // Define all built-in commands with their info
+        const builtInCommands = [
+            // Fun Commands
+            { name: 'ping', category: 'fun', description: 'Check bot latency', type: 'builtin', defaultEnabled: true },
+            { name: 'coinflip', category: 'fun', description: 'Flip a coin', type: 'builtin', defaultEnabled: true },
+            { name: 'roll', category: 'fun', description: 'Roll dice (e.g., !roll 2d6)', type: 'builtin', defaultEnabled: true },
+            { name: '8ball', category: 'fun', description: 'Ask the magic 8-ball', type: 'builtin', defaultEnabled: true },
+            { name: 'rps', category: 'fun', description: 'Rock Paper Scissors', type: 'builtin', defaultEnabled: true },
+            
+            // Info Commands
+            { name: 'serverinfo', category: 'info', description: 'Display server information', type: 'builtin', defaultEnabled: true },
+            { name: 'userinfo', category: 'info', description: 'Display user information', type: 'builtin', defaultEnabled: true },
+            { name: 'avatar', category: 'info', description: 'Show user avatar', type: 'builtin', defaultEnabled: true },
+            { name: 'invite', category: 'info', description: 'Get bot invite link', type: 'builtin', defaultEnabled: true },
+            
+            // Utility Commands
+            { name: 'help', category: 'utility', description: 'Show command list', type: 'builtin', defaultEnabled: true },
+            { name: 'commands', category: 'utility', description: 'List all commands', type: 'builtin', defaultEnabled: true },
+            
+            // Moderation Commands
+            { name: 'clear', category: 'moderation', description: 'Clear messages (requires permissions)', type: 'builtin', defaultEnabled: true },
+            { name: 'kick', category: 'moderation', description: 'Kick a member (requires permissions)', type: 'builtin', defaultEnabled: true },
+            { name: 'ban', category: 'moderation', description: 'Ban a member (requires permissions)', type: 'builtin', defaultEnabled: true },
+            { name: 'mute', category: 'moderation', description: 'Mute a member (requires permissions)', type: 'builtin', defaultEnabled: true },
+            { name: 'unmute', category: 'moderation', description: 'Unmute a member (requires permissions)', type: 'builtin', defaultEnabled: true },
+        ];
+        
+        // Add enabled state to built-in commands
+        builtInCommands.forEach(cmd => {
+            cmd.enabled = stateMap.has(cmd.name) ? stateMap.get(cmd.name) : cmd.defaultEnabled;
+        });
+        
+        // Add type and enabled state to custom commands
+        customCommands.forEach(cmd => {
+            cmd.type = 'custom';
+            // Custom commands use their own enabled field
+        });
+        
+        // Combine all commands
+        const allCommands = [...builtInCommands, ...customCommands];
+        
+        // Group by category
+        const commandsByCategory = {
+            fun: [],
+            info: [],
+            utility: [],
+            moderation: [],
+            general: [],
+            custom: []
+        };
+        
+        allCommands.forEach(cmd => {
+            const category = cmd.category || 'general';
+            if (commandsByCategory[category]) {
+                commandsByCategory[category].push(cmd);
+            } else {
+                commandsByCategory.custom.push(cmd);
             }
         });
+        
+        res.render('commands-all', {
+            client: this.client,
+            commandsByCategory,
+            page: 'commands'
+        });
+    } catch (error) {
+        console.error('All commands page error:', error);
+        req.flash('error', 'Error loading commands');
+        res.redirect('/commands');
+    }
+});
+
+// ============================================
+// COMMANDS PAGE (main page showing custom commands)
+// ============================================
+this.app.get('/commands', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        // Get custom commands from MongoDB
+        const customCommands = await this.mongoLogger.db.collection('customCommands')
+            .find({})
+            .sort({ category: 1, name: 1 })
+            .toArray();
+        
+        res.render('commands', {
+            client: this.client,
+            commands: customCommands,
+            page: 'commands'
+        });
+    } catch (error) {
+        console.error('Commands page error:', error);
+        req.flash('error', 'Error loading commands');
+        res.redirect('/');
+    }
+});
+
+// Toggle built-in command
+this.app.post('/commands/toggle-builtin/:name', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const commandName = req.params.name;
+        
+        // Get current state
+        const currentState = await this.mongoLogger.db.collection('commandStates')
+            .findOne({ commandName });
+        
+        const newState = currentState ? !currentState.enabled : false;
+        
+        // Update or insert state
+        await this.mongoLogger.db.collection('commandStates').updateOne(
+            { commandName },
+            { 
+                $set: { 
+                    commandName,
+                    enabled: newState,
+                    updatedAt: new Date()
+                } 
+            },
+            { upsert: true }
+        );
+        
+        res.json({ success: true, enabled: newState });
+    } catch (error) {
+        console.error('Toggle builtin command error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Toggle custom command (existing route - make sure it returns JSON)
+this.app.post('/commands/toggle/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const command = await this.mongoLogger.db.collection('customCommands')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        await this.mongoLogger.db.collection('customCommands')
+            .updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: { enabled: !command.enabled } }
+            );
+        
+        res.json({ success: true, enabled: !command.enabled });
+    } catch (error) {
+        res.json({ success: false, error: error.message });
+    }
+});
 
         // ============================================
         // COMMAND ACTIONS
@@ -640,8 +786,13 @@ class Dashboard {
             }
         });
 
-        // Get single command (API)
-this.app.get('/api/commands/:id', this.requireAuth.bind(this), async (req, res) => {
+        // Get single command (API) - FIXED
+this.app.get('/api/commands/:id', async (req, res) => {
+    // Check authentication without redirect
+    if (!req.session?.authenticated && !req.isAuthenticated()) {
+        return res.json({ success: false, error: 'Not authenticated' });
+    }
+    
     try {
         const { ObjectId } = require('mongodb');
         const command = await this.mongoLogger.db.collection('customCommands')
@@ -657,7 +808,6 @@ this.app.get('/api/commands/:id', this.requireAuth.bind(this), async (req, res) 
         res.json({ success: false, error: error.message });
     }
 });
-
 // Update command
 this.app.post('/commands/edit/:id', this.requireAdmin.bind(this), async (req, res) => {
     try {
