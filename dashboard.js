@@ -496,24 +496,76 @@ class Dashboard {
             }
         });
 
-        // ============================================
-        // ANALYTICS PAGE
-        // ============================================
+// Analytics page
+this.app.get('/analytics', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        if (!this.mongoLogger || !this.mongoLogger.connected) {
+            return res.status(500).send('MongoDB not connected. <a href="/">Go back</a>');
+        }
         
-        this.app.get('/analytics', this.requireAuth.bind(this), async (req, res) => {
-            try {
-                const stats = await this.mongoLogger.getServerAnalytics();
-                
-                res.render('analytics', {
-                    client: this.client,
-                    stats: stats || {}
-                });
-            } catch (error) {
-                console.error('Analytics page error:', error);
-                req.flash('error', 'Error loading analytics');
-                res.redirect('/');
-            }
+        // Get analytics data with fallbacks
+        let analytics = {};
+        let topUsers = [];
+        let inviteStats = [];
+        let timeline = [];
+        let attachmentStats = {};
+        let newAccounts = [];
+        
+        try {
+            analytics = await this.mongoLogger.getServerAnalytics() || {};
+        } catch (e) {
+            console.log('getServerAnalytics error:', e.message);
+        }
+        
+        try {
+            topUsers = await this.mongoLogger.getTopUsers(7, 15) || [];
+        } catch (e) {
+            console.log('getTopUsers error:', e.message);
+        }
+        
+        try {
+            inviteStats = await this.mongoLogger.getInviteStats() || [];
+        } catch (e) {
+            console.log('getInviteStats error:', e.message);
+        }
+        
+        try {
+            timeline = await this.mongoLogger.getMessageTimeline(14) || [];
+        } catch (e) {
+            console.log('getMessageTimeline error:', e.message);
+        }
+        
+        try {
+            attachmentStats = await this.mongoLogger.getAttachmentStats() || {};
+        } catch (e) {
+            console.log('getAttachmentStats error:', e.message);
+        }
+        
+        try {
+            newAccounts = await this.mongoLogger.getNewAccountJoins(7) || [];
+        } catch (e) {
+            console.log('getNewAccountJoins error:', e.message);
+        }
+        
+        res.render('analytics', {
+            analytics: analytics,
+            topUsers: topUsers,
+            inviteStats: inviteStats,
+            timeline: timeline,
+            attachmentStats: attachmentStats,
+            newAccounts: newAccounts,
+            client: this.client
         });
+    } catch (error) {
+        console.error('Analytics page error:', error);
+        res.status(500).send(`
+            <h1>Error Loading Analytics</h1>
+            <p>${error.message}</p>
+            <pre>${error.stack}</pre>
+            <a href="/">Go back</a>
+        `);
+    }
+});
 
         // ============================================
         // CUSTOM COMMANDS PAGE
