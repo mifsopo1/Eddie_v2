@@ -7,24 +7,7 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <nav class="navbar">
-    <div class="nav-brand">
-        <h2>🤖 <%= client.user.tag %></h2>
-    </div>
-    <div class="nav-links">
-        <a href="/">Dashboard</a>
-        <a href="/messages">Messages</a>
-        <a href="/deleted">Deleted</a>
-        <a href="/members">Members</a>
-        <a href="/moderation">Moderation</a>
-        <a href="/attachments">Attachments</a>
-        <a href="/voice">Voice</a>
-        <a href="/invites">Invites</a>
-        <a href="/commands">Commands</a>
-        <a href="/analytics">Analytics</a>
-        <a href="/logout" class="logout">Logout</a>
-    </div>
-</nav>
+    <%- include('partials/header') %>
     
     <div class="container">
         <h1>⚙️ Custom Commands</h1>
@@ -52,34 +35,235 @@
         <!-- Create New Command -->
         <div class="create-command">
             <h2>➕ Create Custom Command</h2>
-            <form method="POST" action="/commands/create">
-                <div class="form-group">
-                    <label>Trigger (without prefix):</label>
-                    <input type="text" name="trigger" placeholder="e.g., hello" required>
+            <form method="POST" action="/commands/create" id="commandForm">
+                
+                <!-- Basic Settings -->
+                <div class="form-section">
+                    <h3>📋 Basic Settings</h3>
+                    
+                    <div class="form-group">
+                        <label>Command Name:</label>
+                        <input type="text" name="name" placeholder="My Command" required>
+                        <small>Display name for the command</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Category:</label>
+                        <select name="category">
+                            <option value="general">General</option>
+                            <option value="fun">Fun</option>
+                            <option value="moderation">Moderation</option>
+                            <option value="info">Information</option>
+                            <option value="utility">Utility</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <input type="text" name="description" placeholder="What does this command do?">
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label>Response:</label>
-                    <textarea name="response" rows="4" placeholder="Hello {user}! Welcome to the server!" required></textarea>
-                    <small>
-                        Variables: <code>{user}</code>, <code>{user.mention}</code>, <code>{user.id}</code>, 
-                        <code>{channel}</code>, <code>{server}</code>, <code>{membercount}</code>
-                    </small>
+                <!-- Trigger Settings -->
+                <div class="form-section">
+                    <h3>🎯 Trigger Settings</h3>
+                    
+                    <div class="form-group">
+                        <label>Trigger Type:</label>
+                        <select name="triggerType" id="triggerType" onchange="updateTriggerOptions()">
+                            <option value="command">Command (!trigger)</option>
+                            <option value="exact">Exact Match</option>
+                            <option value="contains">Contains Word</option>
+                            <option value="startswith">Starts With</option>
+                            <option value="regex">Regular Expression</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Trigger(s):</label>
+                        <input type="text" name="trigger" placeholder="e.g., hello, hi, hey" required>
+                        <small>Separate multiple triggers with commas. Don't include the prefix for commands.</small>
+                    </div>
+                    
+                    <div class="form-group" id="caseSensitiveGroup">
+                        <label>
+                            <input type="checkbox" name="caseSensitive">
+                            Case Sensitive
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="deleteTrigger">
+                            Delete Trigger Message
+                        </label>
+                        <small>Automatically delete the message that triggered this command</small>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label>Cooldown (seconds):</label>
-                    <input type="number" name="cooldown" value="0" min="0">
+                <!-- Channel & Role Restrictions -->
+                <div class="form-section">
+                    <h3>🔒 Restrictions</h3>
+                    
+                    <div class="form-group">
+                        <label>Allowed Channels:</label>
+                        <select name="allowedChannels" id="allowedChannels" multiple size="6">
+                            <option value="all" selected>All Channels</option>
+                            <!-- Channels loaded via JS -->
+                        </select>
+                        <small>Hold Ctrl/Cmd to select multiple. Select "All Channels" for no restriction.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Ignored Channels:</label>
+                        <select name="ignoredChannels" id="ignoredChannels" multiple size="6">
+                            <!-- Channels loaded via JS -->
+                        </select>
+                        <small>Command will NOT work in these channels</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Required Roles:</label>
+                        <select name="requiredRoles" id="requiredRoles" multiple size="6">
+                            <option value="everyone" selected>@everyone</option>
+                            <!-- Roles loaded via JS -->
+                        </select>
+                        <small>User must have at least ONE of these roles</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Ignored Roles:</label>
+                        <select name="ignoredRoles" id="ignoredRoles" multiple size="6">
+                            <!-- Roles loaded via JS -->
+                        </select>
+                        <small>Command will NOT work for users with these roles</small>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="enabled" checked>
-                        Enabled
-                    </label>
+                <!-- Response Settings -->
+                <div class="form-section">
+                    <h3>💬 Response Settings</h3>
+                    
+                    <div class="form-group">
+                        <label>Response Type:</label>
+                        <select name="responseType" id="responseType" onchange="updateResponseOptions()">
+                            <option value="text">Text Message</option>
+                            <option value="embed">Embed</option>
+                            <option value="dm">Direct Message</option>
+                            <option value="react">Add Reaction</option>
+                            <option value="multiple">Multiple Responses</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Text Response -->
+                    <div class="form-group" id="textResponseGroup">
+                        <label>Response:</label>
+                        <textarea name="response" rows="6" placeholder="Hello {user.mention}! Welcome to {server}!"></textarea>
+                        <small>
+                            <strong>Variables:</strong><br>
+                            <code>{user}</code> - Username<br>
+                            <code>{user.mention}</code> - @User mention<br>
+                            <code>{user.id}</code> - User ID<br>
+                            <code>{channel}</code> - Channel name<br>
+                            <code>{channel.mention}</code> - #channel mention<br>
+                            <code>{server}</code> - Server name<br>
+                            <code>{membercount}</code> - Total members<br>
+                            <code>{args}</code> - All arguments<br>
+                            <code>{args.0}</code>, <code>{args.1}</code>, etc. - Specific arguments
+                        </small>
+                    </div>
+                    
+                    <!-- Embed Response -->
+                    <div class="form-group" id="embedResponseGroup" style="display: none;">
+                        <label>Embed Title:</label>
+                        <input type="text" name="embedTitle" placeholder="Embed Title">
+                        
+                        <label>Embed Description:</label>
+                        <textarea name="embedDescription" rows="4" placeholder="Embed description text"></textarea>
+                        
+                        <label>Embed Color (hex):</label>
+                        <input type="text" name="embedColor" placeholder="#5865f2" value="#5865f2">
+                        
+                        <label>Embed Footer:</label>
+                        <input type="text" name="embedFooter" placeholder="Footer text">
+                        
+                        <label>Embed Image URL:</label>
+                        <input type="text" name="embedImage" placeholder="https://example.com/image.png">
+                        
+                        <label>Embed Thumbnail URL:</label>
+                        <input type="text" name="embedThumbnail" placeholder="https://example.com/thumb.png">
+                    </div>
+                    
+                    <!-- Reaction Response -->
+                    <div class="form-group" id="reactionResponseGroup" style="display: none;">
+                        <label>Reaction Emoji:</label>
+                        <input type="text" name="reactionEmoji" placeholder="✅ or emoji:1234567890">
+                        <small>Use unicode emoji (✅) or custom emoji ID</small>
+                    </div>
                 </div>
                 
-                <button type="submit" class="btn btn-primary">Create Command</button>
+                <!-- Cooldown Settings -->
+                <div class="form-section">
+                    <h3>⏱️ Cooldown Settings</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>User Cooldown (seconds):</label>
+                            <input type="number" name="userCooldown" value="0" min="0">
+                            <small>Per user</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Channel Cooldown (seconds):</label>
+                            <input type="number" name="channelCooldown" value="0" min="0">
+                            <small>Per channel</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Server Cooldown (seconds):</label>
+                            <input type="number" name="serverCooldown" value="0" min="0">
+                            <small>Entire server</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Advanced Settings -->
+                <div class="form-section">
+                    <h3>⚙️ Advanced Settings</h3>
+                    
+                    <div class="form-group">
+                        <label>Usage Limit:</label>
+                        <input type="number" name="usageLimit" value="0" min="0">
+                        <small>0 = unlimited. Command will disable after this many uses.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="dmResponse">
+                            Send Response as DM
+                        </label>
+                        <small>Send the response privately to the user</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="deleteAfter">
+                            Delete Response After:
+                        </label>
+                        <input type="number" name="deleteAfterSeconds" value="10" min="1" max="60">
+                        seconds
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="enabled" checked>
+                            Enabled
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-large">Create Command</button>
             </form>
         </div>
         
@@ -87,37 +271,117 @@
         <div class="commands-list">
             <h2>📋 Existing Commands (<%= commands.length %>)</h2>
             
+            <!-- Filter by Category -->
+            <div class="command-filters">
+                <button class="filter-btn active" onclick="filterCommands('all')">All (<%= commands.length %>)</button>
+                <button class="filter-btn" onclick="filterCommands('general')">General</button>
+                <button class="filter-btn" onclick="filterCommands('fun')">Fun</button>
+                <button class="filter-btn" onclick="filterCommands('moderation')">Moderation</button>
+                <button class="filter-btn" onclick="filterCommands('info')">Information</button>
+                <button class="filter-btn" onclick="filterCommands('utility')">Utility</button>
+                <button class="filter-btn" onclick="filterCommands('custom')">Custom</button>
+            </div>
+            
             <% if (commands.length === 0) { %>
                 <p class="text-muted">No custom commands yet. Create one above!</p>
             <% } else { %>
                 <div class="command-grid">
                     <% commands.forEach(cmd => { %>
-                        <div class="command-card <%= cmd.enabled ? 'enabled' : 'disabled' %>">
-                            <div class="command-header">
-                                <h3>!<%= cmd.trigger %></h3>
+                        <div class="command-card <%= cmd.enabled ? 'enabled' : 'disabled' %>" data-category="<%= cmd.category || 'general' %>">
+                            <div class="command-card-header">
+                                <div class="command-title-group">
+                                    <h3><%= cmd.name || cmd.trigger %></h3>
+                                    <span class="command-category-badge <%= cmd.category || 'general' %>">
+                                        <%= (cmd.category || 'general').toUpperCase() %>
+                                    </span>
+                                </div>
                                 <div class="command-actions">
                                     <button 
                                         class="toggle-btn" 
                                         onclick="toggleCommand('<%= cmd._id %>')"
-                                        data-id="<%= cmd._id %>"
+                                        title="<%= cmd.enabled ? 'Disable' : 'Enable' %>"
                                     >
-                                        <%= cmd.enabled ? '✅ Enabled' : '❌ Disabled' %>
+                                        <%= cmd.enabled ? '✅' : '❌' %>
+                                    </button>
+                                    <button 
+                                        class="edit-btn" 
+                                        onclick="editCommand('<%= cmd._id %>')"
+                                        title="Edit Command"
+                                    >
+                                        ✏️
                                     </button>
                                     <form method="POST" action="/commands/delete/<%= cmd._id %>" style="display: inline;">
-                                        <button type="submit" class="delete-btn" onclick="return confirm('Delete this command?')">
-                                            🗑️ Delete
+                                        <button type="submit" class="delete-btn" onclick="return confirm('Delete this command?')" title="Delete Command">
+                                            🗑️
                                         </button>
                                     </form>
                                 </div>
                             </div>
                             
-                            <div class="command-response">
-                                <%= cmd.response %>
+                            <% if (cmd.description) { %>
+                                <div class="command-description">
+                                    <%= cmd.description %>
+                                </div>
+                            <% } %>
+                            
+                            <div class="command-info-grid">
+                                <div class="command-info-item">
+                                    <span class="info-label">Trigger:</span>
+                                    <span class="info-value">
+                                        <% if (cmd.triggerType === 'command') { %>
+                                            !<%= Array.isArray(cmd.trigger) ? cmd.trigger.join(', !') : cmd.trigger %>
+                                        <% } else { %>
+                                            <%= cmd.triggerType %> - "<%= Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger %>"
+                                        <% } %>
+                                    </span>
+                                </div>
+                                
+                                <div class="command-info-item">
+                                    <span class="info-label">Response Type:</span>
+                                    <span class="info-value"><%= cmd.responseType || 'text' %></span>
+                                </div>
+                                
+                                <% if (cmd.userCooldown > 0 || cmd.channelCooldown > 0 || cmd.serverCooldown > 0) { %>
+                                    <div class="command-info-item">
+                                        <span class="info-label">Cooldowns:</span>
+                                        <span class="info-value">
+                                            <% if (cmd.userCooldown > 0) { %>User: <%= cmd.userCooldown %>s<% } %>
+                                            <% if (cmd.channelCooldown > 0) { %>Channel: <%= cmd.channelCooldown %>s<% } %>
+                                            <% if (cmd.serverCooldown > 0) { %>Server: <%= cmd.serverCooldown %>s<% } %>
+                                        </span>
+                                    </div>
+                                <% } %>
+                                
+                                <% if (cmd.allowedChannels && cmd.allowedChannels.length > 0 && !cmd.allowedChannels.includes('all')) { %>
+                                    <div class="command-info-item">
+                                        <span class="info-label">Channels:</span>
+                                        <span class="info-value"><%= cmd.allowedChannels.length %> allowed</span>
+                                    </div>
+                                <% } %>
+                                
+                                <% if (cmd.requiredRoles && cmd.requiredRoles.length > 0 && !cmd.requiredRoles.includes('everyone')) { %>
+                                    <div class="command-info-item">
+                                        <span class="info-label">Roles:</span>
+                                        <span class="info-value"><%= cmd.requiredRoles.length %> required</span>
+                                    </div>
+                                <% } %>
+                            </div>
+                            
+                            <div class="command-response-preview">
+                                <% if (cmd.responseType === 'embed') { %>
+                                    <strong>Embed:</strong> <%= cmd.embedTitle || 'Untitled' %>
+                                <% } else if (cmd.responseType === 'react') { %>
+                                    <strong>Reaction:</strong> <%= cmd.reactionEmoji %>
+                                <% } else { %>
+                                    <%= (cmd.response || '').substring(0, 100) %><%= cmd.response && cmd.response.length > 100 ? '...' : '' %>
+                                <% } %>
                             </div>
                             
                             <div class="command-meta">
-                                <span>Cooldown: <%= cmd.cooldown %>s</span>
                                 <span>Uses: <%= cmd.uses || 0 %></span>
+                                <% if (cmd.usageLimit > 0) { %>
+                                    <span>Limit: <%= cmd.usageLimit %></span>
+                                <% } %>
                                 <span>Created: <%= new Date(cmd.createdAt).toLocaleDateString() %></span>
                             </div>
                         </div>
@@ -133,15 +397,70 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    const select = document.getElementById('channelSelect');
-                    data.channels.forEach(channel => {
-                        const option = document.createElement('option');html
-                        option.value = channel.id;
-                        option.textContent = `#${channel.name}`;
-                        select.appendChild(option);
+                    const channelSelects = ['channelSelect', 'allowedChannels', 'ignoredChannels'];
+                    channelSelects.forEach(selectId => {
+                        const select = document.getElementById(selectId);
+                        if (select) {
+                            data.channels.forEach(channel => {
+                                const option = document.createElement('option');
+                                option.value = channel.id;
+                                option.textContent = `#${channel.name}`;
+                                select.appendChild(option);
+                            });
+                        }
                     });
                 }
             });
+        
+        // Load roles
+        fetch('/api/roles')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const roleSelects = ['requiredRoles', 'ignoredRoles'];
+                    roleSelects.forEach(selectId => {
+                        const select = document.getElementById(selectId);
+                        if (select) {
+                            data.roles.forEach(role => {
+                                const option = document.createElement('option');
+                                option.value = role.id;
+                                option.textContent = `@${role.name}`;
+                                option.style.color = role.color;
+                                select.appendChild(option);
+                            });
+                        }
+                    });
+                }
+            });
+        
+        // Update trigger options based on type
+        function updateTriggerOptions() {
+            const triggerType = document.getElementById('triggerType').value;
+            const caseSensitiveGroup = document.getElementById('caseSensitiveGroup');
+            
+            if (triggerType === 'regex') {
+                caseSensitiveGroup.style.display = 'none';
+            } else {
+                caseSensitiveGroup.style.display = 'block';
+            }
+        }
+        
+        // Update response options based on type
+        function updateResponseOptions() {
+            const responseType = document.getElementById('responseType').value;
+            
+            document.getElementById('textResponseGroup').style.display = 'none';
+            document.getElementById('embedResponseGroup').style.display = 'none';
+            document.getElementById('reactionResponseGroup').style.display = 'none';
+            
+            if (responseType === 'text' || responseType === 'dm' || responseType === 'multiple') {
+                document.getElementById('textResponseGroup').style.display = 'block';
+            } else if (responseType === 'embed') {
+                document.getElementById('embedResponseGroup').style.display = 'block';
+            } else if (responseType === 'react') {
+                document.getElementById('reactionResponseGroup').style.display = 'block';
+            }
+        }
         
         // Execute command
         async function executeCommand(event) {
@@ -194,6 +513,28 @@
             } catch (error) {
                 alert('Error toggling command: ' + error.message);
             }
+        }
+        
+        // Filter commands by category
+        function filterCommands(category) {
+            const cards = document.querySelectorAll('.command-card');
+            const buttons = document.querySelectorAll('.filter-btn');
+            
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            cards.forEach(card => {
+                if (category === 'all' || card.dataset.category === category) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+        
+        // Edit command (placeholder - you can expand this)
+        function editCommand(commandId) {
+            alert('Edit functionality coming soon! For now, delete and recreate the command.');
         }
     </script>
 </body>

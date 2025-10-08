@@ -35,6 +35,13 @@ const serverInvites = new Map();
 const memberInvites = new Map();
 const memberInvitesFile = 'member-invites.json';
 
+// Store cooldowns in memory for custom commands
+const customCommandCooldowns = {
+    user: new Map(),
+    channel: new Map(),
+    server: new Map()
+};
+
 // Load member invites from file
 function loadMemberInvites() {
     try {
@@ -552,6 +559,7 @@ client.once('ready', async () => {
     
     // Link log channels to command handler
     commandHandler.setLogChannels(logChannels);
+    console.log('✅ Log channels linked to command handler');
     
     console.log('\n📋 Loading log channels...');
     for (const [key, channelId] of Object.entries(config.logChannels)) {
@@ -739,8 +747,7 @@ client.on('messageCreate', async message => {
                     
                     try {
                         await logChannels.attachments.send({
-                            content: `**Images from ${firstMsg.author.tag}:**`,
-                            files: imageFiles
+                            content: `**Images from ${firstMsg.author.tag}:**`,files: imageFiles
                         });
                     } catch (error) {
                         console.error('Error sending image files:', error);
@@ -795,7 +802,7 @@ client.on('messageCreate', async message => {
 });
 
 // ============================================
-// CUSTOM COMMANDS HANDLER
+// ADVANCED CUSTOM COMMANDS HANDLER
 // ============================================
 
 client.on('messageCreate', async message => {
@@ -805,78 +812,325 @@ client.on('messageCreate', async message => {
     // Check if custom commands are enabled
     if (!config.customCommands || !config.customCommands.enabled) return;
     
-    const prefix = config.customCommands.prefix || '!';
-    
-    // Check if message starts with prefix
-    if (!message.content.startsWith(prefix)) return;
-    
-    const args = message.content.slice(prefix.length).trim().split(/\s+/);
-    const commandName = args.shift().toLowerCase();
-    
-    // Check if it's a regular bot command first
-    if (commandHandler.commands.has(commandName)) return;
-    
     try {
-        // Look up custom command in MongoDB
-        const customCommand = await mongoLogger.db.collection('customCommands').findOne({
-            trigger: commandName,
-            enabled: true
-        });
+        // Get all enabled commands
+        const commands = await mongoLogger.db.collection('customCommands')
+            .find({ enabled: true })
+            .toArray();
         
-        if (!customCommand) return;
+        if (!commands || commands.length === 0) return;
         
-        // Check cooldown
-        if (customCommand.cooldown > 0) {
-            const cooldownKey = `${message.author.id}_${commandName}`;
-            const lastUsed = customCommandCooldowns.get(cooldownKey);
+        for (const command of commands) {
+            // Check if this message triggers the command
+            const triggered = checkTrigger(message, command);
+            if (!triggered) continue;
             
-            if (lastUsed) {
-                const timeLeft = (customCommand.cooldown * 1000) - (Date.now() - lastUsed);
-                if (timeLeft > 0) {
-                    const reply = await message.reply(
-                        `⏰ Please wait ${Math.ceil(timeLeft / 1000)} seconds before using this command again.`
-                    );
+            // Check channel restrictions
+            if (!checkChannelRestrictions(message, command)) continue;
+            
+            // Check role restrictions
+            if (!checkRoleRestrictions(message, command)) continue;
+            
+            // Check cooldowns
+            const cooldownCheck = checkCooldowns(message, command);
+            if (!cooldownCheck.allowed) {
+                if (cooldownCheck.message) {
+                    const reply = await message.reply(cooldownCheck.message);
                     setTimeout(() => reply.delete().catch(() => {}), 5000);
-                    return;
+                }
+                continue;
+            }
+            
+            // Check usage limit
+            if (command.usageLimit > 0 && command.uses >= command.usageLimit) {
+                await mongoLogger.db.collection('customCommands')
+                    .updateOne(
+                        { _id: command._id },
+                        { $set: { enabled: false } }
+                    );
+                continue;
+            }
+            
+            // Delete trigger message if enabled
+            if (command.deleteTrigger) {
+                try {
+                    await message.delete();
+                } catch (error) {
+                    console.log('Could not delete trigger message');
                 }
             }
             
-            customCommandCooldowns.set(cooldownKey, Date.now());
+            // Execute command
+            await executeCustomCommand(message, command);
+            
+            // Update usage count
+            await mongoLogger.db.collection('customCommands').updateOne(
+                { _id: command._id },
+                { $inc: { uses: 1 } }
+            );
+            
+            // Set cooldowns
+            setCooldowns(message, command);
+            
+            // Only execute first matching command
+            break;
         }
-        
-        // Parse response with variables
-        let response = customCommand.response;
-        
-        // Replace variables
-        response = response
-            .replace(/{user}/g, message.author.username)
-            .replace(/{user\.mention}/g, `<@${message.author.id}>`)
-            .replace(/{user\.id}/g, message.author.id)
-            .replace(/{channel}/g, message.channel.name)
-            .replace(/{server}/g, message.guild.name)
-            .replace(/{membercount}/g, message.guild.memberCount.toString());
-        
-        // Handle {args} and {args.X}
-        response = response
-            .replace(/{args}/g, args.join(' '))
-            .replace(/{args\.(\d+)}/g, (match, index) => args[parseInt(index)] || '');
-        
-        // Send response
-        await message.channel.send(response);
-        
-        // Increment usage counter
-        await mongoLogger.db.collection('customCommands').updateOne(
-            { _id: customCommand._id },
-            { $inc: { uses: 1 } }
-        );
         
     } catch (error) {
         console.error('Error executing custom command:', error);
     }
 });
 
-// Store cooldowns in memory
-const customCommandCooldowns = new Map();
+function checkTrigger(message, command) {
+    const content = command.caseSensitive ? message.content : message.content.toLowerCase();
+    const triggers = Array.isArray(command.trigger) ? command.trigger : [command.trigger];
+    
+    switch (command.triggerType) {
+        case 'command':
+            const prefix = config.customCommands.prefix || '!';
+            if (!content.startsWith(prefix)) return false;
+            const cmd = content.slice(prefix.length).split(/\s+/)[0];
+            return triggers.includes(command.caseSensitive ? cmd : cmd.toLowerCase());
+        
+        case 'exact':
+            return triggers.some(t => content === (command.caseSensitive ? t : t.toLowerCase()));
+        
+        case 'contains':
+            return triggers.some(t => content.includes(command.caseSensitive ? t : t.toLowerCase()));
+        
+        case 'startswith':
+            return triggers.some(t => content.startsWith(command.caseSensitive ? t : t.toLowerCase()));
+        
+        case 'regex':
+            try {
+                return triggers.some(t => new RegExp(t).test(content));
+            } catch (error) {
+                console.error('Invalid regex:', error);
+                return false;
+            }
+        
+        default:
+            return false;
+    }
+}
+
+function checkChannelRestrictions(message, command) {
+    // Check ignored channels
+    if (command.ignoredChannels && command.ignoredChannels.length > 0) {
+        if (command.ignoredChannels.includes(message.channel.id)) {
+            return false;
+        }
+    }
+    
+    // Check allowed channels
+    if (command.allowedChannels && command.allowedChannels.length > 0) {
+        if (!command.allowedChannels.includes('all')) {
+            if (!command.allowedChannels.includes(message.channel.id)) {
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+function checkRoleRestrictions(message, command) {
+    const member = message.member;
+    if (!member) return false;
+    
+    // Check ignored roles
+    if (command.ignoredRoles && command.ignoredRoles.length > 0) {
+        const hasIgnoredRole = member.roles.cache.some(role => 
+            command.ignoredRoles.includes(role.id)
+        );
+        if (hasIgnoredRole) return false;
+    }
+    
+    // Check required roles
+    if (command.requiredRoles && command.requiredRoles.length > 0) {
+        if (!command.requiredRoles.includes('everyone')) {
+            const hasRequiredRole = member.roles.cache.some(role => 
+                command.requiredRoles.includes(role.id)
+            );
+            if (!hasRequiredRole) return false;
+        }
+    }
+    
+    return true;
+}
+
+function checkCooldowns(message, command) {
+    const now = Date.now();
+    
+    // User cooldown
+    if (command.userCooldown > 0) {
+        const key = `${command._id}_${message.author.id}`;
+        const lastUsed = customCommandCooldowns.user.get(key);
+        if (lastUsed) {
+            const timeLeft = (command.userCooldown * 1000) - (now - lastUsed);
+            if (timeLeft > 0) {
+                return {
+                    allowed: false,
+                    message: `⏰ Please wait ${Math.ceil(timeLeft / 1000)} seconds before using this command again.`
+                };
+            }
+        }
+    }
+    
+    // Channel cooldown
+    if (command.channelCooldown > 0) {
+        const key = `${command._id}_${message.channel.id}`;
+        const lastUsed = customCommandCooldowns.channel.get(key);
+        if (lastUsed) {
+            const timeLeft = (command.channelCooldown * 1000) - (now - lastUsed);
+            if (timeLeft > 0) {
+                return {
+                    allowed: false,
+                    message: `⏰ This command is on cooldown in this channel for ${Math.ceil(timeLeft / 1000)} seconds.`
+                };
+            }
+        }
+    }
+    
+    // Server cooldown
+    if (command.serverCooldown > 0) {
+        const key = `${command._id}_${message.guild.id}`;
+        const lastUsed = customCommandCooldowns.server.get(key);
+        if (lastUsed) {
+            const timeLeft = (command.serverCooldown * 1000) - (now - lastUsed);
+            if (timeLeft > 0) {
+                return {
+                    allowed: false,
+                    message: `⏰ This command is on server-wide cooldown for ${Math.ceil(timeLeft / 1000)} seconds.`
+                };
+            }
+        }
+    }
+    
+    return { allowed: true };
+}
+
+function setCooldowns(message, command) {
+    const now = Date.now();
+    
+    if (command.userCooldown > 0) {
+        const key = `${command._id}_${message.author.id}`;
+        customCommandCooldowns.user.set(key, now);
+    }
+    
+    if (command.channelCooldown > 0) {
+        const key = `${command._id}_${message.channel.id}`;
+        customCommandCooldowns.channel.set(key, now);
+    }
+    
+    if (command.serverCooldown > 0) {
+        const key = `${command._id}_${message.guild.id}`;
+        customCommandCooldowns.server.set(key, now);
+    }
+}
+
+async function executeCustomCommand(message, command) {
+    try {
+        // Parse response with variables
+        const args = message.content.split(/\s+/).slice(1);
+        const variables = {
+            '{user}': message.author.username,
+            '{user.mention}': `<@${message.author.id}>`,
+            '{user.id}': message.author.id,
+            '{user.tag}': message.author.tag,
+            '{channel}': message.channel.name,
+            '{channel.mention}': `<#${message.channel.id}>`,
+            '{channel.id}': message.channel.id,
+            '{server}': message.guild.name,
+            '{membercount}': message.guild.memberCount.toString(),
+            '{args}': args.join(' ')
+        };
+        
+        // Add individual args
+        args.forEach((arg, index) => {
+            variables[`{args.${index}}`] = arg;
+        });
+        
+        let response = command.response || '';
+        
+        // Replace all variables
+        for (const [key, value] of Object.entries(variables)) {
+            response = response.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+        }
+        
+        // Execute based on response type
+        switch (command.responseType) {
+            case 'text':
+            case 'dm':
+                const targetChannel = command.responseType === 'dm' || command.dmResponse ? message.author : message.channel;
+                const sentMessage = await targetChannel.send(response);
+                
+                // Delete after X seconds
+                if (command.deleteAfter && command.deleteAfterSeconds > 0) {
+                    setTimeout(() => {
+                        sentMessage.delete().catch(() => {});
+                    }, command.deleteAfterSeconds * 1000);
+                }
+                break;
+            
+            case 'embed':
+                const { EmbedBuilder } = require('discord.js');
+                
+                let embedDesc = command.embedDescription || '';
+                for (const [key, value] of Object.entries(variables)) {
+                    embedDesc = embedDesc.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+                }
+                
+                let embedTitle = command.embedTitle || '';
+                for (const [key, value] of Object.entries(variables)) {
+                    embedTitle = embedTitle.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor(command.embedColor || '#5865f2')
+                    .setTitle(embedTitle || 'Custom Command')
+                    .setDescription(embedDesc);
+                
+                if (command.embedFooter) embed.setFooter({ text: command.embedFooter });
+                if (command.embedImage) embed.setImage(command.embedImage);
+                if (command.embedThumbnail) embed.setThumbnail(command.embedThumbnail);
+                
+                const embedTarget = command.dmResponse ? message.author : message.channel;
+                const embedMessage = await embedTarget.send({ embeds: [embed] });
+                
+                if (command.deleteAfter && command.deleteAfterSeconds > 0) {
+                    setTimeout(() => {
+                        embedMessage.delete().catch(() => {});
+                    }, command.deleteAfterSeconds * 1000);
+                }
+                break;
+            
+            case 'react':
+                if (command.reactionEmoji) {
+                    await message.react(command.reactionEmoji).catch(() => {
+                        console.log('Could not add reaction');
+                    });
+                }
+                break;
+            
+            case 'multiple':
+                // Send text response
+                if (response) {
+                    const multiTarget = command.dmResponse ? message.author : message.channel;
+                    await multiTarget.send(response);
+                }
+                
+                // Add reaction if set
+                if (command.reactionEmoji) {
+                    await message.react(command.reactionEmoji).catch(() => {});
+                }
+                break;
+        }
+        
+    } catch (error) {
+        console.error('Error executing custom command:', error);
+    }
+}
 
 // Button interaction handler for spam review
 client.on('interactionCreate', async interaction => {

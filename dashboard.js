@@ -568,141 +568,177 @@ this.app.get('/analytics', this.requireAuth.bind(this), async (req, res) => {
 });
 
         // ============================================
-        // CUSTOM COMMANDS PAGE
-        // ============================================
+// CUSTOM COMMANDS PAGE
+// ============================================
+
+this.app.get('/commands', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        const commands = await this.mongoLogger.db.collection('customCommands')
+            .find({})
+            .sort({ category: 1, trigger: 1 })
+            .toArray();
         
-        this.app.get('/commands', this.requireAuth.bind(this), async (req, res) => {
-            try {
-                const commands = await this.mongoLogger.db.collection('customCommands')
-                    .find({})
-                    .sort({ trigger: 1 })
-                    .toArray();
-                
-                res.render('commands', {
-                    client: this.client,
-                    commands: commands || []
-                });
-            } catch (error) {
-                console.error('Commands page error:', error);
-                req.flash('error', 'Error loading commands');
-                res.redirect('/');
-            }
+        res.render('commands', {
+            client: this.client,
+            commands: commands || []
         });
+    } catch (error) {
+        console.error('Commands page error:', error);
+        req.flash('error', 'Error loading commands');
+        res.redirect('/');
+    }
+});
 
-        // Create custom command
-        this.app.post('/commands/create', this.requireAdmin.bind(this), async (req, res) => {
-            try {
-                const { trigger, response, enabled, cooldown } = req.body;
-                
-                const command = {
-                    trigger: trigger.toLowerCase(),
-                    response: response,
-                    enabled: enabled === 'on',
-                    cooldown: parseInt(cooldown) || 0,
-                    createdBy: req.user?.id || 'admin',
-                    createdAt: new Date(),
-                    uses: 0
-                };
-                
-                await this.mongoLogger.db.collection('customCommands').insertOne(command);
-                
-                req.flash('success', `Command "${trigger}" created!`);
-                res.redirect('/commands');
-            } catch (error) {
-                console.error('Create command error:', error);
-                req.flash('error', 'Error creating command');
-                res.redirect('/commands');
-            }
-        });
-
-        // Delete custom command
-        this.app.post('/commands/delete/:id', this.requireAdmin.bind(this), async (req, res) => {
-            try {
-                const { ObjectId } = require('mongodb');
-                await this.mongoLogger.db.collection('customCommands')
-                    .deleteOne({ _id: new ObjectId(req.params.id) });
-                
-                req.flash('success', 'Command deleted');
-                res.redirect('/commands');
-            } catch (error) {
-                console.error('Delete command error:', error);
-                req.flash('error', 'Error deleting command');
-                res.redirect('/commands');
-            }
-        });
-
-        // Toggle command status
-        this.app.post('/commands/toggle/:id', this.requireAdmin.bind(this), async (req, res) => {
-            try {
-                const { ObjectId } = require('mongodb');
-                const command = await this.mongoLogger.db.collection('customCommands')
-                    .findOne({ _id: new ObjectId(req.params.id) });
-                
-                await this.mongoLogger.db.collection('customCommands')
-                    .updateOne(
-                        { _id: new ObjectId(req.params.id) },
-                        { $set: { enabled: !command.enabled } }
-                    );
-                
-                res.json({ success: true, enabled: !command.enabled });
-            } catch (error) {
-                console.error('Toggle command error:', error);
-                res.json({ success: false, error: error.message });
-            }
-        });
-
-        // ============================================
-        // EXECUTE COMMANDS FROM DASHBOARD
-        // ============================================
+// Create custom command (ADVANCED)
+this.app.post('/commands/create', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const {
+            name,
+            category,
+            description,
+            triggerType,
+            trigger,
+            caseSensitive,
+            deleteTrigger,
+            allowedChannels,
+            ignoredChannels,
+            requiredRoles,
+            ignoredRoles,
+            responseType,
+            response,
+            embedTitle,
+            embedDescription,
+            embedColor,
+            embedFooter,
+            embedImage,
+            embedThumbnail,
+            reactionEmoji,
+            userCooldown,
+            channelCooldown,
+            serverCooldown,
+            usageLimit,
+            dmResponse,
+            deleteAfter,
+            deleteAfterSeconds,
+            enabled
+        } = req.body;
         
-        this.app.post('/execute', this.requireAdmin.bind(this), async (req, res) => {
-            try {
-                const { command, channelId } = req.body;
-                
-                if (!command || !channelId) {
-                    return res.json({ success: false, error: 'Missing command or channel' });
-                }
-                
-                const channel = await this.client.channels.fetch(channelId);
-                if (!channel || !channel.isTextBased()) {
-                    return res.json({ success: false, error: 'Invalid channel' });
-                }
-                
-                // Log the command execution
-                await this.mongoLogger.db.collection('commandExecutions').insertOne({
-                    command: command,
-                    channelId: channelId,
-                    executedBy: req.user?.id || 'admin',
-                    executedAt: new Date()
-                });
-                
-                // Send the command as bot
-                await channel.send(command);
-                
-                res.json({ success: true, message: 'Command executed' });
-            } catch (error) {
-                console.error('Execute command error:', error);
-                res.json({ success: false, error: error.message });
-            }
-        });
+        // Parse triggers (comma-separated)
+        const triggers = trigger.split(',').map(t => t.trim().toLowerCase());
+        
+        const command = {
+            name: name,
+            category: category || 'general',
+            description: description || '',
+            triggerType: triggerType || 'command',
+            trigger: triggers.length === 1 ? triggers[0] : triggers,
+            caseSensitive: caseSensitive === 'on',
+            deleteTrigger: deleteTrigger === 'on',
+            
+            // Channel & Role restrictions
+            allowedChannels: Array.isArray(allowedChannels) ? allowedChannels : [allowedChannels || 'all'],
+            ignoredChannels: Array.isArray(ignoredChannels) ? ignoredChannels : (ignoredChannels ? [ignoredChannels] : []),
+            requiredRoles: Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles || 'everyone'],
+            ignoredRoles: Array.isArray(ignoredRoles) ? ignoredRoles : (ignoredRoles ? [ignoredRoles] : []),
+            
+            // Response settings
+            responseType: responseType || 'text',
+            response: response || '',
+            
+            // Embed settings
+            embedTitle: embedTitle || '',
+            embedDescription: embedDescription || '',
+            embedColor: embedColor || '#5865f2',
+            embedFooter: embedFooter || '',
+            embedImage: embedImage || '',
+            embedThumbnail: embedThumbnail || '',
+            
+            // Reaction settings
+            reactionEmoji: reactionEmoji || '',
+            
+            // Cooldowns
+            userCooldown: parseInt(userCooldown) || 0,
+            channelCooldown: parseInt(channelCooldown) || 0,
+            serverCooldown: parseInt(serverCooldown) || 0,
+            
+            // Advanced settings
+            usageLimit: parseInt(usageLimit) || 0,
+            dmResponse: dmResponse === 'on',
+            deleteAfter: deleteAfter === 'on',
+            deleteAfterSeconds: parseInt(deleteAfterSeconds) || 10,
+            
+            enabled: enabled === 'on',
+            createdBy: req.user?.id || 'admin',
+            createdAt: new Date(),
+            uses: 0
+        };
+        
+        await this.mongoLogger.db.collection('customCommands').insertOne(command);
+        
+        req.flash('success', `Command "${name}" created!`);
+        res.redirect('/commands');
+    } catch (error) {
+        console.error('Create command error:', error);
+        req.flash('error', 'Error creating command: ' + error.message);
+        res.redirect('/commands');
+    }
+});
 
-        // Get channels for command execution
-        this.app.get('/api/channels', this.requireAuth.bind(this), async (req, res) => {
-            try {
-                const guild = this.client.guilds.cache.first();
-                const channels = guild.channels.cache
-                    .filter(c => c.isTextBased())
-                    .map(c => ({
-                        id: c.id,
-                        name: c.name,
-                        type: c.type
-                    }));
-                
-                res.json({ success: true, channels });
-            } catch (error) {
-                res.json({ success: false, error: error.message });
-            }
-        });
+// Delete custom command
+this.app.post('/commands/delete/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        await this.mongoLogger.db.collection('customCommands')
+            .deleteOne({ _id: new ObjectId(req.params.id) });
+        
+        req.flash('success', 'Command deleted');
+        res.redirect('/commands');
+    } catch (error) {
+        console.error('Delete command error:', error);
+        req.flash('error', 'Error deleting command');
+        res.redirect('/commands');
+    }
+});
+
+// Toggle command status
+this.app.post('/commands/toggle/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const command = await this.mongoLogger.db.collection('customCommands')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        await this.mongoLogger.db.collection('customCommands')
+            .updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: { enabled: !command.enabled } }
+            );
+        
+        res.json({ success: true, enabled: !command.enabled });
+    } catch (error) {
+        console.error('Toggle command error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Get roles API
+this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        const guild = this.client.guilds.cache.first();
+        const roles = guild.roles.cache
+            .filter(r => r.name !== '@everyone')
+            .map(r => ({
+                id: r.id,
+                name: r.name,
+                color: r.hexColor,
+                position: r.position
+            }))
+            .sort((a, b) => b.position - a.position);
+        
+        res.json({ success: true, roles });
+    } catch (error) {
+        res.json({ success: false, error: error.message });
+    }
+});
 
         // ============================================
         // API - STATS

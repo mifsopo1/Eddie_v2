@@ -54,8 +54,11 @@
                     <div class="invite-item">
                         <div class="invite-header">
                             <span class="invite-user">
-                                <a href="/user/<%= invite.userId %>"><%= invite.userName %></a>
-                            </span>
+    <% if (invite.userAvatar) { %>
+        <img src="<%= invite.userAvatar %>" alt="<%= invite.userName %>" class="user-avatar-inline">
+    <% } %>
+    <a href="/user/<%= invite.userId %>"><%= invite.userName %></a>
+</span>
                             <span class="invite-time">
                                 <%= new Date(invite.timestamp).toLocaleString() %>
                             </span>

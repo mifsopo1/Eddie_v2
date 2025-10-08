@@ -109,7 +109,7 @@ class MongoDBLogger {
                 messageId: message.id,
                 userId: message.author?.id || 'Unknown',
                 userName: message.author?.tag || 'Unknown',
-                userAvatar: message.author?.displayAvatarURL() || null,
+                userAvatar: message.author?.displayAvatarURL({ size: 128 }) || null, // ← ADD THIS
                 channelId: message.channel.id,
                 channelName: message.channel.name,
                 guildId: message.guild.id,

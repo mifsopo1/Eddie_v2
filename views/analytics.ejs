@@ -93,17 +93,15 @@
             <div class="leaderboard">
                 <% topUsers.forEach((user, index) => { %>
                     <div class="leaderboard-item rank-<%= index + 1 %>">
-                        <div class="rank-badge">#<%= index + 1 %></div>
-                        <img src="<%= user.userAvatar %>" alt="Avatar" class="leaderboard-avatar">
-                        <div class="leaderboard-info">
-                            <a href="/user/<%= user.userId %>" class="leaderboard-name"><%= user.userName %></a>
-                            <div class="leaderboard-stats">
-                                <span>💬 <%= user.messageCount.toLocaleString() %> messages</span>
-                                <span>📍 <%= user.channelCount %> channels</span>
-                            </div>
-                        </div>
-                        <div class="leaderboard-bar" style="width: <%= (user.messageCount / topUsers[0].messageCount * 100) %>%"></div>
-                    </div>
+    <div class="rank-badge">#<%= index + 1 %></div>
+    <% if (user.userAvatar) { %>
+        <img src="<%= user.userAvatar %>" alt="<%= user.userName %>" class="leaderboard-avatar">
+    <% } %>
+    <div class="leaderboard-info">
+        <a href="/user/<%= user.userId %>" class="leaderboard-name"><%= user.userName %></a>
+        <!-- rest -->
+    </div>
+</div>
                 <% }); %>
             </div>
         </div>

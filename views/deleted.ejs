@@ -48,8 +48,11 @@
                     <div class="message-header">
                         <span class="message-type delete">DELETED</span>
                         <span class="message-user">
-                            <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
-                        </span>
+    <% if (msg.userAvatar) { %>
+        <img src="<%= msg.userAvatar %>" alt="<%= msg.userName %>" class="user-avatar-inline">
+    <% } %>
+    <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
+</span>
                         <span class="message-channel">#<%= msg.channelName %></span>
                         <span class="message-time">
                             Deleted: <%= new Date(msg.deletedTimestamp).toLocaleString() %>

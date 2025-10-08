@@ -1062,3 +1062,255 @@ body {
         flex-direction: column;
     }
 }
+
+/* ============================================
+   USER AVATARS
+   ============================================ */
+
+.user-avatar-inline {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.user-avatar-medium {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    margin-right: 12px;
+}
+
+.user-with-avatar {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.message-user a,
+.invite-user a,
+.leaderboard-name,
+.mod-details a,
+.voice-user a,
+.event-user a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.leaderboard-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ============================================
+   ADVANCED CUSTOM COMMANDS PAGE
+   ============================================ */
+
+.form-section {
+    background: #2c2c2c;
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    border-left: 4px solid #5865f2;
+}
+
+.form-section h3 {
+    color: #5865f2;
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.form-group select[multiple] {
+    padding: 0.5rem;
+}
+
+.command-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.command-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.command-title-group h3 {
+    margin: 0;
+    color: #fff;
+}
+
+.command-category-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.command-category-badge.general {
+    background: #5865f2;
+    color: white;
+}
+
+.command-category-badge.fun {
+    background: #faa61a;
+    color: white;
+}
+
+.command-category-badge.moderation {
+    background: #ed4245;
+    color: white;
+}
+
+.command-category-badge.info {
+    background: #00b0f4;
+    color: white;
+}
+
+.command-category-badge.utility {
+    background: #43b581;
+    color: white;
+}
+
+.command-category-badge.custom {
+    background: #9b59b6;
+    color: white;
+}
+
+.command-description {
+    color: #b9bbbe;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: #1e1e1e;
+    border-radius: 5px;
+}
+
+.command-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.command-info-item {
+    background: #1e1e1e;
+    padding: 0.75rem;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.info-label {
+    color: #72767d;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.info-value {
+    color: #dcddde;
+    font-size: 0.9rem;
+}
+
+.command-response-preview {
+    background: #383838;
+    padding: 1rem;
+    border-radius: 5px;
+    color: #dcddde;
+    margin-bottom: 1rem;
+    word-wrap: break-word;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.edit-btn {
+    padding: 0.5rem 1rem;
+    background: #faa61a;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.3s;
+}
+
+.edit-btn:hover {
+    background: #e89b10;
+}
+
+.command-filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 0.5rem 1rem;
+    background: #2c2c2c;
+    color: #b9bbbe;
+    border: 2px solid #40444b;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.filter-btn:hover {
+    border-color: #5865f2;
+    color: #fff;
+}
+
+.filter-btn.active {
+    background: #5865f2;
+    color: white;
+    border-color: #5865f2;
+}
+
+.btn-large {
+    font-size: 1.1rem;
+    padding: 1rem 2rem;
+    margin-top: 1rem;
+}
+
+/* Responsive form layout */
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .command-info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .command-card-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .command-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
