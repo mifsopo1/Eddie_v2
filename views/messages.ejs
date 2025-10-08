@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    
+    <div class="container">
+        <h1>💬 All Messages</h1>
+        
+        <div class="messages-container">
+            <% messages.forEach(msg => { %>
+                <div class="message-item <%= msg.eventType %>">
+                    <div class="message-header">
+                        <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+                        <span class="message-user">
+                            <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
+                        </span>
+                        <span class="message-channel">#<%= msg.channelName %></span>
+                        <span class="message-time"><%= new Date(msg.timestamp).toLocaleString() %></span>
+                    </div>
+                    <div class="message-content">
+                        <%= msg.content || '[No content]' %>
+                        <% if (msg.attachmentCount > 0) { %>
+                            <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
+                        <% } %>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+        
+        <div class="pagination">
+            <% if (currentPage > 1) { %>
+                <a href="?page=<%= currentPage - 1 %>" class="btn">← Previous</a>
+            <% } %>
+            <span>Page <%= currentPage %> of <%= totalPages %></span>
+            <% if (currentPage < totalPages) { %>
+                <a href="?page=<%= currentPage + 1 %>" class="btn">Next →</a>
+            <% } %>
+        </div>
+    </div>
+</body>
+</html>

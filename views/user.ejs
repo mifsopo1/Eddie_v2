@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    
+    <div class="container">
+        <div class="user-profile">
+            <% if (discordUser) { %>
+                <img src="<%= discordUser.displayAvatarURL({ size: 128 }) %>" alt="Avatar" class="user-avatar">
+                <div class="user-info">
+                    <h1><%= discordUser.tag %></h1>
+                    <p>ID: <%= userId %></p>
+                    <p>Created: <%= discordUser.createdAt.toLocaleString() %></p>
+                    <% if (discordUser.bot) { %>
+                        <span class="badge bot">BOT</span>
+                    <% } %>
+                </div>
+            <% } else { %>
+                <h1>User <%= userId %></h1>
+                <p class="text-muted">User not in cache</p>
+            <% } %>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('messages')">Messages (<%= messages.length %>)</button>
+            <button class="tab-btn" onclick="showTab('moderation')">Mod History (<%= moderationHistory.length %>)</button>
+            <button class="tab-btn" onclick="showTab('member')">Member Data (<%= memberData.length %>)</button>
+        </div>
+        
+        <div id="messages-tab" class="tab-content active">
+            <h2>Message History</h2>
+            <div class="messages-container">
+                <% messages.forEach(msg => { %>
+                    <div class="message-item <%= msg.eventType %>">
+                        <div class="message-header">
+                            <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+                            <span class="message-channel">#<%= msg.channelName %></span>
+                            <span class="message-time"><%= new Date(msg.timestamp || msg.deletedTimestamp).toLocaleString() %></span>
+                        </div>
+                        <div class="message-content">
+                            <% if (msg.eventType === 'edit') { %>
+                                <div class="edit-before">Before: <%= msg.contentBefore %></div>
+                                <div class="edit-after">After: <%= msg.contentAfter %></div>
+                            <% } else { %>
+                                <%= msg.content || '[No content]' %>
+                            <% } %>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+        </div>
+        
+        <div id="moderation-tab" class="tab-content">
+            <h2>Moderation History</h2>
+            <% if (moderationHistory.length === 0) { %>
+                <p class="text-muted">No moderation actions on record</p>
+            <% } else { %>
+                <div class="mod-actions">
+                    <% moderationHistory.forEach(action => { %>
+                        <div class="mod-action <%= action.actionType %>">
+                            <div class="mod-header">
+                                <span class="mod-type"><%= action.actionType.toUpperCase() %></span>
+                                <span class="mod-time"><%= new Date(action.timestamp).toLocaleString() %></span>
+                            </div>
+                            <div class="mod-details">
+                                <% if (action.moderatorName) { %>
+                                    <p><strong>Moderator:</strong> <%= action.moderatorName %></p>
+                                <% } %>
+                                <% if (action.reason) { %>
+                                    <p><strong>Reason:</strong> <%= action.reason %></p>
+                                <% } %>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+            <% } %>
+        </div>
+        
+        <div id="member-tab" class="tab-content">
+            <h2>Member Activity</h2>
+            <div class="member-events">
+                <% memberData.forEach(event => { %>
+                    <div class="member-event <%= event.eventType %>">
+                        <div class="event-header">
+                            <span class="event-type"><%= event.eventType.toUpperCase().replace('_', ' ') %></span>
+                            <span class="event-time"><%= new Date(event.timestamp).toLocaleString() %></span>
+                        </div>
+                        <div class="event-details">
+                            <% if (event.inviteData) { %>
+                                <p><strong>Invited by:</strong> <%= event.inviteData.inviter %> (code: <%= event.inviteData.code %>)</p>
+                            <% } %>
+                            <% if (event.accountAgeDays !== undefined) { %>
+                                <p><strong>Account age:</strong> <%= event.accountAgeDays %> days old</p>
+                            <% } %>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

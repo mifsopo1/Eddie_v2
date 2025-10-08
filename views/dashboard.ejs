@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    
+    <div class="container">
+        <h1>📊 Dashboard Overview</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">💬</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.totalMessages.toLocaleString() %></div>
+                    <div class="stat-label">Total Messages</div>
+                    <div class="stat-change">+<%= stats.last24h.messages %> today</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.totalMembers.toLocaleString() %></div>
+                    <div class="stat-label">Total Members Joined</div>
+                    <div class="stat-change">+<%= stats.last24h.joins %> today</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">🔨</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.totalModActions.toLocaleString() %></div>
+                    <div class="stat-label">Moderation Actions</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">🗑️</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.last24h.deletes.toLocaleString() %></div>
+                    <div class="stat-label">Deleted Messages (24h)</div>
+                </div>
+            </div>
+        </div>
+        
+        <h2>📝 Recent Messages</h2>
+        <div class="messages-container">
+            <% recentMessages.forEach(msg => { %>
+                <div class="message-item <%= msg.eventType %>">
+                    <div class="message-header">
+                        <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+                        <span class="message-user">
+                            <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
+                        </span>
+                        <span class="message-channel">#<%= msg.channelName %></span>
+                        <span class="message-time"><%= new Date(msg.timestamp).toLocaleString() %></span>
+                    </div>
+                    <div class="message-content">
+                        <%= msg.content || '[No content]' %>
+                        <% if (msg.attachmentCount > 0) { %>
+                            <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
+                        <% } %>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+        
+        <div class="view-more">
+            <a href="/messages" class="btn btn-primary">View All Messages →</a>
+        </div>
+    </div>
+</body>
+</html>

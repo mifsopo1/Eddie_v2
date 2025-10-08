@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deleted Messages - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    
+    <div class="container">
+        <h1>🗑️ Deleted Messages</h1>
+        
+        <div class="filter-box">
+            <label>Time Range:</label>
+            <select onchange="window.location='?hours=' + this.value">
+                <option value="1" <%= hours === 1 ? 'selected' : '' %>>Last Hour</option>
+                <option value="6" <%= hours === 6 ? 'selected' : '' %>>Last 6 Hours</option>
+                <option value="24" <%= hours === 24 ? 'selected' : '' %>>Last 24 Hours</option>
+                <option value="168" <%= hours === 168 ? 'selected' : '' %>>Last Week</option>
+                <option value="720" <%= hours === 720 ? 'selected' : '' %>>Last Month</option>
+            </select>
+        </div>
+        
+        <p class="result-count">Found <%= messages.length %> deleted messages</p>
+        
+        <div class="messages-container">
+            <% messages.forEach(msg => { %>
+                <div class="message-item deleted">
+                    <div class="message-header">
+                        <span class="message-type delete">DELETED</span>
+                        <span class="message-user">
+                            <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
+                        </span>
+                        <span class="message-channel">#<%= msg.channelName %></span>
+                        <span class="message-time">
+                            Deleted: <%= new Date(msg.deletedTimestamp).toLocaleString() %>
+                        </span>
+                    </div>
+                    <div class="message-content">
+                        <%= msg.content %>
+                        <% if (msg.attachmentCount > 0) { %>
+                            <span class="attachment-badge">📎 <%= msg.attachmentCount %> (may be unavailable)</span>
+                        <% } %>
+                    </div>
+                    <% if (msg.originalTimestamp) { %>
+                        <div class="message-meta">
+                            Originally sent: <%= new Date(msg.originalTimestamp).toLocaleString() %>
+                        </div>
+                    <% } %>
+                </div>
+            <% }); %>
+        </div>
+    </div>
+</body>
+</html>

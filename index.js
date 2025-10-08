@@ -1,6 +1,8 @@
 const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const fs = require('fs');
 const config = require('./config.json');
+const MongoDBLogger = require('./mongodb-logger');
+const Dashboard = require('./dashboard');
 
 const client = new Client({
     intents: [
@@ -15,9 +17,13 @@ const client = new Client({
     ]
 });
 
-// Create command handler AFTER client
+// Create command handler
 const CommandHandler = require('./commands');
 const commandHandler = new CommandHandler(client, config);
+
+// MongoDB and Dashboard
+let mongoLogger = null;
+let dashboard = null;
 
 // Store log channels
 const logChannels = {};
@@ -62,9 +68,9 @@ const SPAM_THRESHOLDS = {
     MESSAGE_COUNT: config.antiSpam?.messageThreshold || 5,
     TIME_WINDOW: config.antiSpam?.timeWindow || 10000,
     CROSS_CHANNEL_COUNT: config.antiSpam?.crossChannelThreshold || 2,
-    CROSS_CHANNEL_TIME: config.antiSpam?.crossChannelTime || 15000,
+    CROSS_CHANNEL_TIME: config.antiSpam?.crossChannelTime || 30000,
     MUTE_DURATION: config.antiSpam?.muteDuration || 3600000,
-    DELETE_THRESHOLD: config.antiSpam?.deleteThreshold || 10,
+    DELETE_THRESHOLD: config.antiSpam?.deleteThreshold || 50,
     AUTO_UNMUTE: config.antiSpam?.autoUnmute !== false
 };
 
@@ -83,8 +89,6 @@ function trackSpamBehavior(message) {
     }
     
     const userData = userSpamTracking.get(userId);
-    
-    // Create a simple hash of the message content
     const contentHash = createContentHash(message);
     
     userData.messages.push({
@@ -97,7 +101,6 @@ function trackSpamBehavior(message) {
     });
     userData.channels.add(message.channel.id);
     
-    // Clean old messages (keep last 15 seconds for cross-channel detection)
     userData.messages = userData.messages.filter(msg => 
         now - msg.timestamp < SPAM_THRESHOLDS.CROSS_CHANNEL_TIME
     );
@@ -107,7 +110,6 @@ function trackSpamBehavior(message) {
     );
     userData.channels = recentChannels;
     
-    // Check for cross-channel posting (same content in 2+ channels)
     const contentChannelMap = new Map();
     
     userData.messages.forEach(msg => {
@@ -123,7 +125,6 @@ function trackSpamBehavior(message) {
         hashData.messages.push(msg);
     });
     
-    // Check if any content appears in 2+ channels
     for (const [hash, data] of contentChannelMap.entries()) {
         if (data.channels.size >= 2) {
             return {
@@ -137,7 +138,6 @@ function trackSpamBehavior(message) {
         }
     }
     
-    // Keep existing rapid message detection
     const recentMessages = userData.messages.filter(msg => 
         now - msg.timestamp < SPAM_THRESHOLDS.TIME_WINDOW
     );
@@ -151,7 +151,6 @@ function trackSpamBehavior(message) {
         };
     }
     
-    // Keep existing identical spam detection
     const recentContent = recentMessages.map(m => m.content.toLowerCase().trim());
     const uniqueContent = new Set(recentContent);
     if (recentContent.length >= 3 && uniqueContent.size === 1) {
@@ -167,14 +166,8 @@ function trackSpamBehavior(message) {
 }
 
 function createContentHash(message) {
-    // Create a simple hash based on:
-    // 1. Message content (trimmed and lowercased)
-    // 2. Attachment names and sizes
-    // 3. Embed URLs
-    
     let hashString = message.content.toLowerCase().trim();
     
-    // Add attachment info to hash
     if (message.attachments.size > 0) {
         const attachmentInfo = message.attachments.map(a => 
             `${a.name}:${a.size}:${a.contentType}`
@@ -182,7 +175,6 @@ function createContentHash(message) {
         hashString += `|ATT:${attachmentInfo}`;
     }
     
-    // Add embed info to hash
     if (message.embeds.length > 0) {
         const embedInfo = message.embeds.map(e => 
             `${e.url}:${e.title}:${e.description?.slice(0, 50)}`
@@ -190,18 +182,16 @@ function createContentHash(message) {
         hashString += `|EMB:${embedInfo}`;
     }
     
-    // Add sticker info to hash
     if (message.stickers.size > 0) {
         const stickerInfo = message.stickers.map(s => s.id).join('|');
         hashString += `|STK:${stickerInfo}`;
     }
     
-    // Simple hash function (for matching, not cryptographic security)
     let hash = 0;
     for (let i = 0; i < hashString.length; i++) {
         const char = hashString.charCodeAt(i);
         hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
+        hash = hash & hash;
     }
     
     return hash.toString();
@@ -211,7 +201,6 @@ async function handleSpammer(message, spamData) {
     const member = message.member;
     if (!member) return;
     
-    // Skip admins/mods
     if (member.permissions.has('Administrator') || member.permissions.has('ModerateMembers')) {
         return;
     }
@@ -223,7 +212,6 @@ async function handleSpammer(message, spamData) {
     }
     
     try {
-        // IMMEDIATELY MUTE THE USER
         let mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
         
         if (!mutedRole) {
@@ -235,7 +223,6 @@ async function handleSpammer(message, spamData) {
                 reason: 'Auto-spam protection'
             });
             
-            // Set permissions for all channels
             const channels = message.guild.channels.cache;
             for (const [, channel] of channels) {
                 if (channel.permissionsFor(message.guild.members.me).has('ManageRoles')) {
@@ -251,12 +238,10 @@ async function handleSpammer(message, spamData) {
             }
         }
         
-        // Apply mute
         await member.roles.add(mutedRole);
         userData.muted = true;
         console.log(`🔇 Muted ${message.author.tag}`);
         
-        // Collect attachment URLs AND download them BEFORE deleting messages
         const attachmentUrls = [];
         const attachmentFiles = [];
         
@@ -277,8 +262,7 @@ async function handleSpammer(message, spamData) {
                                 channelId: msg.channelId
                             });
                             
-                            // If small enough, download it NOW (before deletion)
-                            if (att.size < 8388608) { // 8MB limit
+                            if (att.size < 8388608) {
                                 try {
                                     console.log(`⬇️ Downloading ${att.name} (${(att.size / 1024).toFixed(2)} KB)...`);
                                     const response = await fetch(att.url);
@@ -303,7 +287,6 @@ async function handleSpammer(message, spamData) {
         
         console.log(`📦 Collected ${attachmentFiles.length} files to re-upload`);
         
-        // NOW delete the messages (after we've downloaded attachments)
         let deletedCount = 0;
         const deletedChannels = new Set();
         
@@ -323,7 +306,6 @@ async function handleSpammer(message, spamData) {
             }
         }
         
-        // Log to moderation channel WITH attachments and buttons
         if (logChannels.moderation) {
             const embed = new EmbedBuilder()
                 .setColor('#ff9900')
@@ -344,7 +326,6 @@ async function handleSpammer(message, spamData) {
                 });
             }
             
-            // Account info
             const memberInviteData = memberInvites.get(message.author.id);
             if (memberInviteData) {
                 const accountAge = Date.now() - message.author.createdTimestamp;
@@ -366,7 +347,6 @@ async function handleSpammer(message, spamData) {
                 }
             }
             
-            // Sample of deleted content
             const sampleMessages = spamData.messages.slice(0, 2);
             if (sampleMessages.length > 0) {
                 const samples = sampleMessages.map((m, i) => {
@@ -383,7 +363,6 @@ async function handleSpammer(message, spamData) {
                 });
             }
             
-            // Add attachment info if any
             if (attachmentUrls.length > 0) {
                 const attachmentInfo = attachmentUrls.slice(0, 5).map(att => {
                     const size = (att.size / 1024).toFixed(2);
@@ -396,7 +375,6 @@ async function handleSpammer(message, spamData) {
                     inline: false
                 });
                 
-                // Set first image as embed thumbnail if available
                 const firstImage = attachmentUrls.find(att => 
                     att.contentType?.startsWith('image/')
                 );
@@ -414,7 +392,6 @@ async function handleSpammer(message, spamData) {
             embed.setTimestamp();
             embed.setFooter({ text: 'Auto-moderation: User muted, awaiting review' });
             
-            // Create action buttons
             const banButton = new ButtonBuilder()
                 .setCustomId(`ban_${message.author.id}`)
                 .setLabel('Confirmed Spam - BAN User')
@@ -430,14 +407,12 @@ async function handleSpammer(message, spamData) {
             const row = new ActionRowBuilder()
                 .addComponents(banButton, unmutButton);
             
-            // Send with ping
             await logChannels.moderation.send({
                 content: `<@&1425260355420160100> Cross-channel spam detected - User has been **muted**. Please review:`,
                 embeds: [embed],
                 components: [row]
             });
             
-            // Re-upload the actual attachment files
             if (attachmentFiles.length > 0) {
                 try {
                     const attachmentChannelMap = new Map();
@@ -482,7 +457,23 @@ async function handleSpammer(message, spamData) {
             }
         }
         
-        // Warn the user via DM
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logModerationAction({
+                type: 'mute',
+                targetUserId: message.author.id,
+                targetUserName: message.author.tag,
+                targetUserAvatar: message.author.displayAvatarURL(),
+                moderatorId: client.user.id,
+                moderatorName: 'Auto-Moderation',
+                reason: `Cross-channel spam: ${spamData.reason}`,
+                duration: SPAM_THRESHOLDS.MUTE_DURATION,
+                evidence: `Deleted ${deletedCount} messages across ${deletedChannels.size} channels`,
+                guildId: message.guild.id,
+                guildName: message.guild.name
+            });
+        }
+        
         try {
             await message.author.send({
                 embeds: [new EmbedBuilder()
@@ -530,7 +521,6 @@ client.once('ready', async () => {
     console.log(`🆔 Bot ID: ${client.user.id}`);
     console.log(`🌐 Servers: ${client.guilds.cache.size}`);
     
-    // Count total users across all servers
     let totalUsers = 0;
     client.guilds.cache.forEach(guild => {
         totalUsers += guild.memberCount;
@@ -540,10 +530,29 @@ client.once('ready', async () => {
     console.log(`📦 Discord.js Version: ${require('discord.js').version}`);
     console.log('='.repeat(50));
     
-    // Load member invites
+    // Initialize MongoDB
+    if (config.mongodb && config.mongodb.enabled) {
+        mongoLogger = new MongoDBLogger(config);
+        const connected = await mongoLogger.connect();
+        
+        if (connected) {
+            console.log('✅ MongoDB initialized successfully');
+            
+            // Start Dashboard
+            if (config.dashboard && config.dashboard.enabled) {
+                dashboard = new Dashboard(client, mongoLogger, config);
+                dashboard.start();
+            }
+        } else {
+            console.log('⚠️ Bot will continue without MongoDB logging');
+        }
+    }
+    
     loadMemberInvites();
     
-    // Get log channels
+    // Link log channels to command handler
+    commandHandler.setLogChannels(logChannels);
+    
     console.log('\n📋 Loading log channels...');
     for (const [key, channelId] of Object.entries(config.logChannels)) {
         const channel = await client.channels.fetch(channelId).catch(() => null);
@@ -555,10 +564,6 @@ client.once('ready', async () => {
         }
     }
     
-    // 🆕 LINK LOG CHANNELS TO COMMAND HANDLER
-    commandHandler.setLogChannels(logChannels);
-    
-    // Cache invites for all guilds
     console.log('\n🔗 Caching invites...');
     for (const guild of client.guilds.cache.values()) {
         const invites = await guild.invites.fetch();
@@ -570,7 +575,6 @@ client.once('ready', async () => {
     console.log('✅ Bot is ready and monitoring!');
     console.log('='.repeat(50) + '\n');
     
-    // Send startup notification if enabled
     if (config.startupNotification && config.startupNotification.enabled) {
         const notifChannel = await client.channels.fetch(config.startupNotification.channelId).catch(() => null);
         if (notifChannel) {
@@ -600,20 +604,23 @@ client.once('ready', async () => {
 
 // Message Create Event
 client.on('messageCreate', async message => {
-    // ===== COMMAND HANDLER - MUST BE FIRST =====
+    // Command handler - MUST BE FIRST
     if (!message.author.bot && message.guild) {
         await commandHandler.handleCommand(message);
     }
     
-    // ===== EXISTING CODE BELOW =====
     if (message.author.bot) return;
     if (!message.guild) return;
+
+    // Log to MongoDB
+    if (mongoLogger && mongoLogger.connected) {
+        await mongoLogger.logMessageCreate(message);
+    }
 
     // Log attachments to dedicated channel (batched)
     if (message.attachments.size > 0 && logChannels.attachments) {
         const userId = message.author.id;
         
-        // Check if we already have pending attachments for this user
         if (!pendingAttachments.has(userId)) {
             pendingAttachments.set(userId, {
                 messages: [],
@@ -623,18 +630,15 @@ client.on('messageCreate', async message => {
         
         const userAttachments = pendingAttachments.get(userId);
         
-        // Add this message's attachments to the pending list
         userAttachments.messages.push({
             message: message,
             timestamp: Date.now()
         });
         
-        // Clear existing timeout if there is one
         if (userAttachments.timeout) {
             clearTimeout(userAttachments.timeout);
         }
         
-        // Set new timeout to batch attachments
         userAttachments.timeout = setTimeout(async () => {
             try {
                 const attachmentData = pendingAttachments.get(userId);
@@ -643,7 +647,6 @@ client.on('messageCreate', async message => {
                     return;
                 }
                 
-                // Collect all attachments from all messages
                 const allAttachments = [];
                 const channels = new Set();
                 let totalSize = 0;
@@ -663,7 +666,6 @@ client.on('messageCreate', async message => {
                     });
                 }
                 
-                // Create batched embed
                 const firstMsg = attachmentData.messages[0].message;
                 const embed = new EmbedBuilder()
                     .setColor('#3498db')
@@ -679,7 +681,6 @@ client.on('messageCreate', async message => {
                     )
                     .setTimestamp(attachmentData.messages[0].timestamp);
                 
-                // Add file details
                 const fileList = allAttachments.slice(0, 10).map((attData, index) => {
                     const att = attData.attachment;
                     const size = (att.size / 1024).toFixed(2);
@@ -706,7 +707,6 @@ client.on('messageCreate', async message => {
                     });
                 }
                 
-                // Set thumbnail to first image if available
                 const firstImage = allAttachments.find(attData => 
                     attData.attachment.contentType?.startsWith('image/')
                 );
@@ -714,9 +714,8 @@ client.on('messageCreate', async message => {
                     embed.setThumbnail(firstImage.attachment.url);
                 }
                 
-                // Add account age warning if needed
                 const accountAge = Date.now() - firstMsg.author.createdTimestamp;
-                if (accountAge < 604800000) { // 7 days
+                if (accountAge < 604800000) {
                     const ageText = accountAge < 86400000 
                         ? `${Math.floor(accountAge / 3600000)} hours old`
                         : `${Math.floor(accountAge / 86400000)} days old`;
@@ -729,10 +728,8 @@ client.on('messageCreate', async message => {
                     embed.setColor('#ff9900');
                 }
                 
-                // Send the batched log
                 await logChannels.attachments.send({ embeds: [embed] });
                 
-                // If there are images, send them in a follow-up message (up to 10)
                 const images = allAttachments
                     .filter(attData => attData.attachment.contentType?.startsWith('image/'))
                     .slice(0, 10);
@@ -747,7 +744,6 @@ client.on('messageCreate', async message => {
                         });
                     } catch (error) {
                         console.error('Error sending image files:', error);
-                        // If sending fails, just send the URLs
                         const urlList = images.map((attData, i) => `${i + 1}. [${attData.attachment.name}](${attData.attachment.url})`
                         ).join('\n');
                         await logChannels.attachments.send({
@@ -756,19 +752,17 @@ client.on('messageCreate', async message => {
                     }
                 }
                 
-                // Clean up
                 pendingAttachments.delete(userId);
                 
             } catch (error) {
                 console.error('Error logging batched attachments:', error);
                 pendingAttachments.delete(userId);
             }
-        }, 3000); // 3 second delay to batch multiple uploads
+        }, 3000);
     }
 
     // Check for spam if anti-spam is enabled
     if (config.antiSpam && config.antiSpam.enabled) {
-        // Skip exempt roles
         if (message.member && config.antiSpam.exemptRoles) {
             const hasExemptRole = message.member.roles.cache.some(role => 
                 config.antiSpam.exemptRoles.includes(role.id)
@@ -781,20 +775,18 @@ client.on('messageCreate', async message => {
         const spamData = trackSpamBehavior(message);
         
         if (spamData.isSpam) {
-            // Check if we've already reported this user recently (prevent duplicate embeds)
             const userId = message.author.id;
             const lastReport = spamReportCooldown.get(userId);
             const now = Date.now();
             
-            if (!lastReport || (now - lastReport) > 30000) { // 30 second cooldown between reports
+            if (!lastReport || (now - lastReport) > 30000) {
                 console.log(`🚨 Spam detected from ${message.author.tag}: ${spamData.reason}`);
                 spamReportCooldown.set(userId, now);
                 
-                // Wait a moment to collect all messages before processing
                 setTimeout(async () => {
                     await handleSpammer(message, spamData);
-                    spamReportCooldown.delete(userId); // Clear cooldown after handling
-                }, 2000); // 2 second delay to collect all spam messages
+                    spamReportCooldown.delete(userId);
+                }, 2000);
             } else {
                 console.log(`⏳ Spam cooldown active for ${message.author.tag}, skipping duplicate report`);
             }
@@ -819,7 +811,6 @@ client.on('interactionCreate', async interaction => {
             const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
             
             if (action === 'ban') {
-                // BAN THE USER
                 if (!member) {
                     await interaction.editReply({
                         content: '❌ User is no longer in the server. Cannot ban.',
@@ -828,7 +819,6 @@ client.on('interactionCreate', async interaction => {
                 }
                 
                 try {
-                    // Try to DM them before banning
                     if (targetUser) {
                         try {
                             await targetUser.send({
@@ -853,11 +843,18 @@ client.on('interactionCreate', async interaction => {
                         }
                     }
                     
-                    // BAN
                     await member.ban({
                         reason: `Confirmed spam by ${interaction.user.tag} - Cross-channel posting`,
                         deleteMessageSeconds: 60 * 60 * 24
                     });
+                    
+                    // Log to MongoDB
+                    if (mongoLogger && mongoLogger.connected) {
+                        await mongoLogger.logBan({ 
+                            user: targetUser || { id: userId, tag: 'Unknown' },
+                            guild: guild 
+                        }, `Confirmed spam by ${interaction.user.tag}`);
+                    }
                     
                     originalEmbed.setColor('#8b0000');
                     originalEmbed.setTitle('🔨 Spam Review - USER BANNED');
@@ -889,7 +886,6 @@ client.on('interactionCreate', async interaction => {
                 }
                 
             } else if (action === 'unmute') {
-                // UNMUTE - Not spam
                 if (!member) {
                     await interaction.editReply({
                         content: '❌ User is no longer in the server.',
@@ -898,11 +894,25 @@ client.on('interactionCreate', async interaction => {
                 }
                 
                 try {
-                    // Remove mute role
                     const mutedRole = guild.roles.cache.find(r => r.name === 'Muted');
                     if (mutedRole && member.roles.cache.has(mutedRole.id)) {
                         await member.roles.remove(mutedRole);
                         console.log(`🔊 Unmuted ${member.user.tag}`);
+                    }
+                    
+                    // Log to MongoDB
+                    if (mongoLogger && mongoLogger.connected) {
+                        await mongoLogger.logModerationAction({
+                            type: 'unmute',
+                            targetUserId: userId,
+                            targetUserName: member.user.tag,
+                            targetUserAvatar: member.user.displayAvatarURL(),
+                            moderatorId: interaction.user.id,
+                            moderatorName: interaction.user.tag,
+                            reason: 'Not spam - False positive',
+                            guildId: guild.id,
+                            guildName: guild.name
+                        });
                     }
                     
                     originalEmbed.setColor('#00ff00');
@@ -922,7 +932,6 @@ client.on('interactionCreate', async interaction => {
                     });
                     originalEmbed.setTimestamp();
                     
-                    // Notify the user
                     if (targetUser) {
                         try {
                             await targetUser.send({
@@ -961,7 +970,6 @@ client.on('interactionCreate', async interaction => {
                 }
             }
             
-            // Update the message
             await interaction.message.edit({
                 content: `~~<@&1425260355420160100> Cross-channel spam detected - User has been **muted**. Please review:~~ **RESOLVED**`,
                 embeds: [originalEmbed],
@@ -982,11 +990,9 @@ client.on('guildMemberAdd', async member => {
     if (!logChannels.member) return;
     
     try {
-        // Get current invites
         const newInvites = await member.guild.invites.fetch();
         const oldInvites = serverInvites.get(member.guild.id);
         
-        // Find which invite was used
         let usedInvite = null;
         for (const [code, uses] of newInvites) {
             const oldUses = oldInvites?.get(code) || 0;
@@ -996,21 +1002,26 @@ client.on('guildMemberAdd', async member => {
             }
         }
         
-        // Update stored invites
         serverInvites.set(member.guild.id, new Map(newInvites.map(invite => [invite.code, invite.uses])));
         
-        // Store member invite data
-        if (usedInvite) {
-            memberInvites.set(member.id, {
-                code: usedInvite.code,
-                inviter: usedInvite.inviter?.username || 'Unknown',
-                inviterId: usedInvite.inviter?.id || 'Unknown',
-                uses: usedInvite.uses,
-                maxUses: usedInvite.maxUses,
-                timestamp: Date.now(),
-                guildId: member.guild.id
-            });
+        const inviteData = usedInvite ? {
+            code: usedInvite.code,
+            inviter: usedInvite.inviter?.username || 'Unknown',
+            inviterId: usedInvite.inviter?.id || 'Unknown',
+            uses: usedInvite.uses,
+            maxUses: usedInvite.maxUses,
+            timestamp: Date.now(),
+            guildId: member.guild.id
+        } : null;
+        
+        if (inviteData) {
+            memberInvites.set(member.id, inviteData);
             saveMemberInvites();
+        }
+        
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logMemberJoin(member, inviteData);
         }
         
         const embed = new EmbedBuilder()
@@ -1047,6 +1058,11 @@ client.on('guildMemberRemove', async member => {
     try {
         const memberInviteData = memberInvites.get(member.id);
         
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logMemberLeave(member);
+        }
+        
         const embed = new EmbedBuilder()
             .setColor('#ff0000')
             .setTitle('Member Left')
@@ -1080,6 +1096,11 @@ client.on('messageDelete', async message => {
     if (message.author?.bot) return;
     
     try {
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logMessageDelete(message);
+        }
+        
         const embed = new EmbedBuilder()
             .setColor('#ff6b6b')
             .setTitle('Message Deleted')
@@ -1142,6 +1163,11 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
     if (oldMessage.content === newMessage.content) return;
     
     try {
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logMessageUpdate(oldMessage, newMessage);
+        }
+        
         const embed = new EmbedBuilder()
             .setColor('#ffd93d')
             .setTitle('Message Edited')
@@ -1180,9 +1206,12 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     if (!logChannels.voice) return;
     
     try {
-        // User joined a voice channel
+        let action = null;
+        let embed = null;
+        
         if (!oldState.channel && newState.channel) {
-            const embed = new EmbedBuilder()
+            action = 'join';
+            embed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setTitle('🔊 Joined Voice Channel')
                 .addFields(
@@ -1190,13 +1219,10 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                     { name: 'Channel', value: newState.channel.name, inline: true }
                 )
                 .setTimestamp();
-            
-            await logChannels.voice.send({ embeds: [embed] });
         }
-        
-        // User left a voice channel
         else if (oldState.channel && !newState.channel) {
-            const embed = new EmbedBuilder()
+            action = 'leave';
+            embed = new EmbedBuilder()
                 .setColor('#ff0000')
                 .setTitle('🔇 Left Voice Channel')
                 .addFields(
@@ -1204,13 +1230,10 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                     { name: 'Channel', value: oldState.channel.name, inline: true }
                 )
                 .setTimestamp();
-            
-            await logChannels.voice.send({ embeds: [embed] });
         }
-        
-        // User switched voice channels
         else if (oldState.channel && newState.channel && oldState.channel.id !== newState.channel.id) {
-            const embed = new EmbedBuilder()
+            action = 'switch';
+            embed = new EmbedBuilder()
                 .setColor('#ffd93d')
                 .setTitle('↔️ Switched Voice Channel')
                 .addFields(
@@ -1219,6 +1242,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
                     { name: 'To', value: newState.channel.name, inline: true }
                 )
                 .setTimestamp();
+        }
+        
+        if (embed) {
+            // Log to MongoDB
+            if (mongoLogger && mongoLogger.connected && action) {
+                await mongoLogger.logVoiceStateUpdate(oldState, newState, action);
+            }
             
             await logChannels.voice.send({ embeds: [embed] });
         }
@@ -1235,9 +1265,13 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
         const oldRoles = oldMember.roles.cache;
         const newRoles = newMember.roles.cache;
         
-        // Check for added roles
         const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
         if (addedRoles.size > 0) {
+            // Log to MongoDB
+            if (mongoLogger && mongoLogger.connected) {
+                await mongoLogger.logRoleUpdate(oldMember, newMember, 'add', addedRoles);
+            }
+            
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setTitle('Role Added')
@@ -1250,9 +1284,13 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
             await logChannels.role.send({ embeds: [embed] });
         }
         
-        // Check for removed roles
         const removedRoles = oldRoles.filter(role => !newRoles.has(role.id));
         if (removedRoles.size > 0) {
+            // Log to MongoDB
+            if (mongoLogger && mongoLogger.connected) {
+                await mongoLogger.logRoleUpdate(oldMember, newMember, 'remove', removedRoles);
+            }
+            
             const embed = new EmbedBuilder()
                 .setColor('#ff0000')
                 .setTitle('Role Removed')
@@ -1316,6 +1354,11 @@ client.on('guildBanAdd', async ban => {
     try {
         const memberInviteData = memberInvites.get(ban.user.id);
         
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logBan(ban);
+        }
+        
         const embed = new EmbedBuilder()
             .setColor('#8b0000')
             .setTitle('🔨 Member Banned')
@@ -1347,6 +1390,11 @@ client.on('guildBanRemove', async ban => {
     if (!logChannels.moderation) return;
     
     try {
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logUnban(ban);
+        }
+        
         const embed = new EmbedBuilder()
             .setColor('#00ff00')
             .setTitle('Member Unbanned')
@@ -1367,7 +1415,6 @@ client.on('inviteCreate', async invite => {
     if (!logChannels.invite) return;
     
     try {
-        // Update cached invites
         const guildInvites = serverInvites.get(invite.guild.id) || new Map();
         guildInvites.set(invite.code, invite.uses || 0);
         serverInvites.set(invite.guild.id, guildInvites);
@@ -1402,7 +1449,6 @@ client.on('inviteDelete', async invite => {
     if (!logChannels.invite) return;
     
     try {
-        // Update cached invites
         const guildInvites = serverInvites.get(invite.guild.id);
         if (guildInvites) {
             guildInvites.delete(invite.code);
