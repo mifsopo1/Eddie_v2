@@ -683,7 +683,7 @@ class CommandHandler {
         console.log(`✅ Command found: ${command.name}`);
         
         try {
-            await command.execute(message, args);
+            await command.execute.call(this, message, args);
             console.log(`✅ Command executed successfully: ${command.name}`);
         } catch (error) {
             console.error(`❌ Error executing command ${commandName}:`, error);
