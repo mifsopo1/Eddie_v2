@@ -146,9 +146,9 @@ class Dashboard {
                                 <p><strong>To fix:</strong></p>
                                 <ol>
                                     <li>Check if MongoDB is running: <code>sudo docker ps | grep mongodb</code></li>
-                                    <li>Check bot logs: <code>pm2 logs discord-logger-bot</code></li>
+                                    <li>Check bot logs: <code>pm2 logs discord-bot</code></li>
                                     <li>Verify config.json has correct MongoDB URI</li>
-                                    <li>Restart bot: <code>pm2 restart discord-logger-bot</code></li>
+                                    <li>Restart bot: <code>pm2 restart discord-bot</code></li>
                                 </ol>
                             </div>
                             <a href="/logout">Logout</a>
@@ -535,9 +535,8 @@ class Dashboard {
                 timestamp: Date.now()
             });
         });
-    }
 
-            // Analytics page
+        // Analytics page
         this.app.get('/analytics', this.requireAuth.bind(this), async (req, res) => {
             try {
                 if (!this.mongoLogger || !this.mongoLogger.connected) {
@@ -579,6 +578,7 @@ class Dashboard {
                 `);
             }
         });
+    }
 
     start() {
         this.app.listen(this.port, () => {

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moderation - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h2>🤖 <%= client.user.tag %></h2>
+        </div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/messages">Messages</a>
+            <a href="/deleted">Deleted</a>
+            <a href="/members">Members</a>
+            <a href="/moderation">Moderation</a>
+            <a href="/attachments">Attachments</a>
+            <a href="/voice">Voice</a>
+            <a href="/analytics">Analytics</a>
+            <a href="/logout" class="logout">Logout</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <h1>🔨 Moderation Actions</h1>
+        
+        <div class="messages-container">
+            <% if (actions.length === 0) { %>
+                <p>No moderation actions found.</p>
+            <% } else { %>
+                <% actions.forEach(action => { %>
+                    <div class="message-item">
+                        <div class="message-header">
+                            <span class="message-type"><%= action.action.toUpperCase() %></span>
+                            <span class="message-user">
+                                Target: <a href="/user/<%= action.targetId %>"><%= action.targetName %></a>
+                            </span>
+                            <span class="message-user">
+                                By: <%= action.moderatorName %>
+                            </span>
+                            <span class="message-time"><%= new Date(action.timestamp).toLocaleString() %></span>
+                        </div>
+                        <% if (action.reason) { %>
+                            <div class="message-content">
+                                Reason: <%= action.reason %>
+                            </div>
+                        <% } %>
+                    </div>
+                <% }); %>
+            <% } %>
+        </div>
+    </div>
+</body>
+</html>

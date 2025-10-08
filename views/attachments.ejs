@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attachments - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h2>🤖 <%= client.user.tag %></h2>
+        </div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/messages">Messages</a>
+            <a href="/deleted">Deleted</a>
+            <a href="/members">Members</a>
+            <a href="/moderation">Moderation</a>
+            <a href="/attachments">Attachments</a>
+            <a href="/voice">Voice</a>
+            <a href="/analytics">Analytics</a>
+            <a href="/logout" class="logout">Logout</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <h1>📎 Attachments</h1>
+        
+        <div class="messages-container">
+            <% if (attachments.length === 0) { %>
+                <p>No attachments found.</p>
+            <% } else { %>
+                <% attachments.forEach(att => { %>
+                    <div class="message-item">
+                        <div class="message-header">
+                            <span class="message-user">
+                                <a href="/user/<%= att.userId %>"><%= att.userName %></a>
+                            </span>
+                            <span class="message-channel">#<%= att.channelName %></span>
+                            <span class="message-time"><%= new Date(att.timestamp).toLocaleString() %></span>
+                        </div>
+                        <div class="message-content">
+                            <strong>Filename:</strong> <%= att.filename %><br>
+                            <strong>Size:</strong> <%= (att.size / 1024).toFixed(2) %> KB<br>
+                            <% if (att.url) { %>
+                                <a href="<%= att.url %>" target="_blank">View Attachment</a>
+                            <% } %>
+                        </div>
+                    </div>
+                <% }); %>
+            <% } %>
+        </div>
+    </div>
+</body>
+</html>

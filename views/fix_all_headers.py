@@ -17,15 +17,15 @@ header = '''<nav class="navbar">
     </div>
 </nav>'''
 
-files = ['views/dashboard.ejs', 'views/messages.ejs', 'views/deleted.ejs', 'views/user.ejs']
+files = ['views/dashboard.ejs', 'views/messages.ejs', 'views/deleted.ejs', 'views/user.ejs', 'views/analytics.ejs']
 
 for filename in files:
     try:
         with open(filename, 'r') as f:
             content = f.read()
         
-        # Replace the navbar section
-        content = re.sub(r'<nav class="navbar">.*?</nav>', header, content, flags=re.DOTALL)
+        # Replace the include line
+        content = re.sub(r"<%- include\('partials/header'\) %>", header, content)
         
         with open(filename, 'w') as f:
             f.write(content)
