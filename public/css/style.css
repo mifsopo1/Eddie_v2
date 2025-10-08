@@ -1590,3 +1590,24 @@ textarea {
         grid-template-columns: 1fr;
     }
 }
+
+/* Edit Command Form - More Padding */
+.command-form .form-group {
+    margin-bottom: 2rem; /* Increase space between sections */
+}
+
+.command-form input[type="text"],
+.command-form textarea,
+.command-form select {
+    padding: 12px 15px; /* More padding inside inputs */
+}
+
+.command-form label {
+    margin-bottom: 8px; /* More space between label and input */
+    display: block;
+}
+
+/* Specific padding for form sections */
+.command-form {
+    padding: 2rem; /* Overall form padding */
+}
