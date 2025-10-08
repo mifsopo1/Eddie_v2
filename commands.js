@@ -3,14 +3,19 @@ const fs = require('fs');
 
 class CommandHandler {
     constructor(client, config) {
-        this.client = client;
-        this.config = config;
-        this.prefix = config.prefix || '!';
-        this.commands = new Map();
-        
-        // Register all commands
-        this.registerCommands();
-    }
+    this.client = client;
+    this.config = config;
+    this.prefix = config.prefix || '!';
+    this.commands = new Map();
+    this.warnings = new Map();
+    this.afkUsers = new Map();
+    
+    this.loadWarnings();
+    this.registerCommands();
+    
+    // ADD THIS DEBUG LINE:
+    console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
+}
 
     registerCommands() {
         // Help Command
@@ -528,6 +533,30 @@ class CommandHandler {
             console.error(`Error executing command ${commandName}:`, error);
             message.reply('❌ There was an error executing that command!');
         }
+    }
+}
+
+module.exports = CommandHandler;).toLowerCase();
+    
+    console.log(`🔍 Command received: "${commandName}" from ${message.author.tag}`);
+    console.log(`📝 Args:`, args);
+    
+    const command = this.commands.get(commandName) || 
+                   Array.from(this.commands.values()).find(cmd => cmd.aliases?.includes(commandName));
+    
+    if (!command) {
+        console.log(`❌ Command not found: ${commandName}`);
+        return;
+    }
+    
+    console.log(`✅ Command found: ${command.name}`);
+    
+    try {
+        await command.execute(message, args);
+        console.log(`✅ Command executed successfully: ${command.name}`);
+    } catch (error) {
+        console.error(`❌ Error executing command ${commandName}:`, error);
+        message.reply('❌ There was an error executing that command!');
     }
 }
 
