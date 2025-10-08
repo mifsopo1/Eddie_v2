@@ -724,6 +724,14 @@ this.app.post('/commands/toggle/:id', this.requireAdmin.bind(this), async (req, 
 this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
     try {
         const guild = this.client.guilds.cache.first();
+        
+        if (!guild) {
+            return res.json({ success: false, error: 'No guild found' });
+        }
+        
+        // Fetch all roles to ensure we get everything
+        await guild.roles.fetch();
+        
         const roles = guild.roles.cache
             .filter(r => r.name !== '@everyone')
             .map(r => ({
@@ -734,8 +742,11 @@ this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
             }))
             .sort((a, b) => b.position - a.position);
         
+        console.log(`✅ Loaded ${roles.length} roles for API`);
+        
         res.json({ success: true, roles });
     } catch (error) {
+        console.error('Error fetching roles:', error);
         res.json({ success: false, error: error.message });
     }
 });
@@ -743,7 +754,37 @@ this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
         // ============================================
         // API - STATS
         // ============================================
+        // Get all channels
+this.app.get('/api/channels', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        const guild = this.client.guilds.cache.first();
         
+        if (!guild) {
+            return res.json({ success: false, error: 'No guild found' });
+        }
+        
+        // Fetch all channels to ensure we get everything
+        await guild.channels.fetch();
+        
+        const channels = guild.channels.cache
+            .filter(c => c.isTextBased() && c.type !== 4) // Exclude categories (type 4)
+            .map(c => ({
+                id: c.id,
+                name: c.name,
+                type: c.type,
+                position: c.position,
+                parentId: c.parentId
+            }))
+            .sort((a, b) => a.position - b.position);
+        
+        console.log(`✅ API: Loaded ${channels.length} channels`);
+        
+        res.json({ success: true, channels });
+    } catch (error) {
+        console.error('Error fetching channels:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
         this.app.get('/api/stats', this.requireAuth.bind(this), async (req, res) => {
             try {
                 const stats = await this.mongoLogger.getStats();

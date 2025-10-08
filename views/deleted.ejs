@@ -43,35 +43,38 @@
         <p class="result-count">Found <%= messages.length %> deleted messages</p>
         
         <div class="messages-container">
-            <% messages.forEach(msg => { %>
-                <div class="message-item deleted">
-                    <div class="message-header">
-                        <span class="message-type delete">DELETED</span>
-                        <span class="message-user">
-    <% if (msg.userAvatar) { %>
-        <img src="<%= msg.userAvatar %>" alt="<%= msg.userName %>" class="user-avatar-inline">
-    <% } %>
-    <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
-</span>
-                        <span class="message-channel">#<%= msg.channelName %></span>
-                        <span class="message-time">
-                            Deleted: <%= new Date(msg.deletedTimestamp).toLocaleString() %>
-                        </span>
-                    </div>
-                    <div class="message-content">
-                        <%= msg.content %>
-                        <% if (msg.attachmentCount > 0) { %>
-                            <span class="attachment-badge">📎 <%= msg.attachmentCount %> (may be unavailable)</span>
+    <% if (messages && messages.length > 0) { %>
+        <% messages.forEach(msg => { %>
+            <div class="message-item delete">
+                <div class="message-header">
+                    <span class="message-type delete">DELETED</span>
+                    <span class="message-user">
+                        <% if (msg.userAvatar) { %>
+                            <img src="<%= msg.userAvatar %>" alt="<%= msg.userName %>" class="user-avatar-inline">
                         <% } %>
-                    </div>
-                    <% if (msg.originalTimestamp) { %>
-                        <div class="message-meta">
-                            Originally sent: <%= new Date(msg.originalTimestamp).toLocaleString() %>
-                        </div>
+                        <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
+                    </span>
+                    <span class="message-channel">#<%= msg.channelName %></span>
+                    <span class="message-time">
+                        Deleted: <%= new Date(msg.deletedTimestamp).toLocaleString() %>
+                    </span>
+                </div>
+                <div class="message-content">
+                    <%= msg.content || '[No content]' %>
+                    <% if (msg.attachmentCount > 0) { %>
+                        <span class="attachment-badge">📎 <%= msg.attachmentCount %> (may be unavailable)</span>
                     <% } %>
                 </div>
-            <% }); %>
-        </div>
-    </div>
+                <% if (msg.originalTimestamp) { %>
+                    <div class="message-meta">
+                        Originally sent: <%= new Date(msg.originalTimestamp).toLocaleString() %>
+                    </div>
+                <% } %>
+            </div>
+        <% }); %>
+    <% } else { %>
+        <p class="text-muted">No deleted messages found in this time range.</p>
+    <% } %>
+</div>
 </body>
 </html>

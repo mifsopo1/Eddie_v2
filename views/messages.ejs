@@ -30,28 +30,37 @@
         <h1>💬 All Messages</h1>
         
         <div class="messages-container">
-            <% messages.forEach(msg => { %>
-                <div class="message-item <%= msg.eventType %>">
-                    <div class="message-header">
-                        <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
-                        <span class="message-user">
-    <% if (msg.userAvatar) { %>
-        <img src="<%= msg.userAvatar %>" alt="<%= msg.userName %>" class="user-avatar-inline">
-    <% } %>
-    <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
-</span>
-                        <span class="message-channel">#<%= msg.channelName %></span>
-                        <span class="message-time"><%= new Date(msg.timestamp).toLocaleString() %></span>
-                    </div>
-                    <div class="message-content">
-                        <%= msg.content || '[No content]' %>
-                        <% if (msg.attachmentCount > 0) { %>
-                            <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
+    <% if (messages && messages.length > 0) { %>
+        <% messages.forEach(msg => { %>
+            <div class="message-item <%= msg.eventType %>">
+                <div class="message-header">
+                    <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+                    <span class="message-user">
+                        <% if (msg.userAvatar) { %>
+                            <img src="<%= msg.userAvatar %>" alt="<%= msg.userName %>" class="user-avatar-inline">
                         <% } %>
-                    </div>
+                        <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
+                    </span>
+                    <span class="message-channel">#<%= msg.channelName %></span>
+                    <span class="message-time"><%= new Date(msg.timestamp).toLocaleString() %></span>
                 </div>
-            <% }); %>
-        </div>
+                <div class="message-content">
+                    <% if (msg.eventType === 'edit') { %>
+                        <div class="edit-before">Before: <%= msg.contentBefore || '[No content]' %></div>
+                        <div class="edit-after">After: <%= msg.contentAfter || '[No content]' %></div>
+                    <% } else { %>
+                        <%= msg.content || msg.contentAfter || '[No content]' %>
+                    <% } %>
+                    <% if (msg.attachmentCount > 0) { %>
+                        <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
+                    <% } %>
+                </div>
+            </div>
+        <% }); %>
+    <% } else { %>
+        <p class="text-muted">No messages found.</p>
+    <% } %>
+</div>
         
         <div class="pagination">
             <% if (currentPage > 1) { %>
