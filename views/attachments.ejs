@@ -68,45 +68,54 @@
         
         <p class="result-count">Showing <%= attachments.length %> attachments</p>
         
-        <div class="attachments-list">
+        <div class="messages-container">
             <% attachments.forEach(att => { %>
-                <div class="attachment-item">
-                    <div class="attachment-header">
-                        <span class="file-icon">
+                <div class="message-item">
+                    <div class="message-header">
+                        <span class="message-type">
                             <% if (att.contentType && att.contentType.startsWith('image/')) { %>
-                                🖼️
+                                🖼️ IMAGE
                             <% } else if (att.contentType && att.contentType.startsWith('video/')) { %>
-                                🎬
+                                🎬 VIDEO
                             <% } else if (att.contentType && att.contentType.startsWith('audio/')) { %>
-                                🎵
+                                🎵 AUDIO
                             <% } else { %>
-                                📄
+                                📄 FILE
                             <% } %>
                         </span>
-                        <strong><%= att.filename %></strong>
+                        <span class="message-user">
+                            <img src="https://cdn.discordapp.com/avatars/<%= att.userId %>/<%= att.userAvatar || '0' %>.png" 
+                                 class="user-avatar-inline" 
+                                 onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                            <a href="/user/<%= att.userId %>"><%= att.userName %></a>
+                        </span>
+                        <span class="message-channel">#<%= att.channelName %></span>
+                        <span class="message-time"><%= new Date(att.timestamp).toLocaleString() %></span>
                     </div>
                     
-                    <div class="attachment-details">
-                        <div class="attachment-info">
-                            <p><strong>User:</strong> <a href="/user/<%= att.userId %>"><%= att.userName %></a></p>
-                            <p><strong>Channel:</strong> #<%= att.channelName %></p>
-                            <p><strong>Uploaded:</strong> <%= new Date(att.timestamp).toLocaleString() %></p>
-                            <p><strong>Size:</strong> <%= (att.size / 1024).toFixed(2) %> KB</p>
-                            <p><strong>Type:</strong> <%= att.contentType || 'Unknown' %></p>
-                            <% if (att.width && att.height) { %>
-                                <p><strong>Dimensions:</strong> <%= att.width %> x <%= att.height %></p>
-                            <% } %>
-                            <p><strong>URL:</strong> <a href="<%= att.url %>" target="_blank">View Original</a></p>
-                        </div>
-                        
-                        <% if (att.contentType && att.contentType.startsWith('image/')) { %>
-                            <div class="attachment-preview">
-                                <a href="<%= att.url %>" target="_blank">
-                                    <img src="<%= att.proxyUrl || att.url %>" alt="<%= att.filename %>" loading="lazy">
-                                </a>
-                            </div>
-                        <% } %>
+                    <div class="message-content">
+                        <strong>📎 <%= att.filename %></strong>
                     </div>
+                    
+                    <div class="message-meta">
+                        <span>Size: <%= (att.size / 1024).toFixed(2) %> KB</span>
+                        <% if (att.width && att.height) { %>
+                            <span> • Dimensions: <%= att.width %> x <%= att.height %></span>
+                        <% } %>
+                        <span> • Type: <%= att.contentType || 'Unknown' %></span>
+                        <span> • <a href="<%= att.url %>" target="_blank">View Original</a></span>
+                    </div>
+                    
+                    <% if (att.contentType && att.contentType.startsWith('image/')) { %>
+                        <div class="attachment-preview" style="margin-top: 1rem; text-align: center;">
+                            <a href="<%= att.url %>" target="_blank">
+                                <img src="<%= att.proxyUrl || att.url %>" 
+                                     alt="<%= att.filename %>" 
+                                     loading="lazy"
+                                     style="max-width: 400px; max-height: 300px; border-radius: 5px; cursor: pointer;">
+                            </a>
+                        </div>
+                    <% } %>
                 </div>
             <% }); %>
         </div>
