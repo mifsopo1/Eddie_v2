@@ -7,7 +7,22 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <%- include('partials/header') %>
+    <nav class="navbar">
+    <div class="nav-brand">
+        <h2>🤖 <%= client.user.tag %></h2>
+    </div>
+    <div class="nav-links">
+        <a href="/">Dashboard</a>
+        <a href="/messages">Messages</a>
+        <a href="/deleted">Deleted</a>
+        <a href="/members">Members</a>
+        <a href="/moderation">Moderation</a>
+        <a href="/attachments">Attachments</a>
+        <a href="/voice">Voice</a>
+        <a href="/analytics">Analytics</a>
+        <a href="/logout" class="logout">Logout</a>
+    </div>
+</nav>
     
     <div class="container">
         <h1>👥 Member Activity</h1>
