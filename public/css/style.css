@@ -1122,164 +1122,169 @@ textarea {
     }
 }
 
-/* Members Page Styles */
-.members-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.5rem;
+/* Member Events Styles */
+.member-events {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
     margin-bottom: 2rem;
 }
 
-.member-card {
+.member-event {
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 1.5rem;
+    padding: 1.25rem;
     transition: all 0.3s ease;
 }
 
-.member-card:hover {
-    transform: translateY(-5px);
-    border-color: rgba(88, 101, 242, 0.5);
-    box-shadow: 0 8px 24px rgba(88, 101, 242, 0.2);
-}
-
-.member-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.member-avatar {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    border: 3px solid var(--border);
-}
-
-.member-info {
-    flex: 1;
-}
-
-.member-name {
-    color: #00b0f4;
-    text-decoration: none;
-    font-size: 1.1rem;
-    font-weight: 600;
-    display: block;
-    margin-bottom: 0.25rem;
-}
-
-.member-name:hover {
-    text-decoration: underline;
-}
-
-.member-action-type {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-bottom: 0.5rem;
-}
-
-.member-action-type.leave {
-    background: rgba(240, 71, 71, 0.2);
-    color: var(--danger);
-}
-
-.member-action-type.role-add {
-    background: rgba(67, 181, 129, 0.2);
-    color: var(--success);
-}
-
-.member-action-type.role-remove {
-    background: rgba(250, 166, 26, 0.2);
-    color: var(--warning);
-}
-
-.member-details {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    font-size: 0.9rem;
-}
-
-.member-detail-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--text-secondary);
-}
-
-.member-detail-row strong {
-    color: var(--text-primary);
-}
-
-.member-roles {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-}
-
-.role-badge {
-    background: rgba(88, 101, 242, 0.2);
-    color: var(--primary);
-    padding: 0.25rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
-.member-timestamp {
-    color: var(--text-muted);
-    font-size: 0.85rem;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
-}
-
-/* Moderation Page Styles */
-.moderation-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.moderation-item {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 1.5rem;
-    transition: all 0.3s ease;
-}
-
-.moderation-item:hover {
+.member-event:hover {
     border-color: rgba(88, 101, 242, 0.5);
     box-shadow: 0 4px 20px rgba(88, 101, 242, 0.15);
     transform: translateX(5px);
 }
 
-.moderation-item.ban {
-    border-left: 4px solid var(--danger);
-}
-
-.moderation-item.unban {
+.member-event.join {
     border-left: 4px solid var(--success);
 }
 
-.moderation-item.mute {
+.member-event.leave {
+    border-left: 4px solid var(--danger);
+}
+
+.member-event.role_add {
+    border-left: 4px solid var(--primary);
+}
+
+.member-event.role_remove {
     border-left: 4px solid var(--warning);
 }
 
-.moderation-item.kick {
+.event-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.event-type {
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(88, 101, 242, 0.2);
+    color: var(--primary);
+}
+
+.member-event.join .event-type {
+    background: rgba(67, 181, 129, 0.2);
+    color: var(--success);
+}
+
+.member-event.leave .event-type {
+    background: rgba(240, 71, 71, 0.2);
+    color: var(--danger);
+}
+
+.member-event.role_add .event-type {
+    background: rgba(88, 101, 242, 0.2);
+    color: var(--primary);
+}
+
+.member-event.role_remove .event-type {
+    background: rgba(250, 166, 26, 0.2);
+    color: var(--warning);
+}
+
+.event-user a {
+    color: #00b0f4;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.event-user a:hover {
+    text-decoration: underline;
+}
+
+.event-time {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-left: auto;
+}
+
+.event-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-left: 2.5rem;
+}
+
+.event-details p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.event-details strong {
+    color: var(--text-primary);
+    margin-right: 0.5rem;
+}
+
+.event-details code {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    color: var(--primary);
+    font-size: 0.85rem;
+}
+
+/* Moderation Actions Styles */
+.mod-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.mod-action {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.mod-action:hover {
+    border-color: rgba(88, 101, 242, 0.5);
+    box-shadow: 0 4px 20px rgba(88, 101, 242, 0.15);
+    transform: translateX(5px);
+}
+
+.mod-action.ban {
+    border-left: 4px solid var(--danger);
+}
+
+.mod-action.unban {
+    border-left: 4px solid var(--success);
+}
+
+.mod-action.mute {
+    border-left: 4px solid var(--warning);
+}
+
+.mod-action.unmute {
+    border-left: 4px solid #00b0f4;
+}
+
+.mod-action.kick {
     border-left: 4px solid #ff6b6b;
 }
 
-.moderation-header {
+.mod-header {
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -1287,7 +1292,7 @@ textarea {
     flex-wrap: wrap;
 }
 
-.moderation-type {
+.mod-type {
     padding: 0.35rem 0.75rem;
     border-radius: 6px;
     font-size: 0.75rem;
@@ -1295,81 +1300,83 @@ textarea {
     text-transform: uppercase;
 }
 
-.moderation-type.ban {
+.mod-action.ban .mod-type {
     background: rgba(240, 71, 71, 0.2);
     color: var(--danger);
 }
 
-.moderation-type.unban {
+.mod-action.unban .mod-type {
     background: rgba(67, 181, 129, 0.2);
     color: var(--success);
 }
 
-.moderation-type.mute {
+.mod-action.mute .mod-type {
     background: rgba(250, 166, 26, 0.2);
     color: var(--warning);
 }
 
-.moderation-type.kick {
+.mod-action.unmute .mod-type {
+    background: rgba(0, 176, 244, 0.2);
+    color: #00b0f4;
+}
+
+.mod-action.kick .mod-type {
     background: rgba(255, 107, 107, 0.2);
     color: #ff6b6b;
 }
 
-.moderation-time {
+.mod-time {
     color: var(--text-muted);
     font-size: 0.85rem;
     margin-left: auto;
 }
 
-.moderation-content {
+.mod-details {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-}
-
-.moderation-row {
-    display: flex;
-    align-items: flex-start;
     gap: 0.5rem;
-    font-size: 0.9rem;
+    padding-left: 1rem;
 }
 
-.moderation-label {
+.mod-details p {
+    margin: 0;
     color: var(--text-secondary);
-    font-weight: 600;
-    min-width: 100px;
+    font-size: 0.9rem;
+    line-height: 1.6;
 }
 
-.moderation-value {
+.mod-details strong {
     color: var(--text-primary);
-    flex: 1;
+    margin-right: 0.5rem;
 }
 
-.moderation-value a {
+.mod-details a {
     color: #00b0f4;
     text-decoration: none;
+    font-weight: 600;
 }
 
-.moderation-value a:hover {
+.mod-details a:hover {
     text-decoration: underline;
 }
 
-.moderation-reason {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 0.75rem;
-    border-radius: 6px;
-    color: var(--text-primary);
-    border-left: 3px solid var(--primary);
-    margin-top: 0.5rem;
-}
-
-.moderation-evidence {
-    background: rgba(88, 101, 242, 0.1);
-    padding: 0.75rem;
-    border-radius: 6px;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    margin-top: 0.5rem;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .event-header,
+    .mod-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .event-time,
+    .mod-time {
+        margin-left: 0;
+    }
+    
+    .event-details,
+    .mod-details {
+        padding-left: 0;
+    }
 }
 
 /* Invites Page Styles */
@@ -1491,6 +1498,7 @@ textarea {
 
 .invite-item:hover {
     border-color: rgba(88, 101, 242, 0.5);
+    box-shadow: 0 4px 20px rgba(88, 101, 242, 0.15);
     transform: translateX(5px);
 }
 
@@ -1563,20 +1571,17 @@ textarea {
     font-weight: 600;
 }
 
-/* Responsive adjustments */
+/* Responsive adjustments for invites */
 @media (max-width: 768px) {
-    .members-grid,
     .top-inviters-grid {
         grid-template-columns: 1fr;
     }
     
-    .moderation-header,
     .invite-header {
         flex-direction: column;
         align-items: flex-start;
     }
     
-    .moderation-time,
     .invite-time {
         margin-left: 0;
     }
