@@ -39,12 +39,15 @@ class Dashboard {
         
         this.app.use(express.static('public'));
 
-        // EJS Configuration with explicit options
-        this.app.set('view engine', 'ejs');
-        this.app.set('views', path.join(__dirname, 'views'));
-        this.app.engine('ejs', (filePath, options, callback) => {
-        options.filename = filePath;
-        ejs.renderFile(filePath, options, callback);
+        this.app.use(express.static('public'));
+
+// EJS Configuration
+this.app.set('view engine', 'ejs');
+this.app.set('views', path.join(__dirname, 'views'));
+this.app.engine('ejs', (filePath, options, callback) => {
+    options.filename = filePath;
+    options.root = path.join(__dirname, 'views');
+    return ejs.renderFile(filePath, options, callback);
 });
     }
 
