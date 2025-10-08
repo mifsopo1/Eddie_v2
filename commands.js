@@ -10,11 +10,29 @@ class CommandHandler {
         this.warnings = new Map();
         this.afkUsers = new Map();
         this.reminders = new Map();
+        this.logChannels = {}; // Store log channels reference
         
         this.loadWarnings();
         this.registerCommands();
         
         console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
+    }
+
+    // Add method to set log channels from index.js
+    setLogChannels(logChannels) {
+        this.logChannels = logChannels;
+        console.log('✅ Log channels linked to command handler');
+    }
+
+    // Helper method to log moderation actions
+    async logModerationAction(embed) {
+        if (this.logChannels.moderation) {
+            try {
+                await this.logChannels.moderation.send({ embeds: [embed] });
+            } catch (error) {
+                console.error('Error logging moderation action:', error);
+            }
+        }
     }
 
     registerCommands() {
@@ -218,6 +236,1375 @@ class CommandHandler {
                     .setTimestamp();
                 
                 return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // ========== MODERATION COMMANDS WITH LOGGING ==========
+
+        // Kick Command
+        this.commands.set('kick', {
+            name: 'kick',
+            description: 'Kick a member from the server',
+            usage: '!kick @user [reason]',
+            aliases: ['yeet'],
+            category: 'Moderation',
+            permissions: ['KickMembers'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) {
+                    return message.reply('❌ You need **Kick Members** permission!');
+                }
+                
+                const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user to kick!');
+                }
+                
+                if (!target.kickable) {
+                    return message.reply('❌ I cannot kick this user!');
+                }
+                
+                const reason = args.slice(1).join(' ') || 'No reason provided';
+                
+                // Get invite info before kicking
+                let inviteInfo = '';
+                try {
+                    const memberInvites = JSON.parse(fs.readFileSync('member-invites.json', 'utf8'));
+                    if (memberInvites[target.id]) {
+                        const invite = memberInvites[target.id];
+                        inviteInfo = `**Invited by:** ${invite.inviter}\n**Invite Code:** \`${invite.code}\``;
+                    }
+                } catch (error) {
+                    // File doesn't exist or error reading
+                }
+                
+                try {
+                    // Try to DM user before kicking
+                    await target.send(`You have been kicked from **${message.guild.name}**\nReason: ${reason}`).catch(() => {});
+                    
+                    // Kick the user
+                    await target.kick(reason);
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#ff6600')
+                        .setTitle('👢 Member Kicked')
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#ff6600')
+                        .setTitle('👢 Member Kicked')
+                        .setThumbnail(target.user.displayAvatarURL())
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `User ID: ${target.id}` });
+                    
+                    if (inviteInfo) {
+                        logEmbed.addFields({ name: 'Invite Info', value: inviteInfo, inline: false });
+                    }
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                } catch (error) {
+                    console.error('Error kicking user:', error);
+                    return message.reply('❌ Failed to kick user!');
+                }
+            }
+        });
+
+        // Ban Command
+        this.commands.set('ban', {
+            name: 'ban',
+            description: 'Ban a member from the server',
+            usage: '!ban @user [reason]',
+            aliases: ['hammer'],
+            category: 'Moderation',
+            permissions: ['BanMembers'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+                    return message.reply('❌ You need **Ban Members** permission!');
+                }
+                
+                const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user to ban!');
+                }
+                
+                if (!target.bannable) {
+                    return message.reply('❌ I cannot ban this user!');
+                }
+                
+                const reason = args.slice(1).join(' ') || 'No reason provided';
+                
+                // Get invite info before banning
+                let inviteInfo = '';
+                try {
+                    const memberInvites = JSON.parse(fs.readFileSync('member-invites.json', 'utf8'));
+                    if (memberInvites[target.id]) {
+                        const invite = memberInvites[target.id];
+                        inviteInfo = `**Invited by:** ${invite.inviter}\n**Invite Code:** \`${invite.code}\``;
+                    }
+                } catch (error) {
+                    // File doesn't exist or error reading
+                }
+                
+                try {
+                    // Try to DM user before banning
+                    await target.send(`You have been banned from **${message.guild.name}**\nReason: ${reason}`).catch(() => {});
+                    
+                    // Ban the user
+                    await target.ban({ reason, deleteMessageSeconds: 86400 });
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#8b0000')
+                        .setTitle('🔨 Member Banned')
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#8b0000')
+                        .setTitle('🔨 Member Banned')
+                        .setThumbnail(target.user.displayAvatarURL())
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                            { name: 'Reason', value: reason, inline: false },
+                            { name: 'Messages Deleted', value: 'Last 24 hours', inline: true }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `User ID: ${target.id}` });
+                    
+                    if (inviteInfo) {
+                        logEmbed.addFields({ name: 'Invite Info', value: inviteInfo, inline: false });
+                    }
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                } catch (error) {
+                    console.error('Error banning user:', error);
+                    return message.reply('❌ Failed to ban user!');
+                }
+            }
+        });
+
+        // Unban Command
+        this.commands.set('unban', {
+            name: 'unban',
+            description: 'Unban a user from the server',
+            usage: '!unban <user_id> [reason]',
+            aliases: ['pardon'],
+            category: 'Moderation',
+            permissions: ['BanMembers'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+                    return message.reply('❌ You need **Ban Members** permission!');
+                }
+                
+                const userId = args[0];
+                if (!userId || !/^\d+$/.test(userId)) {
+                    return message.reply('❌ Please provide a valid user ID!');
+                }
+                
+                const reason = args.slice(1).join(' ') || 'No reason provided';
+                
+                try {
+                    // Fetch ban to get user info
+                    const banInfo = await message.guild.bans.fetch(userId).catch(() => null);
+                    
+                    if (!banInfo) {
+                        return message.reply('❌ This user is not banned!');
+                    }
+                    
+                    const user = banInfo.user;
+                    
+                    // Unban the user
+                    await message.guild.members.unban(userId, reason);
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#00ff00')
+                        .setTitle('✅ User Unbanned')
+                        .addFields(
+                            { name: 'User', value: `${user.tag}`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#00ff00')
+                        .setTitle('✅ User Unbanned')
+                        .setThumbnail(user.displayAvatarURL())
+                        .addFields(
+                            { name: 'User', value: `${user.tag}\n<@${userId}> (${userId})`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `User ID: ${userId}` });
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                } catch (error) {
+                    console.error('Error unbanning user:', error);
+                    return message.reply('❌ Failed to unban user! Make sure they are banned.');
+                }
+            }
+        });
+
+        // Mute Command
+        this.commands.set('mute', {
+            name: 'mute',
+            description: 'Mute a member',
+            usage: '!mute @user [duration] [reason]',
+            aliases: ['silence', 'shush'],
+            category: 'Moderation',
+            permissions: ['ModerateMembers'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+                    return message.reply('❌ You need **Moderate Members** permission!');
+                }
+                
+                const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user to mute!');
+                }
+                
+                // Parse duration (e.g., 10m, 1h, 1d)
+                let duration = null;
+                let durationText = 'Permanent';
+                let reasonIndex = 1;
+                
+                if (args[1] && /^\d+[smhd]$/.test(args[1])) {
+                    const timeStr = args[1].toLowerCase();
+                    const amount = parseInt(timeStr);
+                    
+                    if (timeStr.endsWith('s')) duration = amount * 1000;
+                    else if (timeStr.endsWith('m')) duration = amount * 60000;
+                    else if (timeStr.endsWith('h')) duration = amount * 3600000;
+                    else if (timeStr.endsWith('d')) duration = amount * 86400000;
+                    
+                    durationText = args[1];
+                    reasonIndex = 2;
+                }
+                
+                const reason = args.slice(reasonIndex).join(' ') || 'No reason provided';
+                
+                let mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
+                if (!mutedRole) {
+                    mutedRole = await message.guild.roles.create({
+                        name: 'Muted',
+                        color: '#808080',
+                        permissions: []
+                    });
+                    
+                    message.guild.channels.cache.forEach(async (channel) => {
+                        await channel.permissionOverwrites.create(mutedRole, {
+                            SendMessages: false,
+                            AddReactions: false,
+                            Speak: false
+                        }).catch(console.error);
+                    });
+                }
+                
+                try {
+                    await target.roles.add(mutedRole);
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#ffa500')
+                        .setTitle('🔇 Member Muted')
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                            { name: 'Duration', value: durationText, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#ffa500')
+                        .setTitle('🔇 Member Muted')
+                        .setThumbnail(target.user.displayAvatarURL())
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                            { name: 'Duration', value: durationText, inline: true },
+                            { name: 'Expires', value: duration ? `<t:${Math.floor((Date.now() + duration) / 1000)}:R>` : 'Never', inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `User ID: ${target.id}` });
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                    // Auto-unmute if duration is set
+                    if (duration) {
+                        setTimeout(async () => {
+                            try {
+                                if (target.roles.cache.has(mutedRole.id)) {
+                                    await target.roles.remove(mutedRole);
+                                    
+                                    const unmuteLogEmbed = new EmbedBuilder()
+                                        .setColor('#00ff00')
+                                        .setTitle('🔊 Member Auto-Unmuted')
+                                        .setThumbnail(target.user.displayAvatarURL())
+                                        .addFields(
+                                            { name: 'User', value: `${target.user.tag}\n<@${target.id}>`, inline: true },
+                                            { name: 'Duration', value: durationText, inline: true },
+                                            { name: 'Original Reason', value: reason, inline: false }
+                                        )
+                                        .setTimestamp();
+                                    
+                                    await this.logModerationAction(unmuteLogEmbed);
+                                }
+                            } catch (error) {
+                                console.error('Error auto-unmuting user:', error);
+                            }
+                        }, duration);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error muting user:', error);
+                    return message.reply('❌ Failed to mute user!');
+                }
+            }
+        });
+
+        // Unmute Command
+        this.commands.set('unmute', {
+            name: 'unmute',
+            description: 'Unmute a member',
+            usage: '!unmute @user [reason]',
+            aliases: ['unsilence'],
+            category: 'Moderation',
+            permissions: ['ModerateMembers'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+                    return message.reply('❌ You need **Moderate Members** permission!');
+                }
+                
+                const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user to unmute!');
+                }
+                
+                const mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
+                if (!mutedRole || !target.roles.cache.has(mutedRole.id)) {
+                    return message.reply('❌ User is not muted!');
+                }
+                
+                const reason = args.slice(1).join(' ') || 'No reason provided';
+                
+                try {
+                    await target.roles.remove(mutedRole);
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#00ff00')
+                        .setTitle('🔊 Member Unmuted')
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#00ff00')
+                        .setTitle('🔊 Member Unmuted')
+                        .setThumbnail(target.user.displayAvatarURL())
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `User ID: ${target.id}` });
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                } catch (error) {
+                    console.error('Error unmuting user:', error);
+                    return message.reply('❌ Failed to unmute user!');
+                }
+            }
+        });
+
+        // Warn Command
+        this.commands.set('warn', {
+            name: 'warn',
+            description: 'Warn a member',
+            usage: '!warn @user <reason>',
+            aliases: ['warning'],
+            category: 'Moderation',
+            permissions: ['ModerateMembers'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+                    return message.reply('❌ You need **Moderate Members** permission!');
+                }const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user to warn!');
+                }
+                
+                const reason = args.slice(1).join(' ');
+                if (!reason) {
+                    return message.reply('❌ Please provide a reason for the warning!');
+                }
+                
+                const userWarnings = this.warnings.get(target.id) || [];
+                userWarnings.push({
+                    moderator: message.author.id,
+                    reason: reason,
+                    timestamp: Date.now()
+                });
+                this.warnings.set(target.id, userWarnings);
+                this.saveWarnings();
+                
+                // User confirmation embed
+                const confirmEmbed = new EmbedBuilder()
+                    .setColor('#ff9900')
+                    .setTitle('⚠️ User Warned')
+                    .addFields(
+                        { name: 'User', value: `${target.user.tag}`, inline: true },
+                        { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                        { name: 'Total Warnings', value: userWarnings.length.toString(), inline: true },
+                        { name: 'Reason', value: reason, inline: false }
+                    )
+                    .setTimestamp();
+                
+                await message.reply({ embeds: [confirmEmbed] });
+                
+                // Log to moderation channel
+                const logEmbed = new EmbedBuilder()
+                    .setColor('#ff9900')
+                    .setTitle('⚠️ User Warned')
+                    .setThumbnail(target.user.displayAvatarURL())
+                    .addFields(
+                        { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
+                        { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                        { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                        { name: 'Warning #', value: userWarnings.length.toString(), inline: true },
+                        { name: 'Total Warnings', value: userWarnings.length.toString(), inline: true },
+                        { name: 'Reason', value: reason, inline: false }
+                    )
+                    .setTimestamp()
+                    .setFooter({ text: `User ID: ${target.id}` });
+                
+                await this.logModerationAction(logEmbed);
+                
+                // Try to DM the user
+                try {
+                    await target.send(`You have been warned in **${message.guild.name}**\nReason: ${reason}\nTotal warnings: ${userWarnings.length}`);
+                } catch (error) {
+                    console.log(`Could not DM ${target.user.tag}`);
+                }
+            }
+        });
+
+        // Warnings Command
+        this.commands.set('warnings', {
+            name: 'warnings',
+            description: 'View user warnings',
+            usage: '!warnings @user',
+            aliases: ['warns', 'infractions'],
+            category: 'Moderation',
+            permissions: ['ModerateMembers'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+                    return message.reply('❌ You need **Moderate Members** permission!');
+                }
+                
+                const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user to check warnings!');
+                }
+                
+                const userWarnings = this.warnings.get(target.id) || [];
+                
+                if (userWarnings.length === 0) {
+                    return message.reply(`✅ ${target.user.tag} has no warnings!`);
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#ff9900')
+                    .setTitle(`⚠️ Warnings for ${target.user.tag}`)
+                    .setThumbnail(target.user.displayAvatarURL())
+                    .setDescription(`Total Warnings: ${userWarnings.length}`)
+                    .setTimestamp();
+                
+                userWarnings.forEach((warn, index) => {
+                    embed.addFields({
+                        name: `Warning #${index + 1}`,
+                        value: `**Moderator:** <@${warn.moderator}>\n**Reason:** ${warn.reason}\n**Date:** <t:${Math.floor(warn.timestamp / 1000)}:R>`,
+                        inline: false
+                    });
+                });
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Clear Warnings Command
+        this.commands.set('clearwarns', {
+            name: 'clearwarns',
+            description: 'Clear all warnings for a user',
+            usage: '!clearwarns @user',
+            aliases: ['clearwarnings', 'resetwarns'],
+            category: 'Moderation',
+            permissions: ['Administrator'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+                    return message.reply('❌ You need **Administrator** permission!');
+                }
+                
+                const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user to clear warnings!');
+                }
+                
+                const userWarnings = this.warnings.get(target.id) || [];
+                
+                if (userWarnings.length === 0) {
+                    return message.reply(`✅ ${target.user.tag} has no warnings to clear!`);
+                }
+                
+                const warningCount = userWarnings.length;
+                this.warnings.delete(target.id);
+                this.saveWarnings();
+                
+                // User confirmation embed
+                const confirmEmbed = new EmbedBuilder()
+                    .setColor('#00ff00')
+                    .setTitle('✅ Warnings Cleared')
+                    .addFields(
+                        { name: 'User', value: `${target.user.tag}`, inline: true },
+                        { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                        { name: 'Warnings Cleared', value: warningCount.toString(), inline: true }
+                    )
+                    .setTimestamp();
+                
+                await message.reply({ embeds: [confirmEmbed] });
+                
+                // Log to moderation channel
+                const logEmbed = new EmbedBuilder()
+                    .setColor('#00ff00')
+                    .setTitle('✅ Warnings Cleared')
+                    .setThumbnail(target.user.displayAvatarURL())
+                    .addFields(
+                        { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
+                        { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                        { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                        { name: 'Warnings Cleared', value: warningCount.toString(), inline: true }
+                    )
+                    .setTimestamp()
+                    .setFooter({ text: `User ID: ${target.id}` });
+                
+                await this.logModerationAction(logEmbed);
+            }
+        });
+
+        // Purge Command
+        this.commands.set('purge', {
+            name: 'purge',
+            description: 'Delete multiple messages',
+            usage: '!purge <amount> [@user]',
+            aliases: ['clear', 'clean', 'prune'],
+            category: 'Moderation',
+            permissions: ['ManageMessages'],
+            execute: async (message, args) => {
+                if (!message.member.roles.cache.has('645744514576809984')) {
+                    return message.reply('❌ Overwatch required!');
+                }
+                
+                const amount = parseInt(args[0]);
+                if (isNaN(amount) || amount < 1 || amount > 100) {
+                    return message.reply('❌ Please provide a number between 1 and 100!');
+                }
+                
+                const targetUser = message.mentions.users.first();
+                
+                try {
+                    await message.delete();
+                    
+                    let deletedCount = 0;
+                    
+                    if (targetUser) {
+                        const messages = await message.channel.messages.fetch({ limit: amount });
+                        const userMessages = messages.filter(m => m.author.id === targetUser.id);
+                        const deleted = await message.channel.bulkDelete(userMessages, true);
+                        deletedCount = deleted.size;
+                        
+                        const reply = await message.channel.send(`✅ Deleted ${deletedCount} messages from ${targetUser.tag}!`);
+                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                    } else {
+                        const deleted = await message.channel.bulkDelete(amount, true);
+                        deletedCount = deleted.size;
+                        
+                        const reply = await message.channel.send(`✅ Deleted ${deletedCount} messages!`);
+                        setTimeout(() => reply.delete().catch(() => {}), 5000);
+                    }
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#3498db')
+                        .setTitle('🗑️ Messages Purged')
+                        .addFields(
+                            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                            { name: 'Messages Deleted', value: deletedCount.toString(), inline: true }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `Channel ID: ${message.channel.id}` });
+                    
+                    if (targetUser) {
+                        logEmbed.addFields({ name: 'Target User', value: `${targetUser.tag}\n<@${targetUser.id}>`, inline: true });
+                    }
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                } catch (error) {
+                    console.error('Error purging messages:', error);
+                    return message.reply('❌ Failed to delete messages!');
+                }
+            }
+        });
+
+        // Slowmode Command
+        this.commands.set('slowmode', {
+            name: 'slowmode',
+            description: 'Set channel slowmode',
+            usage: '!slowmode <seconds> [#channel]',
+            aliases: ['slow'],
+            category: 'Moderation',
+            permissions: ['ManageChannels'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+                    return message.reply('❌ You need **Manage Channels** permission!');
+                }
+                
+                const seconds = parseInt(args[0]);
+                if (isNaN(seconds) || seconds < 0 || seconds > 21600) {
+                    return message.reply('❌ Please provide a number between 0 and 21600 seconds!');
+                }
+                
+                const channel = message.mentions.channels.first() || message.channel;
+                
+                try {
+                    await channel.setRateLimitPerUser(seconds);
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#3498db')
+                        .setTitle('⏱️ Slowmode Updated')
+                        .addFields(
+                            { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+                            { name: 'Slowmode', value: seconds === 0 ? 'Disabled' : `${seconds}s`, inline: true },
+                            { name: 'Set By', value: message.author.tag, inline: true }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#3498db')
+                        .setTitle('⏱️ Slowmode Changed')
+                        .addFields(
+                            { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                            { name: 'New Slowmode', value: seconds === 0 ? 'Disabled' : `${seconds} seconds`, inline: true }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `Channel ID: ${channel.id}` });
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                } catch (error) {
+                    console.error('Error setting slowmode:', error);
+                    return message.reply('❌ Failed to set slowmode!');
+                }
+            }
+        });
+
+        // Lock Command
+        this.commands.set('lock', {
+            name: 'lock',
+            description: 'Lock a channel',
+            usage: '!lock [#channel] [reason]',
+            aliases: ['lockdown'],
+            category: 'Moderation',
+            permissions: ['ManageChannels'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+                    return message.reply('❌ You need **Manage Channels** permission!');
+                }
+                
+                const channel = message.mentions.channels.first() || message.channel;
+                const reason = args.slice(message.mentions.channels.size > 0 ? 1 : 0).join(' ') || 'No reason provided';
+                
+                try {
+                    await channel.permissionOverwrites.edit(message.guild.id, {
+                        SendMessages: false
+                    });
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#ff0000')
+                        .setTitle('🔒 Channel Locked')
+                        .addFields(
+                            { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+                            { name: 'Locked By', value: message.author.tag, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#ff0000')
+                        .setTitle('🔒 Channel Locked')
+                        .addFields(
+                            { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `Channel ID: ${channel.id}` });
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                } catch (error) {
+                    console.error('Error locking channel:', error);
+                    return message.reply('❌ Failed to lock channel!');
+                }
+            }
+        });
+
+        // Unlock Command
+        this.commands.set('unlock', {
+            name: 'unlock',
+            description: 'Unlock a channel',
+            usage: '!unlock [#channel] [reason]',
+            aliases: [],
+            category: 'Moderation',
+            permissions: ['ManageChannels'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+                    return message.reply('❌ You need **Manage Channels** permission!');
+                }
+                
+                const channel = message.mentions.channels.first() || message.channel;
+                const reason = args.slice(message.mentions.channels.size > 0 ? 1 : 0).join(' ') || 'No reason provided';
+                
+                try {
+                    await channel.permissionOverwrites.edit(message.guild.id, {
+                        SendMessages: null
+                    });
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#00ff00')
+                        .setTitle('🔓 Channel Unlocked')
+                        .addFields(
+                            { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+                            { name: 'Unlocked By', value: message.author.tag, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#00ff00')
+                        .setTitle('🔓 Channel Unlocked')
+                        .addFields(
+                            { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                            { name: 'Reason', value: reason, inline: false }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `Channel ID: ${channel.id}` });
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                } catch (error) {
+                    console.error('Error unlocking channel:', error);
+                    return message.reply('❌ Failed to unlock channel!');
+                }
+            }
+        });
+
+        // Nuke Command
+        this.commands.set('nuke', {
+            name: 'nuke',
+            description: 'Delete and recreate channel',
+            usage: '!nuke [#channel]',
+            aliases: ['recreate'],
+            category: 'Moderation',
+            permissions: ['ManageChannels'],
+            execute: async (message, args) => {
+                if (!message.member.roles.cache.has('645744514576809984')) {
+                    return message.reply('❌ Overwatch required!');
+                }
+                
+                const channel = message.mentions.channels.first() || message.channel;
+                const channelName = channel.name;
+                const channelId = channel.id;
+                
+                try {
+                    const position = channel.position;
+                    const newChannel = await channel.clone();
+                    await channel.delete();
+                    await newChannel.setPosition(position);
+                    
+                    const embed = new EmbedBuilder()
+                        .setColor('#ff6600')
+                        .setTitle('💥 Channel Nuked')
+                        .setDescription(`Channel has been recreated by ${message.author.tag}`)
+                        .setTimestamp();
+                    
+                    await newChannel.send({ embeds: [embed] });
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#ff6600')
+                        .setTitle('💥 Channel Nuked')
+                        .addFields(
+                            { name: 'Old Channel', value: `#${channelName} (${channelId})`, inline: true },
+                            { name: 'New Channel', value: `<#${newChannel.id}>`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `Old ID: ${channelId} | New ID: ${newChannel.id}` });
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                } catch (error) {
+                    console.error('Error nuking channel:', error);
+                    return message.reply('❌ Failed to nuke channel!');
+                }
+            }
+        });
+
+        // Nickname Command
+        this.commands.set('nickname', {
+            name: 'nickname',
+            description: 'Change user nickname',
+            usage: '!nickname @user <new_nick>',
+            aliases: ['nick', 'setnick'],
+            category: 'Moderation',
+            permissions: ['ManageNicknames'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames)) {
+                    return message.reply('❌ You need **Manage Nicknames** permission!');
+                }
+                
+                const target = message.mentions.members.first();
+                if (!target) {
+                    return message.reply('❌ Please mention a user!');
+                }
+                
+                const oldNick = target.displayName;
+                const newNick = args.slice(1).join(' ') || null;
+                
+                try {
+                    await target.setNickname(newNick);
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#3498db')
+                        .setTitle('✏️ Nickname Changed')
+                        .addFields(
+                            { name: 'User', value: target.user.tag, inline: true },
+                            { name: 'New Nickname', value: newNick || 'Reset to username', inline: true }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to moderation channel
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#3498db')
+                        .setTitle('✏️ Nickname Changed')
+                        .setThumbnail(target.user.displayAvatarURL())
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}\n<@${target.id}>`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                            { name: 'Old Nickname', value: oldNick, inline: true },
+                            { name: 'New Nickname', value: newNick || 'Reset to username', inline: true }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `User ID: ${target.id}` });
+                    
+                    await this.logModerationAction(logEmbed);
+                    
+                } catch (error) {
+                    console.error('Error changing nickname:', error);
+                    return message.reply('❌ Failed to change nickname!');
+                }
+            }
+        });
+
+        // ========== SERVER MANAGEMENT COMMANDS ==========
+
+        // Add Role Command
+        this.commands.set('addrole', {
+            name: 'addrole',
+            description: 'Add role to user',
+            usage: '!addrole @user @role',
+            aliases: ['giverole'],
+            category: 'Server Management',
+            permissions: ['ManageRoles'],
+            execute: async (message, args) => {
+                if (!message.member.roles.cache.has('645744514576809984')) {
+                    return message.reply('❌ Overwatch required!');
+                }
+                
+                const target = message.mentions.members.first();
+                const role = message.mentions.roles.first();
+                
+                if (!target || !role) {
+                    return message.reply('❌ Please mention a user and a role!');
+                }
+                
+                try {
+                    await target.roles.add(role);
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#00ff00')
+                        .setTitle('✅ Role Added')
+                        .addFields(
+                            { name: 'User', value: target.user.tag, inline: true },
+                            { name: 'Role', value: role.name, inline: true }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to role channel (or moderation if role channel doesn't exist)
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#00ff00')
+                        .setTitle('✅ Role Added')
+                        .setThumbnail(target.user.displayAvatarURL())
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}\n<@${target.id}>`, inline: true },
+                            { name: 'Role', value: `${role.name}\n<@&${role.id}>`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `User ID: ${target.id}` });
+                    
+                    if (this.logChannels.role) {
+                        await this.logChannels.role.send({ embeds: [logEmbed] });
+                    } else {
+                        await this.logModerationAction(logEmbed);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error adding role:', error);
+                    return message.reply('❌ Failed to add role!');
+                }
+            }
+        });
+
+        // Remove Role Command
+        this.commands.set('removerole', {
+            name: 'removerole',
+            description: 'Remove role from user',
+            usage: '!removerole @user @role',
+            aliases: ['takerole'],
+            category: 'Server Management',
+            permissions: ['ManageRoles'],
+            execute: async (message, args) => {
+                if (!message.member.roles.cache.has('645744514576809984')) {
+                    return message.reply('❌ Overwatch required!');
+                }
+                
+                const target = message.mentions.members.first();
+                const role = message.mentions.roles.first();
+                
+                if (!target || !role) {
+                    return message.reply('❌ Please mention a user and a role!');
+                }
+                
+                try {
+                    await target.roles.remove(role);
+                    
+                    // User confirmation embed
+                    const confirmEmbed = new EmbedBuilder()
+                        .setColor('#ff0000')
+                        .setTitle('❌ Role Removed')
+                        .addFields(
+                            { name: 'User', value: target.user.tag, inline: true },
+                            { name: 'Role', value: role.name, inline: true }
+                        )
+                        .setTimestamp();
+                    
+                    await message.reply({ embeds: [confirmEmbed] });
+                    
+                    // Log to role channel (or moderation if role channel doesn't exist)
+                    const logEmbed = new EmbedBuilder()
+                        .setColor('#ff0000')
+                        .setTitle('❌ Role Removed')
+                        .setThumbnail(target.user.displayAvatarURL())
+                        .addFields(
+                            { name: 'User', value: `${target.user.tag}\n<@${target.id}>`, inline: true },
+                            { name: 'Role', value: `${role.name}\n<@&${role.id}>`, inline: true },
+                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true }
+                        )
+                        .setTimestamp()
+                        .setFooter({ text: `User ID: ${target.id}` });
+                    
+                    if (this.logChannels.role) {
+                        await this.logChannels.role.send({ embeds: [logEmbed] });
+                    } else {
+                        await this.logModerationAction(logEmbed);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error removing role:', error);
+                    return message.reply('❌ Failed to remove role!');
+                }
+            }
+        });
+
+        // Create Invite Command
+        this.commands.set('createinvite', {
+            name: 'createinvite',
+            description: 'Create invite link',
+            usage: '!createinvite [max_uses] [max_age_hours]',
+            aliases: ['makeinvite'],
+            category: 'Server Management',
+            permissions: ['CreateInstantInvite'],
+            execute: async (message, args) => {
+                if (!message.member.permissions.has(PermissionFlagsBits.CreateInstantInvite)) {
+                    return message.reply('❌ You need **Create Instant Invite** permission!');
+                }
+                
+                const maxUses = parseInt(args[0]) || 0;
+                const maxAge = (parseInt(args[1]) || 0) * 3600;
+                
+                try {
+                    const invite = await message.channel.createInvite({
+                        maxUses: maxUses,
+                        maxAge: maxAge
+                    });
+                    
+                    const embed = new EmbedBuilder()
+                        .setColor('#3498db')
+                        .setTitle('🔗 Invite Created')
+                        .addFields(
+                            { name: 'Link', value: invite.url, inline: false },
+                            { name: 'Max Uses', value: maxUses === 0 ? 'Unlimited' : maxUses.toString(), inline: true },
+                            { name: 'Expires', value: maxAge === 0 ? 'Never' : `${args[1]} hours`, inline: true }
+                        )
+                        .setTimestamp();
+                    
+                    return message.reply({ embeds: [embed] });
+                } catch (error) {
+                    console.error('Error creating invite:', error);
+                    return message.reply('❌ Failed to create invite!');
+                }
+            }
+        });
+
+        // ========== UTILITY COMMANDS (keeping original implementations) ==========
+        
+        // Avatar Command
+        this.commands.set('avatar', {
+            name: 'avatar',
+            description: 'Display user avatar',
+            usage: '!avatar [@user]',
+            aliases: ['av', 'pfp', 'icon'],
+            category: 'Utility',
+            execute: async (message) => {
+                const target = message.mentions.users.first() || message.author;
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(`${target.tag}'s Avatar`)
+                    .setImage(target.displayAvatarURL({ dynamic: true, size: 1024 }))
+                    .setDescription(`[Download](${target.displayAvatarURL({ dynamic: true, size: 1024 })})`)
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Banner Command
+        this.commands.set('banner', {
+            name: 'banner',
+            description: 'Display user banner',
+            usage: '!banner [@user]',
+            aliases: ['userbanner'],
+            category: 'Utility',
+            execute: async (message) => {
+                const target = message.mentions.users.first() || message.author;
+                const user = await this.client.users.fetch(target.id, { force: true });
+                
+                if (!user.banner) {
+                    return message.reply('❌ This user does not have a banner!');
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(`${user.tag}'s Banner`)
+                    .setImage(user.bannerURL({ size: 1024 }))
+                    .setDescription(`[Download](${user.bannerURL({ size: 1024 })})`)
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Server Icon Command
+        this.commands.set('servericon', {
+            name: 'servericon',
+            description: 'Display server icon',
+            usage: '!servericon',
+            aliases: ['icon'],
+            category: 'Utility',
+            execute: async (message) => {
+                const guild = message.guild;
+                
+                if (!guild.iconURL()) {
+                    return message.reply('❌ This server does not have an icon!');
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(`${guild.name}'s Icon`)
+                    .setImage(guild.iconURL({ dynamic: true, size: 1024 }))
+                    .setDescription(`[Download](${guild.iconURL({ dynamic: true, size: 1024 })})`)
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Server Banner Command
+        this.commands.set('serverbanner', {
+            name: 'serverbanner',
+            description: 'Display server banner',
+            usage: '!serverbanner',
+            aliases: ['sbanner'],
+            category: 'Utility',
+            execute: async (message) => {
+                const guild = message.guild;
+                
+                if (!guild.bannerURL()) {
+                    return message.reply('❌ This server does not have a banner!');
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(`${guild.name}'s Banner`)
+                    .setImage(guild.bannerURL({ size: 1024 }))
+                    .setDescription(`[Download](${guild.bannerURL({ size: 1024 })})`)
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // Invite Command
+        this.commands.set('invite', {
+            name: 'invite',
+            description: 'Get bot invite link',
+            usage: '!invite',
+            aliases: [],
+            category: 'Utility',
+            execute: async (message) => {
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle('🤖 Invite Me!')
+                    .setDescription(`[Click here to invite me to your server!](https://discord.com/api/oauth2/authorize?client_id=${this.client.user.id}&permissions=8&scope=bot)`)
+                    .setTimestamp();
+                
+                return message.reply({ embeds: [embed] });
+            }
+        });
+
+        // AFK Command
+        this.commands.set('afk', {
+            name: 'afk',
+            description: 'Set yourself as AFK',
+            usage: '!afk [reason]',
+            aliases: ['away'],
+            category: 'Utility',
+            execute: async (message, args) => {
+                const reason = args.join(' ') || 'AFK';
+                
+                this.afkUsers.set(message.author.id, {
+                    reason: reason,
+                    timestamp: Date.now()
+                });
+                
+                return message.reply(`✅ You are now AFK: ${reason}`);
+            }
+        });
+
+        // Remind Me Command
+        this.commands.set('remindme', {
+            name: 'remindme',
+            description: 'Set a reminder',
+            usage: '!remindme <time> <message>',
+            aliases: ['remind', 'reminder'],
+            category: 'Utility',
+            execute: async (message, args) => {
+                if (args.length < 2) {
+                    return message.reply('❌ Usage: !remindme <time> <message>\nExample: !remindme 10m Take a break');
+                }
+                
+                const timeStr = args[0].toLowerCase();
+                const reminderText = args.slice(1).join(' ');
+                
+                let duration = 0;
+                if (timeStr.endsWith('s')) duration = parseInt(timeStr) * 1000;
+                else if (timeStr.endsWith('m')) duration = parseInt(timeStr) * 60000;
+                else if (timeStr.endsWith('h')) duration = parseInt(timeStr) * 3600000;
+                else if (timeStr.endsWith('d')) duration = parseInt(timeStr) * 86400000;
+                else return message.reply('❌ Invalid time format! Use: 10s, 5m, 2h, or 1d');
+                
+                if (duration < 10000 || duration > 2592000000) {
+                    return message.reply('❌ Duration must be between 10 seconds and 30 days!');
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle('⏰ Reminder Set')
+                    .addFields(
+                        { name: 'Reminder', value: reminderText, inline: false },
+                        { name: 'Time', value: `<t:${Math.floor((Date.now() + duration) / 1000)}:R>`, inline: true }
+                    )
+                    .setTimestamp();
+                
+                await message.reply({ embeds: [embed] });
+                
+                setTimeout(async () => {
+                    const reminderEmbed = new EmbedBuilder()
+                        .setColor('#ff9900')
+                        .setTitle('⏰ Reminder!')
+                        .setDescription(reminderText)
+                        .setTimestamp();
+                    
+                    try {
+                        await message.author.send({ embeds: [reminderEmbed] });
+                    } catch {
+                        message.channel.send(`<@${message.author.id}> ${reminderText}`);
+                    }
+                }, duration);
+            }
+        });
+
+        // Poll Command
+        this.commands.set('poll', {
+            name: 'poll',
+            description: 'Create a poll',
+            usage: '!poll <question>',
+            aliases: ['vote'],
+            category: 'Utility',
+            execute: async (message, args) => {
+                if (args.length === 0) {
+                    return message.reply('❌ Please provide a question!');
+                }
+                
+                const question = args.join(' ');
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle('📊 Poll')
+                    .setDescription(question)
+                    .setFooter({ text: `Poll by ${message.author.tag}` })
+                    .setTimestamp();
+                
+                const pollMessage = await message.channel.send({ embeds: [embed] });
+                await pollMessage.react('👍');
+                await pollMessage.react('👎');
+                await pollMessage.react('🤷');
+            }
+        });
+
+        // Say Command
+        this.commands.set('say', {
+            name: 'say',
+            description: 'Make bot say something',
+            usage: '!say <message>',
+            aliases: ['echo'],
+            category: 'Utility',
+            execute: async (message, args) => {
+                if (args.length === 0) {
+                    return message.reply('❌ Please provide a message!');
+                }
+                
+                await message.delete().catch(() => {});
+                return message.channel.send(args.join(' '));
+            }
+        });
+
+        // Embed Command
+        this.commands.set('embed', {
+            name: 'embed',
+            description: 'Create custom embed',
+            usage: '!embed <title> | <description>',
+            aliases: [],
+            category: 'Utility',
+            execute: async (message, args) => {
+                if (args.length === 0) {
+                    return message.reply('❌ Usage: !embed <title> | <description>');
+                }
+                
+                const content = args.join(' ').split('|');
+                if (content.length < 2) {
+                    return message.reply('❌ Please separate title and description with |');
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor('#3498db')
+                    .setTitle(content[0].trim())
+                    .setDescription(content[1].trim())
+                    .setFooter({ text: `Created by ${message.author.tag}` })
+                    .setTimestamp();
+                
+                await message.delete().catch(() => {});
+                return message.channel.send({ embeds: [embed] });
             }
         });
 
@@ -532,997 +1919,6 @@ class CommandHandler {
             }
         });
 
-        // ========== MODERATION COMMANDS ==========
-
-        // Kick Command
-        this.commands.set('kick', {
-            name: 'kick',
-            description: 'Kick a member from the server',
-            usage: '!kick @user [reason]',
-            aliases: ['yeet'],
-            category: 'Moderation',
-            permissions: ['KickMembers'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) {
-                    return message.reply('❌ You need **Kick Members** permission!');
-                }
-                
-                const target = message.mentions.members.first();
-                if (!target) {
-                    return message.reply('❌ Please mention a user to kick!');
-                }
-                
-                if (!target.kickable) {
-                    return message.reply('❌ I cannot kick this user!');
-                }
-                
-                const reason = args.slice(1).join(' ') || 'No reason provided';
-                
-                try {
-                    await target.send(`You have been kicked from **${message.guild.name}**\nReason: ${reason}`).catch(() => {});
-                    await target.kick(reason);
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#ff0000')
-                        .setTitle('👢 Member Kicked')
-                        .addFields(
-                            { name: 'User', value: `${target.user.tag}`, inline: true },
-                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
-                            { name: 'Reason', value: reason, inline: false }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error kicking user:', error);
-                    return message.reply('❌ Failed to kick user!');
-                }
-            }
-        });
-
-        // Ban Command
-        this.commands.set('ban', {
-            name: 'ban',
-            description: 'Ban a member from the server',
-            usage: '!ban @user [reason]',
-            aliases: ['hammer'],
-            category: 'Moderation',
-            permissions: ['BanMembers'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-                    return message.reply('❌ You need **Ban Members** permission!');
-                }
-                
-                const target = message.mentions.members.first();
-                if (!target) {
-                    return message.reply('❌ Please mention a user to ban!');
-                }
-                
-                if (!target.bannable) {
-                    return message.reply('❌ I cannot ban this user!');
-                }
-                
-                const reason = args.slice(1).join(' ') || 'No reason provided';
-                
-                try {
-                    await target.send(`You have been banned from **${message.guild.name}**\nReason: ${reason}`).catch(() => {});
-                    await target.ban({ reason, deleteMessageSeconds: 86400 });
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#8b0000')
-                        .setTitle('🔨 Member Banned')
-                        .addFields(
-                            { name: 'User', value: `${target.user.tag}`, inline: true },
-                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
-                            { name: 'Reason', value: reason, inline: false }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error banning user:', error);
-                    return message.reply('❌ Failed to ban user!');
-                }
-            }
-        });
-
-        // Unban Command
-        this.commands.set('unban', {
-            name: 'unban',
-            description: 'Unban a user from the server',
-            usage: '!unban <user_id> [reason]',
-            aliases: ['pardon'],
-            category: 'Moderation',
-            permissions: ['BanMembers'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-                    return message.reply('❌ You need **Ban Members** permission!');
-                }
-                
-                const userId = args[0];
-                if (!userId || !/^\d+$/.test(userId)) {
-                    return message.reply('❌ Please provide a valid user ID!');
-                }
-                
-                const reason = args.slice(1).join(' ') || 'No reason provided';
-                
-                try {
-                    await message.guild.members.unban(userId, reason);
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#00ff00')
-                        .setTitle('✅ User Unbanned')
-                        .addFields(
-                            { name: 'User ID', value: userId, inline: true },
-                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
-                            { name: 'Reason', value: reason, inline: false }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error unbanning user:', error);
-                    return message.reply('❌ Failed to unban user! Make sure they are banned.');
-                }
-            }
-        });
-
-        // Mute Command
-        this.commands.set('mute', {
-            name: 'mute',
-            description: 'Mute a member',
-            usage: '!mute @user [reason]',
-            aliases: ['silence', 'shush'],
-            category: 'Moderation',
-            permissions: ['ModerateMembers'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-                    return message.reply('❌ You need **Moderate Members** permission!');
-                }
-                
-                const target = message.mentions.members.first();
-                if (!target) {
-                    return message.reply('❌ Please mention a user to mute!');
-                }
-                
-                let mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
-                if (!mutedRole) {
-                    mutedRole = await message.guild.roles.create({
-                        name: 'Muted',
-                        color: '#808080',
-                        permissions: []
-                    });
-                    
-                    message.guild.channels.cache.forEach(async (channel) => {
-                        await channel.permissionOverwrites.create(mutedRole, {
-                            SendMessages: false,
-                            AddReactions: false,
-                            Speak: false
-                        }).catch(console.error);
-                    });
-                }
-                
-                const reason = args.slice(1).join(' ') || 'No reason provided';
-                
-                try {
-                    await target.roles.add(mutedRole);
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#ffa500')
-                        .setTitle('🔇 Member Muted')
-                        .addFields(
-                            { name: 'User', value: `${target.user.tag}`, inline: true },
-                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
-                            { name: 'Reason', value: reason, inline: false }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error muting user:', error);
-                    return message.reply('❌ Failed to mute user!');
-                }
-            }
-        });
-
-        // Unmute Command
-        this.commands.set('unmute', {
-            name: 'unmute',
-            description: 'Unmute a member',
-            usage: '!unmute @user',
-            aliases: ['unsilence'],
-            category: 'Moderation',
-            permissions: ['ModerateMembers'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-                    return message.reply('❌ You need **Moderate Members** permission!');
-                }
-                
-                const target = message.mentions.members.first();
-                if (!target) {
-                    return message.reply('❌ Please mention a user to unmute!');
-                }
-                
-                const mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
-                if (!mutedRole || !target.roles.cache.has(mutedRole.id)) {
-                    return message.reply('❌ User is not muted!');
-                }
-                
-                try {
-                    await target.roles.remove(mutedRole);
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#00ff00')
-                        .setTitle('🔊 Member Unmuted')
-                        .addFields(
-                            { name: 'User', value: `${target.user.tag}`, inline: true },
-                            { name: 'Moderator', value: `${message.author.tag}`, inline: true }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error unmuting user:', error);
-                    return message.reply('❌ Failed to unmute user!');
-                }
-            }
-        });
-
-        // Warn Command
-        this.commands.set('warn', {
-            name: 'warn',
-            description: 'Warn a member',
-            usage: '!warn @user <reason>',
-            aliases: ['warning'],
-            category: 'Moderation',
-            permissions: ['ModerateMembers'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-                    return message.reply('❌ You need **Moderate Members** permission!');
-                }
-                
-                const target = message.mentions.members.first();
-                if (!target) {
-                    return message.reply('❌ Please mention a user to warn!');
-                }
-                
-                const reason = args.slice(1).join(' ');
-                if (!reason) {
-                    return message.reply('❌ Please provide a reason for the warning!');
-                }
-                
-                const userWarnings = this.warnings.get(target.id) || [];
-                userWarnings.push({
-                    moderator: message.author.id,
-                    reason: reason,
-                    timestamp: Date.now()
-                });
-                this.warnings.set(target.id, userWarnings);
-                this.saveWarnings();
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#ff9900')
-                    .setTitle('⚠️ User Warned')
-                    .addFields(
-                        { name: 'User', value: `${target.user.tag}`, inline: true },
-                        { name: 'Moderator', value: `${message.author.tag}`, inline: true },
-                        { name: 'Total Warnings', value: userWarnings.length.toString(), inline: true },
-                        { name: 'Reason', value: reason, inline: false }
-                    )
-                    .setTimestamp();
-                
-                await message.reply({ embeds: [embed] });
-                
-                try {
-                    await target.send(`You have been warned in **${message.guild.name}**\nReason: ${reason}\nTotal warnings: ${userWarnings.length}`);
-                } catch (error) {
-                    console.log(`Could not DM ${target.user.tag}`);
-                }
-            }
-        });
-
-        // Warnings Command
-        this.commands.set('warnings', {
-            name: 'warnings',
-            description: 'View user warnings',
-            usage: '!warnings @user',
-            aliases: ['warns', 'infractions'],
-            category: 'Moderation',
-            permissions: ['ModerateMembers'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-                    return message.reply('❌ You need **Moderate Members** permission!');
-                }
-                
-                const target = message.mentions.members.first();
-                if (!target) {
-                    return message.reply('❌ Please mention a user to check warnings!');
-                }
-                
-                const userWarnings = this.warnings.get(target.id) || [];
-                
-                if (userWarnings.length === 0) {
-                    return message.reply(`✅ ${target.user.tag} has no warnings!`);
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#ff9900')
-                    .setTitle(`⚠️ Warnings for ${target.user.tag}`)
-                    .setDescription(`Total Warnings: ${userWarnings.length}`)
-                    .setTimestamp();
-                
-                userWarnings.forEach((warn, index) => {
-                    embed.addFields({
-                        name: `Warning #${index + 1}`,
-                        value: `**Moderator:** <@${warn.moderator}>\n**Reason:** ${warn.reason}\n**Date:** <t:${Math.floor(warn.timestamp / 1000)}:R>`,
-                        inline: false
-                    });
-                });
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Clear Warnings Command
-        this.commands.set('clearwarns', {
-            name: 'clearwarns',
-            description: 'Clear all warnings for a user',
-            usage: '!clearwarns @user',
-            aliases: ['clearwarnings', 'resetwarns'],
-            category: 'Moderation',
-            permissions: ['Administrator'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-                    return message.reply('❌ You need **Administrator** permission!');
-                }
-                
-                const target = message.mentions.members.first();
-                if (!target) {
-                    return message.reply('❌ Please mention a user to clear warnings!');
-                }
-                
-                const userWarnings = this.warnings.get(target.id) || [];
-                
-                if (userWarnings.length === 0) {
-                    return message.reply(`✅ ${target.user.tag} has no warnings to clear!`);
-                }
-                
-                this.warnings.delete(target.id);
-                this.saveWarnings();
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#00ff00')
-                    .setTitle('✅ Warnings Cleared')
-                    .addFields(
-                        { name: 'User', value: `${target.user.tag}`, inline: true },
-                        { name: 'Moderator', value: `${message.author.tag}`, inline: true },
-                        { name: 'Warnings Cleared', value: userWarnings.length.toString(), inline: true }
-                    )
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Purge Command
-        this.commands.set('purge', {
-            name: 'purge',
-            description: 'Delete multiple messages',
-            usage: '!purge <amount> [@user]',
-            aliases: ['clear', 'clean', 'prune'],
-            category: 'Moderation',
-            permissions: ['ManageMessages'],
-            execute: async (message, args) => {
-                if (!message.member.roles.cache.has('645744514576809984')) {
-                    return message.reply('❌ Overwatch required!');
-                }
-                
-                const amount = parseInt(args[0]);
-                if (isNaN(amount) || amount < 1 || amount > 100) {
-                    return message.reply('❌ Please provide a number between 1 and 100!');
-                }
-                
-                const targetUser = message.mentions.users.first();
-                
-                try {
-                    await message.delete();
-                    
-                    if (targetUser) {
-                        const messages = await message.channel.messages.fetch({ limit: amount });
-                        const userMessages = messages.filter(m => m.author.id === targetUser.id);
-                        await message.channel.bulkDelete(userMessages, true);
-                        
-                        const reply = await message.channel.send(`✅ Deleted ${userMessages.size} messages from ${targetUser.tag}!`);
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
-                    } else {
-                        const deleted = await message.channel.bulkDelete(amount, true);
-                        const reply = await message.channel.send(`✅ Deleted ${deleted.size} messages!`);
-                        setTimeout(() => reply.delete().catch(() => {}), 5000);
-                    }
-                } catch (error) {
-                    console.error('Error purging messages:', error);
-                    return message.reply('❌ Failed to delete messages!');
-                }
-            }
-        });
-
-        // Slowmode Command
-        this.commands.set('slowmode', {
-            name: 'slowmode',
-            description: 'Set channel slowmode',
-            usage: '!slowmode <seconds> [#channel]',
-            aliases: ['slow'],
-            category: 'Moderation',
-            permissions: ['ManageChannels'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-                    return message.reply('❌ You need **Manage Channels** permission!');
-                }
-                
-                const seconds = parseInt(args[0]);
-                if (isNaN(seconds) || seconds < 0 || seconds > 21600) {
-                    return message.reply('❌ Please provide a number between 0 and 21600 seconds!');
-                }
-                
-                const channel = message.mentions.channels.first() || message.channel;
-                
-                try {
-                    await channel.setRateLimitPerUser(seconds);
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#3498db')
-                        .setTitle('⏱️ Slowmode Updated')
-                        .addFields(
-                            { name: 'Channel', value: `<#${channel.id}>`, inline: true },
-                            { name: 'Slowmode', value: seconds === 0 ? 'Disabled' : `${seconds}s`, inline: true },
-                            { name: 'Set By', value: message.author.tag, inline: true }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error setting slowmode:', error);
-                    return message.reply('❌ Failed to set slowmode!');
-                }
-            }
-        });
-
-        // Lock Command
-        this.commands.set('lock', {
-            name: 'lock',
-            description: 'Lock a channel',
-            usage: '!lock [#channel] [reason]',
-            aliases: ['lockdown'],
-            category: 'Moderation',
-            permissions: ['ManageChannels'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-                    return message.reply('❌ You need **Manage Channels** permission!');
-                }
-                
-                const channel = message.mentions.channels.first() || message.channel;
-                const reason = args.slice(message.mentions.channels.size > 0 ? 1 : 0).join(' ') || 'No reason provided';
-                
-                try {
-                    await channel.permissionOverwrites.edit(message.guild.id, {
-                        SendMessages: false
-                    });
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#ff0000')
-                        .setTitle('🔒 Channel Locked')
-                        .addFields(
-                            { name: 'Channel', value: `<#${channel.id}>`, inline: true },
-                            { name: 'Locked By', value: message.author.tag, inline: true },
-                            { name: 'Reason', value: reason, inline: false }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error locking channel:', error);
-                    return message.reply('❌ Failed to lock channel!');
-                }
-            }
-        });
-
-        // Unlock Command
-        this.commands.set('unlock', {
-            name: 'unlock',
-            description: 'Unlock a channel',
-            usage: '!unlock [#channel]',
-            aliases: [],
-            category: 'Moderation',
-            permissions: ['ManageChannels'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-                    return message.reply('❌ You need **Manage Channels** permission!');
-                }
-                
-                const channel = message.mentions.channels.first() || message.channel;
-                
-                try {
-                    await channel.permissionOverwrites.edit(message.guild.id, {
-                        SendMessages: null
-                    });
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#00ff00')
-                        .setTitle('🔓 Channel Unlocked')
-                        .addFields(
-                            { name: 'Channel', value: `<#${channel.id}>`, inline: true },
-                            { name: 'Unlocked By', value: message.author.tag, inline: true }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error unlocking channel:', error);
-                    return message.reply('❌ Failed to unlock channel!');
-                }
-            }
-        });
-
-        // Nuke Command
-        this.commands.set('nuke', {
-            name: 'nuke',
-            description: 'Delete and recreate channel',
-            usage: '!nuke [#channel]',
-            aliases: ['recreate'],
-            category: 'Moderation',
-            permissions: ['ManageChannels'],
-            execute: async (message, args) => {
-                if (!message.member.roles.cache.has('645744514576809984')) {
-                    return message.reply('❌ Overwatch required!');
-                }
-                
-                const channel = message.mentions.channels.first() || message.channel;
-                
-                try {
-                    const position = channel.position;
-                    const newChannel = await channel.clone();
-                    await channel.delete();
-                    await newChannel.setPosition(position);
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#ff6600')
-                        .setTitle('💥 Channel Nuked')
-                        .setDescription(`Channel has been recreated by ${message.author.tag}`)
-                        .setTimestamp();
-                    
-                    return newChannel.send({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error nuking channel:', error);
-                    return message.reply('❌ Failed to nuke channel!');
-                }
-            }
-        });
-
-        // Nickname Command
-        this.commands.set('nickname', {
-            name: 'nickname',
-            description: 'Change user nickname',
-            usage: '!nickname @user <new_nick>',
-            aliases: ['nick', 'setnick'],
-            category: 'Moderation',
-            permissions: ['ManageNicknames'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames)) {
-                    return message.reply('❌ You need **Manage Nicknames** permission!');
-                }
-                
-                const target = message.mentions.members.first();
-                if (!target) {
-                    return message.reply('❌ Please mention a user!');
-                }
-                
-                const newNick = args.slice(1).join(' ') || null;
-                
-                try {
-                    await target.setNickname(newNick);
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#3498db')
-                        .setTitle('✏️ Nickname Changed')
-                        .addFields(
-                            { name: 'User', value: target.user.tag, inline: true },
-                            { name: 'New Nickname', value: newNick || 'Reset to username', inline: true }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error changing nickname:', error);
-                    return message.reply('❌ Failed to change nickname!');
-                }
-            }
-        });
-
-        // ========== SERVER MANAGEMENT COMMANDS ==========
-
-        // Add Role Command
-        this.commands.set('addrole', {
-            name: 'addrole',
-            description: 'Add role to user',
-            usage: '!addrole @user @role',
-            aliases: ['giverole'],
-            category: 'Server Management',
-            permissions: ['ManageRoles'],
-            execute: async (message, args) => {
-                if (!message.member.roles.cache.has('645744514576809984')) {
-                    return message.reply('❌ Overwatch required!');
-                }
-                
-                const target = message.mentions.members.first();
-                const role = message.mentions.roles.first();
-                
-                if (!target || !role) {
-                    return message.reply('❌ Please mention a user and a role!');
-                }
-                
-                try {
-                    await target.roles.add(role);
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#00ff00')
-                        .setTitle('✅ Role Added')
-                        .addFields(
-                            { name: 'User', value: target.user.tag, inline: true },
-                            { name: 'Role', value: role.name, inline: true }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error adding role:', error);
-                    return message.reply('❌ Failed to add role!');
-                }
-            }
-        });
-
-        // Remove Role Command
-        this.commands.set('removerole', {
-            name: 'removerole',
-            description: 'Remove role from user',
-            usage: '!removerole @user @role',
-            aliases: ['takerole'],
-            category: 'Server Management',
-            permissions: ['ManageRoles'],
-            execute: async (message, args) => {
-                if (!message.member.roles.cache.has('645744514576809984')) {
-                    return message.reply('❌ Overwatch required!');
-                }
-                
-                const target = message.mentions.members.first();
-                const role = message.mentions.roles.first();
-                
-                if (!target || !role) {
-                    return message.reply('❌ Please mention a user and a role!');
-                }
-                
-                try {
-                    await target.roles.remove(role);
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#ff0000')
-                        .setTitle('❌ Role Removed')
-                        .addFields(
-                            { name: 'User', value: target.user.tag, inline: true },
-                            { name: 'Role', value: role.name, inline: true }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error removing role:', error);
-                    return message.reply('❌ Failed to remove role!');
-                }
-            }
-        });
-
-        // Create Invite Command
-        this.commands.set('createinvite', {
-            name: 'createinvite',
-            description: 'Create invite link',
-            usage: '!createinvite [max_uses] [max_age_hours]',
-            aliases: ['makeinvite'],
-            category: 'Server Management',
-            permissions: ['CreateInstantInvite'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.CreateInstantInvite)) {
-                    return message.reply('❌ You need **Create Instant Invite** permission!');
-                }
-                
-                const maxUses = parseInt(args[0]) || 0;
-                const maxAge = (parseInt(args[1]) || 0) * 3600;
-                
-                try {
-                    const invite = await message.channel.createInvite({
-                        maxUses: maxUses,
-                        maxAge: maxAge
-                    });
-                    
-                    const embed = new EmbedBuilder()
-                        .setColor('#3498db')
-                        .setTitle('🔗 Invite Created')
-                        .addFields(
-                            { name: 'Link', value: invite.url, inline: false },
-                            { name: 'Max Uses', value: maxUses === 0 ? 'Unlimited' : maxUses.toString(), inline: true },
-                            { name: 'Expires', value: maxAge === 0 ? 'Never' : `${args[1]} hours`, inline: true }
-                        )
-                        .setTimestamp();
-                    
-                    return message.reply({ embeds: [embed] });
-                } catch (error) {
-                    console.error('Error creating invite:', error);
-                    return message.reply('❌ Failed to create invite!');
-                }
-            }
-        });
-
-        // ========== UTILITY COMMANDS ==========
-
-        // Avatar Command
-        this.commands.set('avatar', {
-            name: 'avatar',
-            description: 'Display user avatar',
-            usage: '!avatar [@user]',
-            aliases: ['av', 'pfp', 'icon'],
-            category: 'Utility',
-            execute: async (message) => {
-                const target = message.mentions.users.first() || message.author;
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle(`${target.tag}'s Avatar`)
-                    .setImage(target.displayAvatarURL({ dynamic: true, size: 1024 }))
-                    .setDescription(`[Download](${target.displayAvatarURL({ dynamic: true, size: 1024 })})`)
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Banner Command
-        this.commands.set('banner', {
-            name: 'banner',
-            description: 'Display user banner',
-            usage: '!banner [@user]',
-            aliases: ['userbanner'],
-            category: 'Utility',
-            execute: async (message) => {
-                const target = message.mentions.users.first() || message.author;
-                const user = await this.client.users.fetch(target.id, { force: true });
-                
-                if (!user.banner) {
-                    return message.reply('❌ This user does not have a banner!');
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle(`${user.tag}'s Banner`)
-                    .setImage(user.bannerURL({ size: 1024 }))
-                    .setDescription(`[Download](${user.bannerURL({ size: 1024 })})`)
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Server Icon Command
-        this.commands.set('servericon', {
-            name: 'servericon',
-            description: 'Display server icon',
-            usage: '!servericon',
-            aliases: ['icon'],
-            category: 'Utility',
-            execute: async (message) => {
-                const guild = message.guild;
-                
-                if (!guild.iconURL()) {
-                    return message.reply('❌ This server does not have an icon!');
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle(`${guild.name}'s Icon`)
-                    .setImage(guild.iconURL({ dynamic: true, size: 1024 }))
-                    .setDescription(`[Download](${guild.iconURL({ dynamic: true, size: 1024 })})`)
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Server Banner Command
-        this.commands.set('serverbanner', {
-            name: 'serverbanner',
-            description: 'Display server banner',
-            usage: '!serverbanner',
-            aliases: ['sbanner'],
-            category: 'Utility',
-            execute: async (message) => {
-                const guild = message.guild;
-                
-                if (!guild.bannerURL()) {
-                    return message.reply('❌ This server does not have a banner!');
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle(`${guild.name}'s Banner`)
-                    .setImage(guild.bannerURL({ size: 1024 }))
-                    .setDescription(`[Download](${guild.bannerURL({ size: 1024 })})`)
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // Invite Command
-        this.commands.set('invite', {
-            name: 'invite',
-            description: 'Get bot invite link',
-            usage: '!invite',
-            aliases: [],
-            category: 'Utility',
-            execute: async (message) => {
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle('🤖 Invite Me!')
-                    .setDescription(`[Click here to invite me to your server!](https://discord.com/api/oauth2/authorize?client_id=${this.client.user.id}&permissions=8&scope=bot)`)
-                    .setTimestamp();
-                
-                return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // AFK Command
-        this.commands.set('afk', {
-            name: 'afk',
-            description: 'Set yourself as AFK',
-            usage: '!afk [reason]',
-            aliases: ['away'],
-            category: 'Utility',
-            execute: async (message, args) => {
-                const reason = args.join(' ') || 'AFK';
-                
-                this.afkUsers.set(message.author.id, {
-                    reason: reason,
-                    timestamp: Date.now()
-                });
-                
-                return message.reply(`✅ You are now AFK: ${reason}`);
-            }
-        });
-
-        // Remind Me Command
-        this.commands.set('remindme', {
-            name: 'remindme',
-            description: 'Set a reminder',
-            usage: '!remindme <time> <message>',
-            aliases: ['remind', 'reminder'],
-            category: 'Utility',
-            execute: async (message, args) => {
-                if (args.length < 2) {
-                    return message.reply('❌ Usage: !remindme <time> <message>\nExample: !remindme 10m Take a break');
-                }
-                
-                const timeStr = args[0].toLowerCase();
-                const reminderText = args.slice(1).join(' ');
-                
-                let duration = 0;
-                if (timeStr.endsWith('s')) duration = parseInt(timeStr) * 1000;
-                else if (timeStr.endsWith('m')) duration = parseInt(timeStr) * 60000;
-                else if (timeStr.endsWith('h')) duration = parseInt(timeStr) * 3600000;
-                else if (timeStr.endsWith('d')) duration = parseInt(timeStr) * 86400000;
-                else return message.reply('❌ Invalid time format! Use: 10s, 5m, 2h, or 1d');
-                
-                if (duration < 10000 || duration > 2592000000) {
-                    return message.reply('❌ Duration must be between 10 seconds and 30 days!');
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle('⏰ Reminder Set')
-                    .addFields(
-                        { name: 'Reminder', value: reminderText, inline: false },
-                        { name: 'Time', value: `<t:${Math.floor((Date.now() + duration) / 1000)}:R>`, inline: true }
-                    )
-                    .setTimestamp();
-                
-                await message.reply({ embeds: [embed] });
-                
-                setTimeout(async () => {
-                    const reminderEmbed = new EmbedBuilder()
-                        .setColor('#ff9900')
-                        .setTitle('⏰ Reminder!')
-                        .setDescription(reminderText)
-                        .setTimestamp();
-                    
-                    try {
-                        await message.author.send({ embeds: [reminderEmbed] });
-                    } catch {
-                        message.channel.send(`<@${message.author.id}> ${reminderText}`);
-                    }
-                }, duration);
-            }
-        });
-
-        // Poll Command
-        this.commands.set('poll', {
-            name: 'poll',
-            description: 'Create a poll',
-            usage: '!poll <question>',
-            aliases: ['vote'],
-            category: 'Utility',
-            execute: async (message, args) => {
-                if (args.length === 0) {
-                    return message.reply('❌ Please provide a question!');
-                }
-                
-                const question = args.join(' ');
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle('📊 Poll')
-                    .setDescription(question)
-                    .setFooter({ text: `Poll by ${message.author.tag}` })
-                    .setTimestamp();
-                
-                const pollMessage = await message.channel.send({ embeds: [embed] });
-                await pollMessage.react('👍');
-                await pollMessage.react('👎');
-                await pollMessage.react('🤷');
-            }
-        });
-
-        // Say Command
-        this.commands.set('say', {
-            name: 'say',
-            description: 'Make bot say something',
-            usage: '!say <message>',
-            aliases: ['echo'],
-            category: 'Utility',
-            execute: async (message, args) => {
-                if (args.length === 0) {
-                    return message.reply('❌ Please provide a message!');
-                }
-                
-                await message.delete().catch(() => {});
-                return message.channel.send(args.join(' '));
-            }
-        });
-
-        // Embed Command
-        this.commands.set('embed', {
-            name: 'embed',
-            description: 'Create custom embed',
-            usage: '!embed <title> | <description>',
-            aliases: [],
-            category: 'Utility',
-            execute: async (message, args) => {
-                if (args.length === 0) {
-                    return message.reply('❌ Usage: !embed <title> | <description>');
-                }
-                
-                const content = args.join(' ').split('|');
-                if (content.length < 2) {
-                    return message.reply('❌ Please separate title and description with |');
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor('#3498db')
-                    .setTitle(content[0].trim())
-                    .setDescription(content[1].trim())
-                    .setFooter({ text: `Created by ${message.author.tag}` })
-                    .setTimestamp();
-                
-                await message.delete().catch(() => {});
-                return message.channel.send({ embeds: [embed] });
-            }
-        });
-
         // ========== FUN COMMANDS ==========
 
         // 8ball Command
@@ -1663,30 +2059,6 @@ class CommandHandler {
                     .setTimestamp();
                 
                 return message.reply({ embeds: [embed] });
-            }
-        });
-
-        // ASCII Command
-        this.commands.set('ascii', {
-            name: 'ascii',
-            description: 'Convert to ASCII art',
-            usage: '!ascii <text>',
-            aliases: [],
-            category: 'Fun',
-            execute: async (message, args) => {
-                if (args.length === 0) {
-                    return message.reply('❌ Please provide text!');
-                }
-                
-                const text = args.join(' ').toUpperCase();
-                
-                if (text.length > 10) {
-                    return message.reply('❌ Text too long! Maximum 10 characters.');
-                }
-                
-                const asciiArt = `\`\`\`\n${text}\n\`\`\``;
-                
-                return message.reply(asciiArt);
             }
         });
 

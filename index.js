@@ -555,6 +555,9 @@ client.once('ready', async () => {
         }
     }
     
+    // 🆕 LINK LOG CHANNELS TO COMMAND HANDLER
+    commandHandler.setLogChannels(logChannels);
+    
     // Cache invites for all guilds
     console.log('\n🔗 Caching invites...');
     for (const guild of client.guilds.cache.values()) {
