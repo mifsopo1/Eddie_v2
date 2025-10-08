@@ -140,183 +140,186 @@
     
     
     <div class="commands-header">
-    <h1>🎮 Custom Commands Manager</h1>
-    <div style="display: flex; gap: 1rem;">
-        <a href="/commands/all" class="btn btn-secondary">⚙️ View All Commands</a>
-        <button class="btn btn-primary" onclick="toggleCreateForm()">➕ Create New Command</button>
+        <h1>🎮 Custom Commands Manager</h1>
+        <div style="display: flex; gap: 1rem;">
+            <a href="/commands/all" class="btn btn-secondary">⚙️ View All Commands</a>
+            <button class="btn btn-primary" onclick="toggleCreateForm()">➕ Create New Command</button>
+        </div>
     </div>
-</div>
 
-        <!-- Quick Execute Command -->
-        <div class="section">
-            <h2 class="section-title">⚡ Quick Execute</h2>
-            <form onsubmit="executeCommand(event)" class="quick-execute">
-                <div class="form-group">
-                    <label>Channel</label>
-                    <select id="channelSelect" required>
-                        <option value="">Select Channel...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Command</label>
-                    <input type="text" id="commandInput" placeholder="Enter command..." required>
-                </div>
-                <button type="submit" class="btn btn-primary" style="margin-top: 22px;">Execute</button>
-            </form>
-            <div id="executeResult"></div>
-        </div>
-
-        <!-- Create Command Form (Hidden by default) -->
-        <div class="section" id="createCommandSection" style="display: none;">
-            <h2 class="section-title">📝 Create New Command</h2>
-            <form method="POST" action="/commands/create">
-                <div class="form-grid">
-                    <!-- Left Column -->
-                    <div>
-                        <div class="form-group">
-                            <label>Command Name *</label>
-                            <input type="text" name="name" placeholder="My Command" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Category</label>
-                            <select name="category">
-                                <option value="general">General</option>
-                                <option value="fun">Fun</option>
-                                <option value="moderation">Moderation</option>
-                                <option value="info">Info</option>
-                                <option value="utility">Utility</option>
-                                <option value="custom">Custom</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Description</label>
-                            <textarea name="description" rows="2" placeholder="What does this command do?"></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Trigger Type</label>
-                            <select name="triggerType">
-                                <option value="command">Command (!hello)</option>
-                                <option value="exact">Exact Match</option>
-                                <option value="contains">Contains Text</option>
-                                <option value="startswith">Starts With</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Trigger Text *</label>
-                            <input type="text" name="trigger" placeholder="hello, hi, hey" required>
-                            <small>Separate multiple triggers with commas</small>
-                        </div>
-                    </div>
-
-                    <!-- Right Column -->
-                    <div>
-                        <div class="form-group">
-                            <label>Response Type</label>
-                            <select name="responseType">
-                                <option value="text">Text Message</option>
-                                <option value="embed">Embed</option>
-                                <option value="react">Reaction Only</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Message Content</label>
-                            <textarea name="response" rows="4" placeholder="Hello {user}! Welcome to {server}"></textarea>
-                            <small>Variables: {user}, {channel}, {server}, {membercount}</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" name="enabled" checked>
-                                Enabled
-                            </label>
-                        </div>
-
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" name="deleteTrigger">
-                                Delete Trigger Message
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="button" onclick="toggleCreateForm()" class="btn btn-secondary">Cancel</button>
-                    <button type="submit" class="btn btn-primary btn-large">💾 Create Command</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Existing Commands -->
-        <div class="section">
-            <h2 class="section-title">📋 Command List</h2>
-            
-            <div class="tabs">
-                <button class="tab active" onclick="filterCommands('all')">All</button>
-                <button class="tab" onclick="filterCommands('general')">General</button>
-                <button class="tab" onclick="filterCommands('fun')">Fun</button>
-                <button class="tab" onclick="filterCommands('moderation')">Moderation</button>
-                <button class="tab" onclick="filterCommands('info')">Info</button>
-                <button class="tab" onclick="filterCommands('utility')">Utility</button>
-                <button class="tab" onclick="filterCommands('custom')">Custom</button>
+    <!-- Quick Execute Command -->
+    <div class="section">
+        <h2 class="section-title">⚡ Quick Execute</h2>
+        <form onsubmit="executeCommand(event)" class="quick-execute">
+            <div class="form-group">
+                <label>Channel</label>
+                <select id="channelSelect" required>
+                    <option value="">Select Channel...</option>
+                </select>
             </div>
+            <div class="form-group">
+                <label>Command</label>
+                <input type="text" id="commandInput" placeholder="Enter command..." required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top: 22px;">Execute</button>
+        </form>
+        <div id="executeResult"></div>
+    </div>
 
-            <div class="commands-table">
-                <% if (commands && commands.length > 0) { %>
-                    <% commands.forEach(cmd => { %>
-                        <div class="command-card <%= cmd.enabled ? '' : 'disabled' %>" data-category="<%= cmd.category || 'general' %>">
-                            <div class="command-header">
+    <!-- Create Command Form (Hidden by default) -->
+    <div class="section" id="createCommandSection" style="display: none;">
+        <h2 class="section-title">📝 Create New Command</h2>
+        <form method="POST" action="/commands/create">
+            <div class="form-grid">
+                <!-- Left Column -->
+                <div>
+                    <div class="form-group">
+                        <label>Command Name *</label>
+                        <input type="text" name="name" placeholder="My Command" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select name="category">
+                            <option value="general">General</option>
+                            <option value="fun">Fun</option>
+                            <option value="moderation">Moderation</option>
+                            <option value="info">Info</option>
+                            <option value="utility">Utility</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea name="description" rows="2" placeholder="What does this command do?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Trigger Type</label>
+                        <select name="triggerType">
+                            <option value="command">Command (!hello)</option>
+                            <option value="exact">Exact Match</option>
+                            <option value="contains">Contains Text</option>
+                            <option value="startswith">Starts With</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Trigger Text *</label>
+                        <input type="text" name="trigger" placeholder="hello, hi, hey" required>
+                        <small>Separate multiple triggers with commas</small>
+                    </div>
+                </div>
+
+                <!-- Right Column -->
+                <div>
+                    <div class="form-group">
+                        <label>Response Type</label>
+                        <select name="responseType">
+                            <option value="text">Text Message</option>
+                            <option value="embed">Embed</option>
+                            <option value="react">Reaction Only</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Message Content</label>
+                        <textarea name="response" rows="4" placeholder="Hello {user}! Welcome to {server}"></textarea>
+                        <small>Variables: {user}, {channel}, {server}, {membercount}</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="enabled" checked>
+                            Enabled
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="deleteTrigger">
+                            Delete Trigger Message
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" onclick="toggleCreateForm()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-large">💾 Create Command</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Existing Commands -->
+    <div class="section">
+        <h2 class="section-title">📋 Command List</h2>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="filterCommands('all')">All</button>
+            <button class="tab" onclick="filterCommands('general')">General</button>
+            <button class="tab" onclick="filterCommands('fun')">Fun</button>
+            <button class="tab" onclick="filterCommands('moderation')">Moderation</button>
+            <button class="tab" onclick="filterCommands('info')">Info</button>
+            <button class="tab" onclick="filterCommands('utility')">Utility</button>
+            <button class="tab" onclick="filterCommands('custom')">Custom</button>
+        </div>
+
+        <div class="commands-table">
+            <% if (commands && commands.length > 0) { %>
+                <% commands.forEach(cmd => { %>
+                    <div class="command-card <%= cmd.enabled ? '' : 'disabled' %>" data-category="<%= cmd.category || 'general' %>">
+                        <div class="command-header">
+                            <div>
+                                <h3><%= cmd.name %></h3>
                                 <div>
-                                    <h3><%= cmd.name %></h3>
                                     <span class="badge badge-<%= cmd.category || 'general' %>"><%= cmd.category || 'general' %></span>
                                     <span class="badge <%= cmd.enabled ? 'badge-enabled' : 'badge-disabled' %>">
                                         <%= cmd.enabled ? 'Enabled' : 'Disabled' %>
                                     </span>
                                 </div>
-                                <div class="command-actions">
-                                    <button class="btn-icon" onclick="editCommand('<%= cmd._id %>')" title="Edit">
-                                        ✏️
-                                    </button>
-                                    <button class="btn-icon toggle" onclick="toggleCommand('<%= cmd._id %>')" title="Toggle Enable/Disable">
-                                        <%= cmd.enabled ? '⏸️' : '▶️' %>
-                                    </button>
-                                    <button class="btn-icon delete" onclick="if(confirm('Delete this command?')) { window.location.href='/commands/delete/<%= cmd._id %>' }" title="Delete Command">
-                                        🗑️
-                                    </button>
-                                </div>
                             </div>
-                            
-                            <% if (cmd.description) { %>
-                                <p class="command-desc"><%= cmd.description %></p>
-                            <% } %>
-                            
-                            <div class="command-meta">
-                                <div class="meta-item">
-                                    <strong>Trigger:</strong> 
-                                    <%= cmd.triggerType === 'command' ? '!' : '' %><%= Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger %>
-                                </div>
-                                <div class="meta-item">
-                                    <strong>Type:</strong> <%= cmd.responseType %>
-                                </div>
-                                <div class="meta-item">
-                                    <strong>Uses:</strong> <%= cmd.uses || 0 %>
-                                </div>
+                            <div class="command-actions">
+                                <button class="btn-icon" onclick="editCommand('<%= cmd._id %>')" title="Edit">
+                                    ✏️
+                                </button>
+                                <button class="btn-icon toggle" onclick="toggleCommand('<%= cmd._id %>')" title="Toggle Enable/Disable">
+                                    <%= cmd.enabled ? '⏸️' : '▶️' %>
+                                </button>
+                                <button class="btn-icon delete" onclick="if(confirm('Delete this command?')) { window.location.href='/commands/delete/<%= cmd._id %>' }" title="Delete Command">
+                                    🗑️
+                                </button>
                             </div>
                         </div>
-                    <% }); %>
-                <% } else { %>
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📦</div>
-                        <div class="empty-state-text">No commands yet</div>
-                        <div class="empty-state-subtext">Create your first custom command to get started</div>
+                        
+                        <% if (cmd.description) { %>
+                            <p class="command-desc"><%= cmd.description %></p>
+                        <% } %>
+                        
+                        <div class="command-meta">
+                            <div class="meta-item">
+                                <strong>Trigger</strong>
+                                <span><%= cmd.triggerType === 'command' ? '!' : '' %><%= Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger %></span>
+                            </div>
+                            <div class="meta-item">
+                                <strong>Type</strong>
+                                <span><%= cmd.responseType %></span>
+                            </div>
+                            <div class="meta-item">
+                                <strong>Uses</strong>
+                                <span><%= cmd.uses || 0 %></span>
+                            </div>
+                        </div>
                     </div>
-                <% } %>
-            </div>
+                <% }); %>
+            <% } else { %>
+                <div class="empty-state">
+                    <div class="empty-state-icon">📦</div>
+                    <div class="empty-state-text">No commands yet</div>
+                    <div class="empty-state-subtext">Create your first custom command to get started</div>
+                </div>
+            <% } %>
         </div>
     </div>
 
@@ -518,7 +521,7 @@
         async function editCommand(id) {
             try {
                 // Fetch command data
-                const response = await fetch(`/commands/get/${id}`);
+                const response = await fetch(`/api/commands/${id}`);
                 const result = await response.json();
                 
                 if (result.success) {
