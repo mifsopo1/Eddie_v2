@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const fs = require('fs');
+const path = require('path');
 const config = require('./config.json');
 const MongoDBLogger = require('./mongodb-logger');
 const Dashboard = require('./dashboard');
@@ -41,6 +42,64 @@ const customCommandCooldowns = {
     channel: new Map(),
     server: new Map()
 };
+
+// Attachments directory
+const ATTACHMENTS_DIR = path.join(__dirname, 'saved-attachments');
+
+// Create attachments directory if it doesn't exist
+if (!fs.existsSync(ATTACHMENTS_DIR)) {
+    fs.mkdirSync(ATTACHMENTS_DIR, { recursive: true });
+    console.log('✅ Created saved-attachments directory');
+}
+
+// Helper function to download and save attachment
+async function saveAttachment(attachment, userId, messageId) {
+    try {
+        // Skip files larger than 10MB
+        if (attachment.size > 10 * 1024 * 1024) {
+            console.log(`⚠️ Skipping large file: ${attachment.name} (${(attachment.size / 1024 / 1024).toFixed(2)} MB)`);
+            return null;
+        }
+
+        // Create date-based subdirectory
+        const date = new Date();
+        const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const dateDir = path.join(ATTACHMENTS_DIR, yearMonth);
+        
+        if (!fs.existsSync(dateDir)) {
+            fs.mkdirSync(dateDir, { recursive: true });
+        }
+
+        // Sanitize filename and add unique prefix
+        const timestamp = Date.now();
+        const sanitized = attachment.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filename = `${userId}_${messageId}_${timestamp}_${sanitized}`;
+        const filepath = path.join(dateDir, filename);
+
+        // Download the file
+        const response = await fetch(attachment.url);
+        if (!response.ok) {
+            console.log(`❌ Failed to download: ${attachment.name} (HTTP ${response.status})`);
+            return null;
+        }
+
+        const buffer = await response.arrayBuffer();
+        fs.writeFileSync(filepath, Buffer.from(buffer));
+
+        console.log(`✅ Saved attachment: ${filename} (${(attachment.size / 1024).toFixed(2)} KB)`);
+
+        return {
+            originalName: attachment.name,
+            savedPath: filepath,
+            relativePath: `${yearMonth}/${filename}`,
+            size: attachment.size,
+            contentType: attachment.contentType
+        };
+    } catch (error) {
+        console.error(`❌ Error saving attachment ${attachment.name}:`, error.message);
+        return null;
+    }
+}
 
 // Load member invites from file
 function loadMemberInvites() {
@@ -249,10 +308,10 @@ async function handleSpammer(message, spamData) {
         userData.muted = true;
         console.log(`🔇 Muted ${message.author.tag}`);
         
-        const attachmentUrls = [];
-        const attachmentFiles = [];
+        // SAVE ATTACHMENTS LOCALLY BEFORE DELETION
+        const savedAttachments = [];
         
-        console.log('📎 Collecting attachments before deletion...');
+        console.log('📎 Downloading and saving spam attachments...');
         
         for (const msg of spamData.messages) {
             try {
@@ -261,39 +320,26 @@ async function handleSpammer(message, spamData) {
                     const targetMessage = await channel.messages.fetch(msg.messageId).catch(() => null);
                     if (targetMessage && targetMessage.attachments.size > 0) {
                         for (const att of targetMessage.attachments.values()) {
-                            attachmentUrls.push({
-                                url: att.url,
-                                name: att.name,
-                                size: att.size,
-                                contentType: att.contentType,
-                                channelId: msg.channelId
-                            });
-                            
-                            if (att.size < 8388608) {
-                                try {
-                                    console.log(`⬇️ Downloading ${att.name} (${(att.size / 1024).toFixed(2)} KB)...`);
-                                    const response = await fetch(att.url);
-                                    const buffer = await response.arrayBuffer();
-                                    
-                                    attachmentFiles.push({
-                                        attachment: Buffer.from(buffer),
-                                        name: att.name
-                                    });
-                                    console.log(`✅ Downloaded ${att.name}`);
-                                } catch (downloadError) {
-                                    console.error(`❌ Failed to download ${att.name}:`, downloadError);
-                                }
+                            const saved = await saveAttachment(att, message.author.id, msg.messageId);
+                            if (saved) {
+                                savedAttachments.push({
+                                    ...saved,
+                                    channelId: msg.channelId,
+                                    channelName: channel.name,
+                                    originalUrl: att.url
+                                });
                             }
                         }
                     }
                 }
             } catch (error) {
-                console.error('Error fetching message for attachments:', error);
+                console.error('Error saving spam attachment:', error);
             }
         }
         
-        console.log(`📦 Collected ${attachmentFiles.length} files to re-upload`);
+        console.log(`💾 Saved ${savedAttachments.length} spam attachments to disk`);
         
+        // Delete spam messages
         let deletedCount = 0;
         const deletedChannels = new Set();
         
@@ -370,23 +416,26 @@ async function handleSpammer(message, spamData) {
                 });
             }
             
-            if (attachmentUrls.length > 0) {
-                const attachmentInfo = attachmentUrls.slice(0, 5).map(att => {
+            // Show saved attachments info
+            if (savedAttachments.length > 0) {
+                const attachmentInfo = savedAttachments.slice(0, 5).map((att, i) => {
                     const size = (att.size / 1024).toFixed(2);
-                    return `📎 **${att.name}** (${size} KB) - <#${att.channelId}>`;
+                    return `${i + 1}. **${att.originalName}** (${size} KB)\n   📁 Saved: \`${att.relativePath}\``;
                 }).join('\n');
                 
                 embed.addFields({
-                    name: `📎 Attachments (${attachmentUrls.length} total)`,
+                    name: `💾 Saved Attachments (${savedAttachments.length} total)`,
                     value: attachmentInfo.slice(0, 1024),
                     inline: false
                 });
                 
-                const firstImage = attachmentUrls.find(att => 
+                // Try to show first saved image
+                const firstImage = savedAttachments.find(att => 
                     att.contentType?.startsWith('image/')
                 );
                 if (firstImage) {
-                    embed.setImage(firstImage.url);
+                    // Use original Discord URL for embed thumbnail (still accessible for a bit)
+                    embed.setImage(firstImage.originalUrl);
                 }
             }
             
@@ -397,7 +446,7 @@ async function handleSpammer(message, spamData) {
             });
             
             embed.setTimestamp();
-            embed.setFooter({ text: 'Auto-moderation: User muted, awaiting review' });
+            embed.setFooter({ text: `Auto-moderation: User muted, ${savedAttachments.length} files saved` });
             
             const banButton = new ButtonBuilder()
                 .setCustomId(`ban_${message.author.id}`)
@@ -415,56 +464,28 @@ async function handleSpammer(message, spamData) {
                 .addComponents(banButton, unmutButton);
             
             await logChannels.moderation.send({
-                content: `<@&1425260355420160100> Cross-channel spam detected - User has been **muted**. Please review:`,
+                content: `<@&1425260355420160100> Cross-channel spam detected - User **muted**, ${savedAttachments.length} files **saved**`,
                 embeds: [embed],
                 components: [row]
             });
             
-            if (attachmentFiles.length > 0) {
-                try {
-                    const attachmentChannelMap = new Map();
-                    attachmentUrls.forEach(att => {
-                        if (!attachmentChannelMap.has(att.name)) {
-                            attachmentChannelMap.set(att.name, []);
-                        }
-                        const channel = message.guild.channels.cache.get(att.channelId);
-                        if (channel) {
-                            attachmentChannelMap.get(att.name).push(channel.name);
-                        }
-                    });
-                    
-                    const fileDetails = Array.from(attachmentChannelMap.entries()).map(([name, channels]) => {
-                        return `**${name}**\nPosted in: ${channels.join(', ')}`;
-                    }).join('\n\n');
-                    
-                    console.log(`📤 Uploading ${attachmentFiles.length} files...`);
-                    await logChannels.moderation.send({
-                        content: `**📦 Deleted Files from ${message.author.tag}:**\n\n${fileDetails.slice(0, 1900)}`,
-                        files: attachmentFiles
-                    });
-                    console.log(`✅ Successfully uploaded ${attachmentFiles.length} files`);
-                } catch (error) {
-                    console.error('❌ Error re-uploading attachments:', error);
-                    const urlList = attachmentUrls.map(att => 
-                        `${att.name}: ${att.url}`
-                    ).join('\n');
-                    
-                    await logChannels.moderation.send({
-                        content: `⚠️ Could not re-upload files, here are the original URLs:\n\`\`\`${urlList.slice(0, 1900)}\`\`\``
-                    });
-                }
-            } else if (attachmentUrls.length > 0) {
-                const urlList = attachmentUrls.map(att => 
-                    `${att.name} (${(att.size / 1024).toFixed(2)} KB): ${att.url}`
-                ).join('\n');
+            // List saved files in a separate message
+            if (savedAttachments.length > 0) {
+                const fileList = savedAttachments.map((att, i) => {
+                    return `${i + 1}. **${att.originalName}**\n` +
+                           `   📁 Path: \`${att.relativePath}\`\n` +
+                           `   📏 Size: ${(att.size / 1024).toFixed(2)} KB\n` +
+                           `   📂 Channel: #${att.channelName}\n` +
+                           `   🔗 Original: ${att.originalUrl.slice(0, 50)}...`;
+                }).join('\n\n');
                 
                 await logChannels.moderation.send({
-                    content: `⚠️ Attachments were too large or couldn't be downloaded. Original URLs:\n\`\`\`${urlList.slice(0, 1900)}\`\`\``
+                    content: `**📦 Saved Files List:**\n\`\`\`\n${fileList.slice(0, 1900)}\n\`\`\``
                 });
             }
         }
         
-        // Log to MongoDB
+        // Log to MongoDB with saved attachment info
         if (mongoLogger && mongoLogger.connected) {
             await mongoLogger.logModerationAction({
                 type: 'mute',
@@ -475,7 +496,8 @@ async function handleSpammer(message, spamData) {
                 moderatorName: 'Auto-Moderation',
                 reason: `Cross-channel spam: ${spamData.reason}`,
                 duration: SPAM_THRESHOLDS.MUTE_DURATION,
-                evidence: `Deleted ${deletedCount} messages across ${deletedChannels.size} channels`,
+                evidence: `Deleted ${deletedCount} messages, saved ${savedAttachments.length} attachments`,
+                savedAttachments: savedAttachments,
                 guildId: message.guild.id,
                 guildName: message.guild.name
             });
@@ -535,6 +557,7 @@ client.once('ready', async () => {
     console.log(`👥 Total Users: ${totalUsers.toLocaleString()}`);
     console.log(`⚙️ Node Version: ${process.version}`);
     console.log(`📦 Discord.js Version: ${require('discord.js').version}`);
+    console.log(`💾 Attachments saved to: ${ATTACHMENTS_DIR}`);
     console.log('='.repeat(50));
     
     // Initialize MongoDB
@@ -600,6 +623,11 @@ client.once('ready', async () => {
                     { name: '📦 Discord.js', value: require('discord.js').version, inline: true },
                     { name: '💾 Memory', value: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`, inline: true }
                 )
+                .addFields({
+                    name: '💾 Attachment Storage',
+                    value: `Enabled - Saving to: \`${ATTACHMENTS_DIR}\``,
+                    inline: false
+                })
                 .setThumbnail(client.user.displayAvatarURL())
                 .setTimestamp()
                 .setFooter({ text: 'System Status' });
@@ -619,6 +647,14 @@ client.on('messageCreate', async message => {
     
     if (message.author.bot) return;
     if (!message.guild) return;
+
+    // Save attachments when posted
+    if (message.attachments.size > 0) {
+        console.log(`📎 Message has ${message.attachments.size} attachment(s) - saving...`);
+        for (const attachment of message.attachments.values()) {
+            await saveAttachment(attachment, message.author.id, message.id);
+        }
+    }
 
     // Log to MongoDB
     if (mongoLogger && mongoLogger.connected) {
@@ -685,35 +721,36 @@ client.on('messageCreate', async message => {
                         `**User:** <@${firstMsg.author.id}> (${firstMsg.author.id})\n` +
                         `**Channel${channels.size > 1 ? 's' : ''}:** ${Array.from(channels).map(c => `<#${c.id}>`).join(', ')}\n` +
                         `**Total Files:** ${allAttachments.length}\n` +
-                        `**Total Size:** ${(totalSize / 1024 / 1024).toFixed(2)} MB`
+                        `**Total Size:** ${(totalSize / 1024 / 1024).toFixed(2)} MB\n` +
+                        `**💾 Saved to disk:** ${allAttachments.length} file(s)`
                     )
                     .setTimestamp(attachmentData.messages[0].timestamp);
                 
                 const fileList = allAttachments.slice(0, 10).map((attData, index) => {
-                    const att = attData.attachment;
-                    const size = (att.size / 1024).toFixed(2);
-                    const type = att.contentType || 'unknown';
-                    return `${index + 1}. **[${att.name}](${attData.messageUrl})** (${size} KB)\n   └ Type: \`${type}\` | Channel: <#${attData.channel.id}>`;
-                }).join('\n');
-                
-                if (allAttachments.length > 10) {
-                    embed.addFields({
-                        name: `📎 Files (showing 10 of ${allAttachments.length})`,
-                        value: fileList,
-                        inline: false
-                    });
-                    embed.addFields({
-                        name: 'Additional Files',
-                        value: `...and ${allAttachments.length - 10} more files`,
-                        inline: false
-                    });
-                } else {
-                    embed.addFields({
-                        name: `📎 Files (${allAttachments.length})`,
-                        value: fileList || 'None',
-                        inline: false
-                    });
-                }
+    const att = attData.attachment;
+    const size = (att.size / 1024).toFixed(2);
+    const type = att.contentType || 'unknown';
+    return `${index + 1}. **[${att.name}](${attData.messageUrl})** (${size} KB)\n   └ Type: \`${type}\` | Channel: <#${attData.channel.id}>`;
+}).join('\n');
+
+if (allAttachments.length > 10) {
+    embed.addFields({
+        name: `📎 Files (showing 10 of ${allAttachments.length})`,
+        value: fileList,  // <-- COMMA ADDED HERE
+        inline: false
+    });
+    embed.addFields({
+        name: 'Additional Files',
+        value: `...and ${allAttachments.length - 10} more files`,
+        inline: false
+    });
+} else {
+    embed.addFields({
+        name: `📎 Files (${allAttachments.length})`,
+        value: fileList || 'None',
+        inline: false
+    });
+}
                 
                 const firstImage = allAttachments.find(attData => 
                     attData.attachment.contentType?.startsWith('image/')
@@ -747,11 +784,13 @@ client.on('messageCreate', async message => {
                     
                     try {
                         await logChannels.attachments.send({
-                            content: `**Images from ${firstMsg.author.tag}:**`,files: imageFiles
+                            content: `**Images from ${firstMsg.author.tag}:**`,
+                            files: imageFiles
                         });
                     } catch (error) {
                         console.error('Error sending image files:', error);
-                        const urlList = images.map((attData, i) => `${i + 1}. [${attData.attachment.name}](${attData.attachment.url})`
+                        const urlList = images.map((attData, i) => 
+                            `${i + 1}. [${attData.attachment.name}](${attData.attachment.url})`
                         ).join('\n');
                         await logChannels.attachments.send({
                             content: `**Images from ${firstMsg.author.tag}** (URLs):\n${urlList}`
@@ -801,336 +840,533 @@ client.on('messageCreate', async message => {
     }
 });
 
-// ============================================
-// ADVANCED CUSTOM COMMANDS HANDLER
-// ============================================
-
-client.on('messageCreate', async message => {
-    // Skip if bot or no guild
-    if (message.author.bot || !message.guild) return;
-    
-    // Check if custom commands are enabled
-    if (!config.customCommands || !config.customCommands.enabled) return;
+// Message Delete Event
+client.on('messageDelete', async message => {
+    if (!logChannels.message) return;
+    if (message.author?.bot) return;
     
     try {
-        // Get all enabled commands
-        const commands = await mongoLogger.db.collection('customCommands')
-            .find({ enabled: true })
-            .toArray();
-        
-        if (!commands || commands.length === 0) return;
-        
-        for (const command of commands) {
-            // Check if this message triggers the command
-            const triggered = checkTrigger(message, command);
-            if (!triggered) continue;
-            
-            // Check channel restrictions
-            if (!checkChannelRestrictions(message, command)) continue;
-            
-            // Check role restrictions
-            if (!checkRoleRestrictions(message, command)) continue;
-            
-            // Check cooldowns
-            const cooldownCheck = checkCooldowns(message, command);
-            if (!cooldownCheck.allowed) {
-                if (cooldownCheck.message) {
-                    const reply = await message.reply(cooldownCheck.message);
-                    setTimeout(() => reply.delete().catch(() => {}), 5000);
-                }
-                continue;
-            }
-            
-            // Check usage limit
-            if (command.usageLimit > 0 && command.uses >= command.usageLimit) {
-                await mongoLogger.db.collection('customCommands')
-                    .updateOne(
-                        { _id: command._id },
-                        { $set: { enabled: false } }
-                    );
-                continue;
-            }
-            
-            // Delete trigger message if enabled
-            if (command.deleteTrigger) {
-                try {
-                    await message.delete();
-                } catch (error) {
-                    console.log('Could not delete trigger message');
-                }
-            }
-            
-            // Execute command
-            await executeCustomCommand(message, command);
-            
-            // Update usage count
-            await mongoLogger.db.collection('customCommands').updateOne(
-                { _id: command._id },
-                { $inc: { uses: 1 } }
-            );
-            
-            // Set cooldowns
-            setCooldowns(message, command);
-            
-            // Only execute first matching command
-            break;
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logMessageDelete(message);
         }
         
+        const embed = new EmbedBuilder()
+            .setColor('#ff6b6b')
+            .setTitle('🗑️ Message Deleted')
+            .addFields(
+                { name: 'Author', value: message.author ? `${message.author.tag}\n<@${message.author.id}>` : 'Unknown', inline: true },
+                { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                { name: 'Message ID', value: message.id, inline: true }
+            );
+        
+        if (message.content) {
+            embed.addFields({
+                name: 'Content',
+                value: message.content.slice(0, 1024) || 'No content',
+                inline: false
+            });
+        }
+        
+        if (message.attachments.size > 0) {
+            const attachmentList = message.attachments.map(a => `${a.name} (💾 saved locally)`).join(', ');
+            embed.addFields({
+                name: '📎 Attachments',
+                value: attachmentList,
+                inline: false
+            });
+        }
+        
+        embed.setTimestamp();
+        
+        await logChannels.message.send({ embeds: [embed] });
     } catch (error) {
-        console.error('Error executing custom command:', error);
+        console.error('Error logging message delete:', error);
     }
 });
 
-function checkTrigger(message, command) {
-    const content = command.caseSensitive ? message.content : message.content.toLowerCase();
-    const triggers = Array.isArray(command.trigger) ? command.trigger : [command.trigger];
+// Message Bulk Delete Event
+client.on('messageDeleteBulk', async messages => {
+    if (!logChannels.message) return;
     
-    switch (command.triggerType) {
-        case 'command':
-            const prefix = config.customCommands.prefix || '!';
-            if (!content.startsWith(prefix)) return false;
-            const cmd = content.slice(prefix.length).split(/\s+/)[0];
-            return triggers.includes(command.caseSensitive ? cmd : cmd.toLowerCase());
-        
-        case 'exact':
-            return triggers.some(t => content === (command.caseSensitive ? t : t.toLowerCase()));
-        
-        case 'contains':
-            return triggers.some(t => content.includes(command.caseSensitive ? t : t.toLowerCase()));
-        
-        case 'startswith':
-            return triggers.some(t => content.startsWith(command.caseSensitive ? t : t.toLowerCase()));
-        
-        case 'regex':
-            try {
-                return triggers.some(t => new RegExp(t).test(content));
-            } catch (error) {
-                console.error('Invalid regex:', error);
-                return false;
-            }
-        
-        default:
-            return false;
-    }
-}
-
-function checkChannelRestrictions(message, command) {
-    // Check ignored channels
-    if (command.ignoredChannels && command.ignoredChannels.length > 0) {
-        if (command.ignoredChannels.includes(message.channel.id)) {
-            return false;
-        }
-    }
-    
-    // Check allowed channels
-    if (command.allowedChannels && command.allowedChannels.length > 0) {
-        if (!command.allowedChannels.includes('all')) {
-            if (!command.allowedChannels.includes(message.channel.id)) {
-                return false;
-            }
-        }
-    }
-    
-    return true;
-}
-
-function checkRoleRestrictions(message, command) {
-    const member = message.member;
-    if (!member) return false;
-    
-    // Check ignored roles
-    if (command.ignoredRoles && command.ignoredRoles.length > 0) {
-        const hasIgnoredRole = member.roles.cache.some(role => 
-            command.ignoredRoles.includes(role.id)
-        );
-        if (hasIgnoredRole) return false;
-    }
-    
-    // Check required roles
-    if (command.requiredRoles && command.requiredRoles.length > 0) {
-        if (!command.requiredRoles.includes('everyone')) {
-            const hasRequiredRole = member.roles.cache.some(role => 
-                command.requiredRoles.includes(role.id)
-            );
-            if (!hasRequiredRole) return false;
-        }
-    }
-    
-    return true;
-}
-
-function checkCooldowns(message, command) {
-    const now = Date.now();
-    
-    // User cooldown
-    if (command.userCooldown > 0) {
-        const key = `${command._id}_${message.author.id}`;
-        const lastUsed = customCommandCooldowns.user.get(key);
-        if (lastUsed) {
-            const timeLeft = (command.userCooldown * 1000) - (now - lastUsed);
-            if (timeLeft > 0) {
-                return {
-                    allowed: false,
-                    message: `⏰ Please wait ${Math.ceil(timeLeft / 1000)} seconds before using this command again.`
-                };
-            }
-        }
-    }
-    
-    // Channel cooldown
-    if (command.channelCooldown > 0) {
-        const key = `${command._id}_${message.channel.id}`;
-        const lastUsed = customCommandCooldowns.channel.get(key);
-        if (lastUsed) {
-            const timeLeft = (command.channelCooldown * 1000) - (now - lastUsed);
-            if (timeLeft > 0) {
-                return {
-                    allowed: false,
-                    message: `⏰ This command is on cooldown in this channel for ${Math.ceil(timeLeft / 1000)} seconds.`
-                };
-            }
-        }
-    }
-    
-    // Server cooldown
-    if (command.serverCooldown > 0) {
-        const key = `${command._id}_${message.guild.id}`;
-        const lastUsed = customCommandCooldowns.server.get(key);
-        if (lastUsed) {
-            const timeLeft = (command.serverCooldown * 1000) - (now - lastUsed);
-            if (timeLeft > 0) {
-                return {
-                    allowed: false,
-                    message: `⏰ This command is on server-wide cooldown for ${Math.ceil(timeLeft / 1000)} seconds.`
-                };
-            }
-        }
-    }
-    
-    return { allowed: true };
-}
-
-function setCooldowns(message, command) {
-    const now = Date.now();
-    
-    if (command.userCooldown > 0) {
-        const key = `${command._id}_${message.author.id}`;
-        customCommandCooldowns.user.set(key, now);
-    }
-    
-    if (command.channelCooldown > 0) {
-        const key = `${command._id}_${message.channel.id}`;
-        customCommandCooldowns.channel.set(key, now);
-    }
-    
-    if (command.serverCooldown > 0) {
-        const key = `${command._id}_${message.guild.id}`;
-        customCommandCooldowns.server.set(key, now);
-    }
-}
-
-async function executeCustomCommand(message, command) {
     try {
-        // Parse response with variables
-        const args = message.content.split(/\s+/).slice(1);
-        const variables = {
-            '{user}': message.author.username,
-            '{user.mention}': `<@${message.author.id}>`,
-            '{user.id}': message.author.id,
-            '{user.tag}': message.author.tag,
-            '{channel}': message.channel.name,
-            '{channel.mention}': `<#${message.channel.id}>`,
-            '{channel.id}': message.channel.id,
-            '{server}': message.guild.name,
-            '{membercount}': message.guild.memberCount.toString(),
-            '{args}': args.join(' ')
+        const embed = new EmbedBuilder()
+            .setColor('#ff0000')
+            .setTitle('🗑️ Bulk Message Delete')
+            .setDescription(`${messages.size} messages were deleted`)
+            .addFields(
+                { name: 'Channel', value: `<#${messages.first()?.channel.id}>`, inline: true },
+                { name: 'Count', value: messages.size.toString(), inline: true }
+            )
+            .setTimestamp();
+        
+        await logChannels.message.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Error logging bulk delete:', error);
+    }
+});
+
+// Message Edit Event
+client.on('messageUpdate', async (oldMessage, newMessage) => {
+    if (!logChannels.message) return;
+    if (newMessage.author?.bot) return;
+    if (oldMessage.content === newMessage.content) return;
+    
+    try {
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logMessageUpdate(oldMessage, newMessage);
+        }
+        
+        const embed = new EmbedBuilder()
+            .setColor('#ffd93d')
+            .setTitle('✏️ Message Edited')
+            .addFields(
+                { name: 'Author', value: `${newMessage.author.tag}\n<@${newMessage.author.id}>`, inline: true },
+                { name: 'Channel', value: `<#${newMessage.channel.id}>`, inline: true },
+                { name: 'Message', value: `[Jump to Message](${newMessage.url})`, inline: true }
+            );
+        
+        if (oldMessage.content) {
+            embed.addFields({
+                name: 'Before',
+                value: oldMessage.content.slice(0, 1024) || 'No content',
+                inline: false
+            });
+        }
+        
+        if (newMessage.content) {
+            embed.addFields({
+                name: 'After',
+                value: newMessage.content.slice(0, 1024) || 'No content',
+                inline: false
+            });
+        }
+        
+        embed.setTimestamp();
+        
+        await logChannels.message.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Error logging message edit:', error);
+    }
+});
+
+// Voice State Update Event
+client.on('voiceStateUpdate', async (oldState, newState) => {
+    if (!logChannels.voice) return;
+    
+    try {
+        let action = null;
+        let embed = null;
+        
+        if (!oldState.channel && newState.channel) {
+            action = 'join';
+            embed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle('🔊 Joined Voice Channel')
+                .addFields(
+                    { name: 'User', value: `${newState.member.user.tag}\n<@${newState.member.id}>`, inline: true },
+                    { name: 'Channel', value: newState.channel.name, inline: true }
+                )
+                .setTimestamp();
+        }
+        else if (oldState.channel && !newState.channel) {
+            action = 'leave';
+            embed = new EmbedBuilder()
+                .setColor('#ff0000')
+                .setTitle('🔇 Left Voice Channel')
+                .addFields(
+                    { name: 'User', value: `${oldState.member.user.tag}\n<@${oldState.member.id}>`, inline: true },
+                    { name: 'Channel', value: oldState.channel.name, inline: true }
+                )
+                .setTimestamp();
+        }
+        else if (oldState.channel && newState.channel && oldState.channel.id !== newState.channel.id) {
+            action = 'switch';
+            embed = new EmbedBuilder()
+                .setColor('#ffd93d')
+                .setTitle('↔️ Switched Voice Channel')
+                .addFields(
+                    { name: 'User', value: `${newState.member.user.tag}\n<@${newState.member.id}>`, inline: true },
+                    { name: 'From', value: oldState.channel.name, inline: true },
+                    { name: 'To', value: newState.channel.name, inline: true }
+                )
+                .setTimestamp();
+        }
+        
+        if (embed) {
+            // Log to MongoDB
+            if (mongoLogger && mongoLogger.connected && action) {
+                await mongoLogger.logVoiceStateUpdate(oldState, newState, action);
+            }
+            
+            await logChannels.voice.send({ embeds: [embed] });
+        }
+    } catch (error) {
+        console.error('Error logging voice state:', error);
+    }
+});
+
+// Role Update Events
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+    if (!logChannels.role) return;
+    
+    try {
+        const oldRoles = oldMember.roles.cache;
+        const newRoles = newMember.roles.cache;
+        
+        const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
+        if (addedRoles.size > 0) {
+            // Log to MongoDB
+            if (mongoLogger && mongoLogger.connected) {
+                await mongoLogger.logRoleUpdate(oldMember, newMember, 'add', addedRoles);
+            }
+            
+            const embed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle('➕ Role Added')
+                .addFields(
+                    { name: 'User', value: `${newMember.user.tag}\n<@${newMember.id}>`, inline: true },
+                    { name: 'Roles Added', value: addedRoles.map(r => r.name).join(', '), inline: true }
+                )
+                .setTimestamp();
+            
+            await logChannels.role.send({ embeds: [embed] });
+        }
+        
+        const removedRoles = oldRoles.filter(role => !newRoles.has(role.id));
+        if (removedRoles.size > 0) {
+            // Log to MongoDB
+            if (mongoLogger && mongoLogger.connected) {
+                await mongoLogger.logRoleUpdate(oldMember, newMember, 'remove', removedRoles);
+            }
+            
+            const embed = new EmbedBuilder()
+                .setColor('#ff0000')
+                .setTitle('➖ Role Removed')
+                .addFields(
+                    { name: 'User', value: `${newMember.user.tag}\n<@${newMember.id}>`, inline: true },
+                    { name: 'Roles Removed', value: removedRoles.map(r => r.name).join(', '), inline: true }
+                )
+                .setTimestamp();
+            
+            await logChannels.role.send({ embeds: [embed] });
+        }
+    } catch (error) {
+        console.error('Error logging role update:', error);
+    }
+});
+
+// Channel Create Event
+client.on('channelCreate', async channel => {
+    if (!logChannels.channel) return;
+    
+    try {
+        const embed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('➕ Channel Created')
+            .addFields(
+                { name: 'Channel', value: `${channel.name}\n<#${channel.id}>`, inline: true },
+                { name: 'Type', value: ChannelType[channel.type], inline: true }
+            )
+            .setTimestamp();
+        
+        await logChannels.channel.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Error logging channel create:', error);
+    }
+});
+
+// Channel Delete Event
+client.on('channelDelete', async channel => {
+    if (!logChannels.channel) return;
+    
+    try {
+        const embed = new EmbedBuilder()
+            .setColor('#ff0000')
+            .setTitle('🗑️ Channel Deleted')
+            .addFields(
+                { name: 'Channel', value: channel.name, inline: true },
+                { name: 'Type', value: ChannelType[channel.type], inline: true }
+            )
+            .setTimestamp();
+        
+        await logChannels.channel.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Error logging channel delete:', error);
+    }
+});
+
+// Ban Event
+client.on('guildBanAdd', async ban => {
+    if (!logChannels.moderation) return;
+    
+    try {
+        const memberInviteData = memberInvites.get(ban.user.id);
+        
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logBan(ban);
+        }
+        
+        const embed = new EmbedBuilder()
+            .setColor('#8b0000')
+            .setTitle('🔨 Member Banned')
+            .setThumbnail(ban.user.displayAvatarURL())
+            .addFields(
+                { name: 'User', value: `${ban.user.tag}\n<@${ban.user.id}>`, inline: true },
+                { name: 'Reason', value: ban.reason || 'No reason provided', inline: true }
+            );
+        
+        if (memberInviteData) {
+            embed.addFields({
+                name: 'Invite Info',
+                value: `Invited by: ${memberInviteData.inviter}\nCode: \`${memberInviteData.code}\``,
+                inline: false
+            });
+        }
+        
+        embed.setTimestamp();
+        embed.setFooter({ text: `ID: ${ban.user.id}` });
+        
+        await logChannels.moderation.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Error logging ban:', error);
+    }
+});
+
+// Unban Event
+client.on('guildBanRemove', async ban => {
+    if (!logChannels.moderation) return;
+    
+    try {
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logUnban(ban);
+        }
+        
+        const embed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('✅ Member Unbanned')
+            .setThumbnail(ban.user.displayAvatarURL())
+            .addFields(
+                { name: 'User', value: `${ban.user.tag}\n<@${ban.user.id}>`, inline: true }
+            )
+            .setTimestamp();
+        
+        await logChannels.moderation.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Error logging unban:', error);
+    }
+});
+
+// Invite Create Event
+client.on('inviteCreate', async invite => {
+    if (!logChannels.invite) return;
+    
+    try {
+        const guildInvites = serverInvites.get(invite.guild.id) || new Map();
+        guildInvites.set(invite.code, invite.uses || 0);
+        serverInvites.set(invite.guild.id, guildInvites);
+        
+        const embed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('📨 Invite Created')
+            .addFields(
+                { name: 'Code', value: `\`${invite.code}\`\nhttps://discord.gg/${invite.code}`, inline: true },
+                { name: 'Created By', value: `${invite.inviter?.tag || 'Unknown'}`, inline: true },
+                { name: 'Channel', value: `<#${invite.channel.id}>`, inline: true }
+            );
+        
+        if (invite.maxUses) {
+            embed.addFields({ name: 'Max Uses', value: invite.maxUses.toString(), inline: true });
+        }
+        
+        if (invite.maxAge) {
+            embed.addFields({ name: 'Expires', value: `<t:${Math.floor((Date.now() + invite.maxAge * 1000) / 1000)}:R>`, inline: true });
+        }
+        
+        embed.setTimestamp();
+        
+        await logChannels.invite.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Error logging invite create:', error);
+    }
+});
+
+// Invite Delete Event
+client.on('inviteDelete', async invite => {
+    if (!logChannels.invite) return;
+    
+    try {
+        const guildInvites = serverInvites.get(invite.guild.id);
+        if (guildInvites) {
+            guildInvites.delete(invite.code);
+        }
+        
+        const embed = new EmbedBuilder()
+            .setColor('#ff0000')
+            .setTitle('🗑️ Invite Deleted')
+            .addFields(
+                { name: 'Code', value: `\`${invite.code}\``, inline: true },
+                { name: 'Uses', value: invite.uses?.toString() || '0', inline: true }
+            )
+            .setTimestamp();
+        
+        await logChannels.invite.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Error logging invite delete:', error);
+    }
+});
+
+// Member Join Event
+client.on('guildMemberAdd', async member => {
+    if (!logChannels.member) return;
+    
+    try {
+        console.log(`👤 New member joined: ${member.user.tag} (${member.id})`);
+        
+        // Fetch current invites
+        const newInvites = await member.guild.invites.fetch();
+        const oldInvites = serverInvites.get(member.guild.id) || new Map();
+        
+        console.log(`📊 Comparing invites - Old: ${oldInvites.size}, New: ${newInvites.size}`);
+        
+        let usedInvite = null;
+        
+        // Compare invite usage
+        for (const [code, invite] of newInvites) {
+            const oldUses = oldInvites.get(code) || 0;
+            const newUses = invite.uses || 0;
+            
+            console.log(`🔍 Invite ${code}: Old uses: ${oldUses}, New uses: ${newUses}`);
+            
+            if (newUses > oldUses) {
+                usedInvite = invite;
+                console.log(`✅ Found used invite: ${code} by ${invite.inviter?.tag}`);
+                break;
+            }
+        }
+        
+        // Update stored invites
+        serverInvites.set(member.guild.id, new Map(newInvites.map(invite => [invite.code, invite.uses])));
+        
+        // Create invite data object
+        const inviteData = usedInvite ? {
+            code: usedInvite.code,
+            inviter: usedInvite.inviter?.username || 'Unknown',
+            inviterId: usedInvite.inviter?.id || 'Unknown',
+            uses: usedInvite.uses,
+            maxUses: usedInvite.maxUses,
+            timestamp: Date.now(),
+            guildId: member.guild.id
+        } : {
+            code: 'unknown',
+            inviter: 'Unknown',
+            inviterId: 'Unknown',
+            uses: 0,
+            maxUses: 0,
+            timestamp: Date.now(),
+            guildId: member.guild.id
         };
         
-        // Add individual args
-        args.forEach((arg, index) => {
-            variables[`{args.${index}}`] = arg;
-        });
+        // Save to file
+        memberInvites.set(member.id, inviteData);
+        saveMemberInvites();
+        console.log(`💾 Saved invite data for ${member.user.tag}`);
         
-        let response = command.response || '';
-        
-        // Replace all variables
-        for (const [key, value] of Object.entries(variables)) {
-            response = response.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logMemberJoin(member, inviteData);
         }
         
-        // Execute based on response type
-        switch (command.responseType) {
-            case 'text':
-            case 'dm':
-                const targetChannel = command.responseType === 'dm' || command.dmResponse ? message.author : message.channel;
-                const sentMessage = await targetChannel.send(response);
-                
-                // Delete after X seconds
-                if (command.deleteAfter && command.deleteAfterSeconds > 0) {
-                    setTimeout(() => {
-                        sentMessage.delete().catch(() => {});
-                    }, command.deleteAfterSeconds * 1000);
-                }
-                break;
-            
-            case 'embed':
-                const { EmbedBuilder } = require('discord.js');
-                
-                let embedDesc = command.embedDescription || '';
-                for (const [key, value] of Object.entries(variables)) {
-                    embedDesc = embedDesc.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
-                }
-                
-                let embedTitle = command.embedTitle || '';
-                for (const [key, value] of Object.entries(variables)) {
-                    embedTitle = embedTitle.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
-                }
-                
-                const embed = new EmbedBuilder()
-                    .setColor(command.embedColor || '#5865f2')
-                    .setTitle(embedTitle || 'Custom Command')
-                    .setDescription(embedDesc);
-                
-                if (command.embedFooter) embed.setFooter({ text: command.embedFooter });
-                if (command.embedImage) embed.setImage(command.embedImage);
-                if (command.embedThumbnail) embed.setThumbnail(command.embedThumbnail);
-                
-                const embedTarget = command.dmResponse ? message.author : message.channel;
-                const embedMessage = await embedTarget.send({ embeds: [embed] });
-                
-                if (command.deleteAfter && command.deleteAfterSeconds > 0) {
-                    setTimeout(() => {
-                        embedMessage.delete().catch(() => {});
-                    }, command.deleteAfterSeconds * 1000);
-                }
-                break;
-            
-            case 'react':
-                if (command.reactionEmoji) {
-                    await message.react(command.reactionEmoji).catch(() => {
-                        console.log('Could not add reaction');
-                    });
-                }
-                break;
-            
-            case 'multiple':
-                // Send text response
-                if (response) {
-                    const multiTarget = command.dmResponse ? message.author : message.channel;
-                    await multiTarget.send(response);
-                }
-                
-                // Add reaction if set
-                if (command.reactionEmoji) {
-                    await message.react(command.reactionEmoji).catch(() => {});
-                }
-                break;
+        // Calculate account age
+        const accountAge = Date.now() - member.user.createdTimestamp;
+        const accountAgeDays = Math.floor(accountAge / 86400000);
+        
+        // Create embed
+        const embed = new EmbedBuilder()
+            .setColor(accountAgeDays < 7 ? '#ff9900' : '#00ff00')
+            .setTitle('👋 Member Joined')
+            .setThumbnail(member.user.displayAvatarURL())
+            .addFields(
+                { name: 'User', value: `${member.user.tag}\n<@${member.id}>`, inline: true },
+                { name: 'Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
+                { name: 'Member Count', value: member.guild.memberCount.toString(), inline: true }
+            );
+        
+        // Add account age warning
+        if (accountAgeDays < 7) {
+            embed.addFields({
+                name: '⚠️ New Account',
+                value: `Account is only ${accountAgeDays} day${accountAgeDays === 1 ? '' : 's'} old`,
+                inline: false
+            });
         }
         
+        // Add invite info
+        if (usedInvite) {
+            embed.addFields({
+                name: '📨 Invited By',
+                value: `${usedInvite.inviter?.tag || 'Unknown'}\nCode: \`${usedInvite.code}\`\nUses: ${usedInvite.uses}${usedInvite.maxUses ? `/${usedInvite.maxUses}` : ''}`,
+                inline: false
+            });
+        } else {
+            embed.addFields({
+                name: '📨 Invite Info',
+                value: 'Could not determine invite used (may be vanity URL or widget)',
+                inline: false
+            });
+        }
+        
+        embed.setTimestamp();
+        embed.setFooter({ text: `ID: ${member.id}` });
+        
+        await logChannels.member.send({ embeds: [embed] });
+        console.log(`✅ Logged member join to channel`);
     } catch (error) {
-        console.error('Error executing custom command:', error);
+        console.error('❌ Error logging member join:', error);
     }
-}
+});
+
+// Member Leave Event
+client.on('guildMemberRemove', async member => {
+    if (!logChannels.member) return;
+    
+    try {
+        const memberInviteData = memberInvites.get(member.id);
+        
+        // Log to MongoDB
+        if (mongoLogger && mongoLogger.connected) {
+            await mongoLogger.logMemberLeave(member);
+        }
+        
+        const embed = new EmbedBuilder()
+            .setColor('#ff0000')
+            .setTitle('👋 Member Left')
+            .setThumbnail(member.user.displayAvatarURL())
+            .addFields(
+                { name: 'User', value: `${member.user.tag}\n<@${member.id}>`, inline: true },
+                { name: 'Joined Server', value: member.joinedAt ? `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>` : 'Unknown', inline: true },
+                { name: 'Member Count', value: member.guild.memberCount.toString(), inline: true }
+            );
+        
+        if (memberInviteData) {
+            embed.addFields({
+                name: 'Originally Invited By',
+                value: `${memberInviteData.inviter}\nCode: \`${memberInviteData.code}\``,
+                inline: false
+            });
+        }
+        
+        embed.setTimestamp();
+        embed.setFooter({ text: `ID: ${member.id}` });
+        
+        await logChannels.member.send({ embeds: [embed] });
+    } catch (error) {
+        console.error('Error logging member leave:', error);
+    }
+});
 
 // Button interaction handler for spam review
 client.on('interactionCreate', async interaction => {
@@ -1323,532 +1559,301 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// Member Join Event
-client.on('guildMemberAdd', async member => {
-    if (!logChannels.member) return;
+// ADVANCED CUSTOM COMMANDS HANDLER
+client.on('messageCreate', async message => {
+    if (message.author.bot || !message.guild) return;
+    
+    if (!config.customCommands || !config.customCommands.enabled) return;
     
     try {
-        console.log(`👤 New member joined: ${member.user.tag} (${member.id})`);
+        const commands = await mongoLogger.db.collection('customCommands')
+            .find({ enabled: true })
+            .toArray();
         
-        // Fetch current invites
-        const newInvites = await member.guild.invites.fetch();
-        const oldInvites = serverInvites.get(member.guild.id) || new Map();
+        if (!commands || commands.length === 0) return;
         
-        console.log(`📊 Comparing invites - Old: ${oldInvites.size}, New: ${newInvites.size}`);
-        
-        let usedInvite = null;
-        
-        // Compare invite usage
-        for (const [code, invite] of newInvites) {
-            const oldUses = oldInvites.get(code) || 0;
-            const newUses = invite.uses || 0;
+        for (const command of commands) {
+            const triggered = checkTrigger(message, command);
+            if (!triggered) continue;
             
-            console.log(`🔍 Invite ${code}: Old uses: ${oldUses}, New uses: ${newUses}`);
+            if (!checkChannelRestrictions(message, command)) continue;
+            if (!checkRoleRestrictions(message, command)) continue;
             
-            if (newUses > oldUses) {
-                usedInvite = invite;
-                console.log(`✅ Found used invite: ${code} by ${invite.inviter?.tag}`);
-                break;
+            const cooldownCheck = checkCooldowns(message, command);
+            if (!cooldownCheck.allowed) {
+                if (cooldownCheck.message) {
+                    const reply = await message.reply(cooldownCheck.message);
+                    setTimeout(() => reply.delete().catch(() => {}), 5000);
+                }
+                continue;
             }
+            
+            if (command.usageLimit > 0 && command.uses >= command.usageLimit) {
+                await mongoLogger.db.collection('customCommands')
+                    .updateOne(
+                        { _id: command._id },
+                        { $set: { enabled: false } }
+                    );
+                continue;
+            }
+            
+            if (command.deleteTrigger) {
+                try {
+                    await message.delete();
+                } catch (error) {
+                    console.log('Could not delete trigger message');
+                }
+            }
+            
+            await executeCustomCommand(message, command);
+            
+            await mongoLogger.db.collection('customCommands').updateOne(
+                { _id: command._id },
+                { $inc: { uses: 1 } }
+            );
+            
+            setCooldowns(message, command);
+            break;
         }
         
-        // Update stored invites
-        serverInvites.set(member.guild.id, new Map(newInvites.map(invite => [invite.code, invite.uses])));
+    } catch (error) {
+        console.error('Error executing custom command:', error);
+    }
+});
+
+function checkTrigger(message, command) {
+    const content = command.caseSensitive ? message.content : message.content.toLowerCase();
+    const triggers = Array.isArray(command.trigger) ? command.trigger : [command.trigger];
+    
+    switch (command.triggerType) {
+        case 'command':
+            const prefix = config.customCommands.prefix || '!';
+            if (!content.startsWith(prefix)) return false;
+            const cmd = content.slice(prefix.length).split(/\s+/)[0];
+            return triggers.includes(command.caseSensitive ? cmd : cmd.toLowerCase());
         
-        // Create invite data object
-        const inviteData = usedInvite ? {
-            code: usedInvite.code,
-            inviter: usedInvite.inviter?.username || 'Unknown',
-            inviterId: usedInvite.inviter?.id || 'Unknown',
-            uses: usedInvite.uses,
-            maxUses: usedInvite.maxUses,
-            timestamp: Date.now(),
-            guildId: member.guild.id
-        } : {
-            code: 'unknown',
-            inviter: 'Unknown',
-            inviterId: 'Unknown',
-            uses: 0,
-            maxUses: 0,
-            timestamp: Date.now(),
-            guildId: member.guild.id
+        case 'exact':
+            return triggers.some(t => content === (command.caseSensitive ? t : t.toLowerCase()));
+        
+        case 'contains':
+            return triggers.some(t => content.includes(command.caseSensitive ? t : t.toLowerCase()));
+        
+        case 'startswith':
+            return triggers.some(t => content.startsWith(command.caseSensitive ? t : t.toLowerCase()));
+        
+        case 'regex':
+            try {
+                return triggers.some(t => new RegExp(t).test(content));
+            } catch (error) {
+                console.error('Invalid regex:', error);
+                return false;
+            }
+        
+        default:
+            return false;
+    }
+}
+
+function checkChannelRestrictions(message, command) {
+    if (command.ignoredChannels && command.ignoredChannels.length > 0) {
+        if (command.ignoredChannels.includes(message.channel.id)) {
+            return false;
+        }
+    }
+    
+    if (command.allowedChannels && command.allowedChannels.length > 0) {
+        if (!command.allowedChannels.includes('all')) {
+            if (!command.allowedChannels.includes(message.channel.id)) {
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+function checkRoleRestrictions(message, command) {
+    const member = message.member;
+    if (!member) return false;
+    
+    if (command.ignoredRoles && command.ignoredRoles.length > 0) {
+        const hasIgnoredRole = member.roles.cache.some(role => 
+            command.ignoredRoles.includes(role.id)
+        );
+        if (hasIgnoredRole) return false;
+    }
+    
+    if (command.requiredRoles && command.requiredRoles.length > 0) {
+        if (!command.requiredRoles.includes('everyone')) {
+            const hasRequiredRole = member.roles.cache.some(role => 
+                command.requiredRoles.includes(role.id)
+            );
+            if (!hasRequiredRole) return false;
+        }
+    }
+    
+    return true;
+}
+
+function checkCooldowns(message, command) {
+    const now = Date.now();
+    
+    if (command.userCooldown > 0) {
+        const key = `${command._id}_${message.author.id}`;
+        const lastUsed = customCommandCooldowns.user.get(key);
+        if (lastUsed) {
+            const timeLeft = (command.userCooldown * 1000) - (now - lastUsed);
+            if (timeLeft > 0) {
+                return {
+                    allowed: false,
+                    message: `⏰ Please wait ${Math.ceil(timeLeft / 1000)} seconds before using this command again.`
+                };
+            }
+        }
+    }
+    
+    if (command.channelCooldown > 0) {
+        const key = `${command._id}_${message.channel.id}`;
+        const lastUsed = customCommandCooldowns.channel.get(key);
+        if (lastUsed) {
+            const timeLeft = (command.channelCooldown * 1000) - (now - lastUsed);
+            if (timeLeft > 0) {
+                return {
+                    allowed: false,
+                    message: `⏰ This command is on cooldown in this channel for ${Math.ceil(timeLeft / 1000)} seconds.`
+                };
+            }
+        }
+    }
+    
+    if (command.serverCooldown > 0) {
+        const key = `${command._id}_${message.guild.id}`;
+        const lastUsed = customCommandCooldowns.server.get(key);
+        if (lastUsed) {
+            const timeLeft = (command.serverCooldown * 1000) - (now - lastUsed);
+            if (timeLeft > 0) {
+                return {
+                    allowed: false,
+                    message: `⏰ This command is on server-wide cooldown for ${Math.ceil(timeLeft / 1000)} seconds.`
+                };
+            }
+        }
+    }
+    
+    return { allowed: true };
+}
+
+function setCooldowns(message, command) {
+    const now = Date.now();
+    
+    if (command.userCooldown > 0) {
+        const key = `${command._id}_${message.author.id}`;
+        customCommandCooldowns.user.set(key, now);
+    }
+    
+    if (command.channelCooldown > 0) {
+        const key = `${command._id}_${message.channel.id}`;
+        customCommandCooldowns.channel.set(key, now);
+    }
+    
+    if (command.serverCooldown > 0) {
+        const key = `${command._id}_${message.guild.id}`;
+        customCommandCooldowns.server.set(key, now);
+    }
+}
+
+async function executeCustomCommand(message, command) {
+    try {
+        const args = message.content.split(/\s+/).slice(1);
+        const variables = {
+            '{user}': message.author.username,
+            '{user.mention}': `<@${message.author.id}>`,
+            '{user.id}': message.author.id,
+            '{user.tag}': message.author.tag,
+            '{channel}': message.channel.name,
+            '{channel.mention}': `<#${message.channel.id}>`,
+            '{channel.id}': message.channel.id,
+            '{server}': message.guild.name,
+            '{membercount}': message.guild.memberCount.toString(),
+            '{args}': args.join(' ')
         };
         
-        // Save to file
-        memberInvites.set(member.id, inviteData);
-        saveMemberInvites();
-        console.log(`💾 Saved invite data for ${member.user.tag}`);
+        args.forEach((arg, index) => {
+            variables[`{args.${index}}`] = arg;
+        });
         
-        // Log to MongoDB
-        if (mongoLogger && mongoLogger.connected) {
-            await mongoLogger.logMemberJoin(member, inviteData);
+        let response = command.response || '';
+        
+        for (const [key, value] of Object.entries(variables)) {
+            response = response.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
         }
         
-        // Calculate account age
-        const accountAge = Date.now() - member.user.createdTimestamp;
-        const accountAgeDays = Math.floor(accountAge / 86400000);
-        
-        // Create embed
-        const embed = new EmbedBuilder()
-            .setColor(accountAgeDays < 7 ? '#ff9900' : '#00ff00')
-            .setTitle('👋 Member Joined')
-            .setThumbnail(member.user.displayAvatarURL())
-            .addFields(
-                { name: 'User', value: `${member.user.tag}\n<@${member.id}>`, inline: true },
-                { name: 'Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
-                { name: 'Member Count', value: member.guild.memberCount.toString(), inline: true }
-            );
-        
-        // Add account age warning
-        if (accountAgeDays < 7) {
-            embed.addFields({
-                name: '⚠️ New Account',
-                value: `Account is only ${accountAgeDays} day${accountAgeDays === 1 ? '' : 's'} old`,
-                inline: false
-            });
-        }
-        
-        // Add invite info
-        if (usedInvite) {
-            embed.addFields({
-                name: '📨 Invited By',
-                value: `${usedInvite.inviter?.tag || 'Unknown'}\nCode: \`${usedInvite.code}\`\nUses: ${usedInvite.uses}${usedInvite.maxUses ? `/${usedInvite.maxUses}` : ''}`,
-                inline: false
-            });
-        } else {
-            embed.addFields({
-                name: '📨 Invite Info',
-                value: 'Could not determine invite used (may be vanity URL or widget)',
-                inline: false
-            });
-        }
-        
-        embed.setTimestamp();
-        embed.setFooter({ text: `ID: ${member.id}` });
-        
-        await logChannels.member.send({ embeds: [embed] });
-        console.log(`✅ Logged member join to channel`);
-    } catch (error) {
-        console.error('❌ Error logging member join:', error);
-    }
-});
-
-// Member Leave Event
-client.on('guildMemberRemove', async member => {
-    if (!logChannels.member) return;
-    
-    try {
-        const memberInviteData = memberInvites.get(member.id);
-        
-        // Log to MongoDB
-        if (mongoLogger && mongoLogger.connected) {
-            await mongoLogger.logMemberLeave(member);
-        }
-        
-        const embed = new EmbedBuilder()
-            .setColor('#ff0000')
-            .setTitle('Member Left')
-            .setThumbnail(member.user.displayAvatarURL())
-            .addFields(
-                { name: 'User', value: `${member.user.tag}\n<@${member.id}>`, inline: true },
-                { name: 'Joined Server', value: member.joinedAt ? `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>` : 'Unknown', inline: true },
-                { name: 'Member Count', value: member.guild.memberCount.toString(), inline: true }
-            );
-        
-        if (memberInviteData) {
-            embed.addFields({
-                name: 'Originally Invited By',
-                value: `${memberInviteData.inviter}\nCode: \`${memberInviteData.code}\``,
-                inline: false
-            });
-        }
-        
-        embed.setTimestamp();
-        embed.setFooter({ text: `ID: ${member.id}` });
-        
-        await logChannels.member.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging member leave:', error);
-    }
-});
-
-// Message Delete Event
-client.on('messageDelete', async message => {
-    if (!logChannels.message) return;
-    if (message.author?.bot) return;
-    
-    try {
-        // Log to MongoDB
-        if (mongoLogger && mongoLogger.connected) {
-            await mongoLogger.logMessageDelete(message);
-        }
-        
-        const embed = new EmbedBuilder()
-            .setColor('#ff6b6b')
-            .setTitle('Message Deleted')
-            .addFields(
-                { name: 'Author', value: message.author ? `${message.author.tag}\n<@${message.author.id}>` : 'Unknown', inline: true },
-                { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
-                { name: 'Message ID', value: message.id, inline: true }
-            );
-        
-        if (message.content) {
-            embed.addFields({
-                name: 'Content',
-                value: message.content.slice(0, 1024) || 'No content',
-                inline: false
-            });
-        }
-        
-        if (message.attachments.size > 0) {
-            const attachmentList = message.attachments.map(a => a.name).join(', ');
-            embed.addFields({
-                name: 'Attachments',
-                value: attachmentList,
-                inline: false
-            });
-        }
-        
-        embed.setTimestamp();
-        
-        await logChannels.message.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging message delete:', error);
-    }
-});
-
-// Message Bulk Delete Event
-client.on('messageDeleteBulk', async messages => {
-    if (!logChannels.message) return;
-    
-    try {
-        const embed = new EmbedBuilder()
-            .setColor('#ff0000')
-            .setTitle('Bulk Message Delete')
-            .setDescription(`${messages.size} messages were deleted`)
-            .addFields(
-                { name: 'Channel', value: `<#${messages.first()?.channel.id}>`, inline: true },
-                { name: 'Count', value: messages.size.toString(), inline: true }
-            )
-            .setTimestamp();
-        
-        await logChannels.message.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging bulk delete:', error);
-    }
-});
-
-// Message Edit Event
-client.on('messageUpdate', async (oldMessage, newMessage) => {
-    if (!logChannels.message) return;
-    if (newMessage.author?.bot) return;
-    if (oldMessage.content === newMessage.content) return;
-    
-    try {
-        // Log to MongoDB
-        if (mongoLogger && mongoLogger.connected) {
-            await mongoLogger.logMessageUpdate(oldMessage, newMessage);
-        }
-        
-        const embed = new EmbedBuilder()
-            .setColor('#ffd93d')
-            .setTitle('Message Edited')
-            .addFields(
-                { name: 'Author', value: `${newMessage.author.tag}\n<@${newMessage.author.id}>`, inline: true },
-                { name: 'Channel', value: `<#${newMessage.channel.id}>`, inline: true },
-                { name: 'Message', value: `[Jump to Message](${newMessage.url})`, inline: true }
-            );
-        
-        if (oldMessage.content) {
-            embed.addFields({
-                name: 'Before',
-                value: oldMessage.content.slice(0, 1024) || 'No content',
-                inline: false
-            });
-        }
-        
-        if (newMessage.content) {
-            embed.addFields({
-                name: 'After',
-                value: newMessage.content.slice(0, 1024) || 'No content',
-                inline: false
-            });
-        }
-        
-        embed.setTimestamp();
-        
-        await logChannels.message.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging message edit:', error);
-    }
-});
-
-// Voice State Update Event
-client.on('voiceStateUpdate', async (oldState, newState) => {
-    if (!logChannels.voice) return;
-    
-    try {
-        let action = null;
-        let embed = null;
-        
-        if (!oldState.channel && newState.channel) {
-            action = 'join';
-            embed = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle('🔊 Joined Voice Channel')
-                .addFields(
-                    { name: 'User', value: `${newState.member.user.tag}\n<@${newState.member.id}>`, inline: true },
-                    { name: 'Channel', value: newState.channel.name, inline: true }
-                )
-                .setTimestamp();
-        }
-        else if (oldState.channel && !newState.channel) {
-            action = 'leave';
-            embed = new EmbedBuilder()
-                .setColor('#ff0000')
-                .setTitle('🔇 Left Voice Channel')
-                .addFields(
-                    { name: 'User', value: `${oldState.member.user.tag}\n<@${oldState.member.id}>`, inline: true },
-                    { name: 'Channel', value: oldState.channel.name, inline: true }
-                )
-                .setTimestamp();
-        }
-        else if (oldState.channel && newState.channel && oldState.channel.id !== newState.channel.id) {
-            action = 'switch';
-            embed = new EmbedBuilder()
-                .setColor('#ffd93d')
-                .setTitle('↔️ Switched Voice Channel')
-                .addFields(
-                    { name: 'User', value: `${newState.member.user.tag}\n<@${newState.member.id}>`, inline: true },
-                    { name: 'From', value: oldState.channel.name, inline: true },
-                    { name: 'To', value: newState.channel.name, inline: true }
-                )
-                .setTimestamp();
-        }
-        
-        if (embed) {
-            // Log to MongoDB
-            if (mongoLogger && mongoLogger.connected && action) {
-                await mongoLogger.logVoiceStateUpdate(oldState, newState, action);
-            }
+        switch (command.responseType) {
+            case 'text':
+            case 'dm':
+                const targetChannel = command.responseType === 'dm' || command.dmResponse ? message.author : message.channel;
+                const sentMessage = await targetChannel.send(response);
+                
+                if (command.deleteAfter && command.deleteAfterSeconds > 0) {
+                    setTimeout(() => {
+                        sentMessage.delete().catch(() => {});
+                    }, command.deleteAfterSeconds * 1000);
+                }
+                break;
             
-            await logChannels.voice.send({ embeds: [embed] });
-        }
-    } catch (error) {
-        console.error('Error logging voice state:', error);
-    }
-});
-
-// Role Update Events
-client.on('guildMemberUpdate', async (oldMember, newMember) => {
-    if (!logChannels.role) return;
-    
-    try {
-        const oldRoles = oldMember.roles.cache;
-        const newRoles = newMember.roles.cache;
-        
-        const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
-        if (addedRoles.size > 0) {
-            // Log to MongoDB
-            if (mongoLogger && mongoLogger.connected) {
-                await mongoLogger.logRoleUpdate(oldMember, newMember, 'add', addedRoles);
-            }
+            case 'embed':
+                let embedDesc = command.embedDescription || '';
+                for (const [key, value] of Object.entries(variables)) {
+                    embedDesc = embedDesc.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+                }
+                
+                let embedTitle = command.embedTitle || '';
+                for (const [key, value] of Object.entries(variables)) {
+                    embedTitle = embedTitle.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+                }
+                
+                const embed = new EmbedBuilder()
+                    .setColor(command.embedColor || '#5865f2')
+                    .setTitle(embedTitle || 'Custom Command')
+                    .setDescription(embedDesc);
+                
+                if (command.embedFooter) embed.setFooter({ text: command.embedFooter });
+                if (command.embedImage) embed.setImage(command.embedImage);
+                if (command.embedThumbnail) embed.setThumbnail(command.embedThumbnail);
+                
+                const embedTarget = command.dmResponse ? message.author : message.channel;
+                const embedMessage = await embedTarget.send({ embeds: [embed] });
+                
+                if (command.deleteAfter && command.deleteAfterSeconds > 0) {
+                    setTimeout(() => {
+                        embedMessage.delete().catch(() => {});
+                    }, command.deleteAfterSeconds * 1000);
+                }
+                break;
             
-            const embed = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle('Role Added')
-                .addFields(
-                    { name: 'User', value: `${newMember.user.tag}\n<@${newMember.id}>`, inline: true },
-                    { name: 'Roles Added', value: addedRoles.map(r => r.name).join(', '), inline: true }
-                )
-                .setTimestamp();
+            case 'react':
+                if (command.reactionEmoji) {
+                    await message.react(command.reactionEmoji).catch(() => {
+                        console.log('Could not add reaction');
+                    });
+                }
+                break;
             
-            await logChannels.role.send({ embeds: [embed] });
+            case 'multiple':
+                if (response) {
+                    const multiTarget = command.dmResponse ? message.author : message.channel;
+                    await multiTarget.send(response);
+                }
+                
+                if (command.reactionEmoji) {
+                    await message.react(command.reactionEmoji).catch(() => {});
+                }
+                break;
         }
         
-        const removedRoles = oldRoles.filter(role => !newRoles.has(role.id));
-        if (removedRoles.size > 0) {
-            // Log to MongoDB
-            if (mongoLogger && mongoLogger.connected) {
-                await mongoLogger.logRoleUpdate(oldMember, newMember, 'remove', removedRoles);
-            }
-            
-            const embed = new EmbedBuilder()
-                .setColor('#ff0000')
-                .setTitle('Role Removed')
-                .addFields(
-                    { name: 'User', value: `${newMember.user.tag}\n<@${newMember.id}>`, inline: true },
-                    { name: 'Roles Removed', value: removedRoles.map(r => r.name).join(', '), inline: true }
-                )
-                .setTimestamp();
-            
-            await logChannels.role.send({ embeds: [embed] });
-        }
     } catch (error) {
-        console.error('Error logging role update:', error);
+        console.error('Error executing custom command:', error);
     }
-});
-
-// Channel Create Event
-client.on('channelCreate', async channel => {
-    if (!logChannels.channel) return;
-    
-    try {
-        const embed = new EmbedBuilder()
-            .setColor('#00ff00')
-            .setTitle('Channel Created')
-            .addFields(
-                { name: 'Channel', value: `${channel.name}\n<#${channel.id}>`, inline: true },
-                { name: 'Type', value: ChannelType[channel.type], inline: true }
-            )
-            .setTimestamp();
-        
-        await logChannels.channel.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging channel create:', error);
-    }
-});
-
-// Channel Delete Event
-client.on('channelDelete', async channel => {
-    if (!logChannels.channel) return;
-    
-    try {
-        const embed = new EmbedBuilder()
-            .setColor('#ff0000')
-            .setTitle('Channel Deleted')
-            .addFields(
-                { name: 'Channel', value: channel.name, inline: true },
-                { name: 'Type', value: ChannelType[channel.type], inline: true }
-            )
-            .setTimestamp();
-        
-        await logChannels.channel.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging channel delete:', error);
-    }
-});
-
-// Ban Event
-client.on('guildBanAdd', async ban => {
-    if (!logChannels.moderation) return;
-    
-    try {
-        const memberInviteData = memberInvites.get(ban.user.id);
-        
-        // Log to MongoDB
-        if (mongoLogger && mongoLogger.connected) {
-            await mongoLogger.logBan(ban);
-        }
-        
-        const embed = new EmbedBuilder()
-            .setColor('#8b0000')
-            .setTitle('🔨 Member Banned')
-            .setThumbnail(ban.user.displayAvatarURL())
-            .addFields(
-                { name: 'User', value: `${ban.user.tag}\n<@${ban.user.id}>`, inline: true },
-                { name: 'Reason', value: ban.reason || 'No reason provided', inline: true }
-            );
-        
-        if (memberInviteData) {
-            embed.addFields({
-                name: 'Invite Info',
-                value: `Invited by: ${memberInviteData.inviter}\nCode: \`${memberInviteData.code}\``,
-                inline: false
-            });
-        }
-        
-        embed.setTimestamp();
-        embed.setFooter({ text: `ID: ${ban.user.id}` });
-        
-        await logChannels.moderation.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging ban:', error);
-    }
-});
-
-// Unban Event
-client.on('guildBanRemove', async ban => {
-    if (!logChannels.moderation) return;
-    
-    try {
-        // Log to MongoDB
-        if (mongoLogger && mongoLogger.connected) {
-            await mongoLogger.logUnban(ban);
-        }
-        
-        const embed = new EmbedBuilder()
-            .setColor('#00ff00')
-            .setTitle('Member Unbanned')
-            .setThumbnail(ban.user.displayAvatarURL())
-            .addFields(
-                { name: 'User', value: `${ban.user.tag}\n<@${ban.user.id}>`, inline: true }
-            )
-            .setTimestamp();
-        
-        await logChannels.moderation.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging unban:', error);
-    }
-});
-
-// Invite Create Event
-client.on('inviteCreate', async invite => {
-    if (!logChannels.invite) return;
-    
-    try {
-        const guildInvites = serverInvites.get(invite.guild.id) || new Map();
-        guildInvites.set(invite.code, invite.uses || 0);
-        serverInvites.set(invite.guild.id, guildInvites);
-        
-        const embed = new EmbedBuilder()
-            .setColor('#00ff00')
-            .setTitle('Invite Created')
-            .addFields(
-                { name: 'Code', value: `\`${invite.code}\`\nhttps://discord.gg/${invite.code}`, inline: true },
-                { name: 'Created By', value: `${invite.inviter?.tag || 'Unknown'}`, inline: true },
-                { name: 'Channel', value: `<#${invite.channel.id}>`, inline: true }
-            );
-        
-        if (invite.maxUses) {
-            embed.addFields({ name: 'Max Uses', value: invite.maxUses.toString(), inline: true });
-        }
-        
-        if (invite.maxAge) {
-            embed.addFields({ name: 'Expires', value: `<t:${Math.floor((Date.now() + invite.maxAge * 1000) / 1000)}:R>`, inline: true });
-        }
-        
-        embed.setTimestamp();
-        
-        await logChannels.invite.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging invite create:', error);
-    }
-});
-
-// Invite Delete Event
-client.on('inviteDelete', async invite => {
-    if (!logChannels.invite) return;
-    
-    try {
-        const guildInvites = serverInvites.get(invite.guild.id);
-        if (guildInvites) {
-            guildInvites.delete(invite.code);
-        }
-        
-        const embed = new EmbedBuilder()
-            .setColor('#ff0000')
-            .setTitle('Invite Deleted')
-            .addFields(
-                { name: 'Code', value: `\`${invite.code}\``, inline: true },
-                { name: 'Uses', value: invite.uses?.toString() || '0', inline: true }
-            )
-            .setTimestamp();
-        
-        await logChannels.invite.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging invite delete:', error);
-    }
-});
+}
 
 client.login(config.token);
