@@ -43,6 +43,28 @@ const customCommandCooldowns = {
     server: new Map()
 };
 
+// Helper function to get disk space
+function getDiskSpace() {
+    const { execSync } = require('child_process');
+    try {
+        const output = execSync('df -h /var/lib/jenkins/discord-logger-bot | tail -1').toString();
+        const parts = output.split(/\s+/);
+        return {
+            total: parts[1],
+            used: parts[2],
+            available: parts[3],
+            percentage: parts[4]
+        };
+    } catch (error) {
+        return {
+            total: 'N/A',
+            used: 'N/A',
+            available: 'N/A',
+            percentage: 'N/A'
+        };
+    }
+}
+
 // Attachments directory
 const ATTACHMENTS_DIR = '/var/lib/jenkins/discord-logger-bot/saved-attachments';
 
@@ -609,6 +631,7 @@ client.once('ready', async () => {
     if (config.startupNotification && config.startupNotification.enabled) {
         const notifChannel = await client.channels.fetch(config.startupNotification.channelId).catch(() => null);
         if (notifChannel) {
+            const diskSpace = getDiskSpace();
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setTitle('🟢 Bot Started Successfully')
@@ -626,6 +649,11 @@ client.once('ready', async () => {
                 .addFields({
                     name: '💾 Attachment Storage',
                     value: `Enabled - Saving to: \`${ATTACHMENTS_DIR}\``,
+                    inline: false
+                })
+                .addFields({
+                    name: '💾 Disk Space',
+                    value: `Used: ${diskSpace.used} / ${diskSpace.total}\nFree: ${diskSpace.available} (${diskSpace.percentage} used)`,
                     inline: false
                 })
                 .setThumbnail(client.user.displayAvatarURL())
@@ -710,6 +738,7 @@ client.on('messageCreate', async message => {
                     });
                 }
                 
+                const diskSpace = getDiskSpace();
                 const firstMsg = attachmentData.messages[0].message;
                 const embed = new EmbedBuilder()
                     .setColor('#3498db')
@@ -722,35 +751,36 @@ client.on('messageCreate', async message => {
                         `**Channel${channels.size > 1 ? 's' : ''}:** ${Array.from(channels).map(c => `<#${c.id}>`).join(', ')}\n` +
                         `**Total Files:** ${allAttachments.length}\n` +
                         `**Total Size:** ${(totalSize / 1024 / 1024).toFixed(2)} MB\n` +
-                        `**💾 Saved to disk:** ${allAttachments.length} file(s)`
+                        `**💾 Saved to disk:** ${allAttachments.length} file(s)\n` +
+                        `**📊 Storage:** ${diskSpace.used} / ${diskSpace.total} (${diskSpace.available} free)`
                     )
                     .setTimestamp(attachmentData.messages[0].timestamp);
                 
                 const fileList = allAttachments.slice(0, 10).map((attData, index) => {
-    const att = attData.attachment;
-    const size = (att.size / 1024).toFixed(2);
-    const type = att.contentType || 'unknown';
-    return `${index + 1}. **[${att.name}](${attData.messageUrl})** (${size} KB)\n   └ Type: \`${type}\` | Channel: <#${attData.channel.id}>`;
-}).join('\n');
+                    const att = attData.attachment;
+                    const size = (att.size / 1024).toFixed(2);
+                    const type = att.contentType || 'unknown';
+                    return `${index + 1}. **[${att.name}](${attData.messageUrl})** (${size} KB)\n   └ Type: \`${type}\` | Channel: <#${attData.channel.id}>`;
+                }).join('\n');
 
-if (allAttachments.length > 10) {
-    embed.addFields({
-        name: `📎 Files (showing 10 of ${allAttachments.length})`,
-        value: fileList,  // <-- COMMA ADDED HERE
-        inline: false
-    });
-    embed.addFields({
-        name: 'Additional Files',
-        value: `...and ${allAttachments.length - 10} more files`,
-        inline: false
-    });
-} else {
-    embed.addFields({
-        name: `📎 Files (${allAttachments.length})`,
-        value: fileList || 'None',
-        inline: false
-    });
-}
+                if (allAttachments.length > 10) {
+                    embed.addFields({
+                        name: `📎 Files (showing 10 of ${allAttachments.length})`,
+                        value: fileList,
+                        inline: false
+                    });
+                    embed.addFields({
+                        name: 'Additional Files',
+                        value: `...and ${allAttachments.length - 10} more files`,
+                        inline: false
+                    });
+                } else {
+                    embed.addFields({
+                        name: `📎 Files (${allAttachments.length})`,
+                        value: fileList || 'None',
+                        inline: false
+                    });
+                }
                 
                 const firstImage = allAttachments.find(attData => 
                     attData.attachment.contentType?.startsWith('image/')

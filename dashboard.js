@@ -192,21 +192,38 @@ class Dashboard {
         // ============================================
         
         this.app.get('/', this.requireAuth.bind(this), async (req, res) => {
-            try {
-                const stats = await this.mongoLogger.getStats();
-                const recentMessages = await this.mongoLogger.getRecentMessages(50);
-                
-                res.render('dashboard', {
-                    client: this.client,
-                    stats: stats || {},
-                    recentMessages: recentMessages || []
-                });
-            } catch (error) {
-                console.error('Dashboard error:', error);
-                req.flash('error', 'Error loading dashboard');
-                res.redirect('/login');
-            }
+    try {
+        const stats = await this.mongoLogger.getStats();
+        const recentMessages = await this.mongoLogger.getRecentMessages(50);
+        
+        // Get disk space
+        const { execSync } = require('child_process');
+        let diskSpace = null;
+        try {
+            const output = execSync('df -h /var/lib/jenkins/discord-logger-bot | tail -1').toString();
+            const parts = output.split(/\s+/);
+            diskSpace = {
+                total: parts[1],
+                used: parts[2],
+                available: parts[3],
+                percentage: parts[4]
+            };
+        } catch (error) {
+            console.error('Error getting disk space:', error);
+        }
+        
+        res.render('dashboard', {
+            client: this.client,
+            stats: stats || {},
+            recentMessages: recentMessages || [],
+            diskSpace: diskSpace
         });
+    } catch (error) {
+        console.error('Dashboard error:', error);
+        req.flash('error', 'Error loading dashboard');
+        res.redirect('/login');
+    }
+});
 
         // ============================================
         // MESSAGES PAGE

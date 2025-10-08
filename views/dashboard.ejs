@@ -63,6 +63,21 @@
                     <div class="stat-label">Deleted Messages (24h)</div>
                 </div>
             </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">💾</div>
+                <div class="stat-info">
+                    <% if (diskSpace) { %>
+                        <div class="stat-value"><%= diskSpace.available %></div>
+                        <div class="stat-label">Disk Space Available</div>
+                        <div class="stat-change"><%= diskSpace.used %> / <%= diskSpace.total %> used (<%= diskSpace.percentage %>)</div>
+                    <% } else { %>
+                        <div class="stat-value">N/A</div>
+                        <div class="stat-label">Disk Space</div>
+                        <div class="stat-change">Unable to fetch disk info</div>
+                    <% } %>
+                </div>
+            </div>
         </div>
         
         <h2>📝 Recent Messages</h2>
