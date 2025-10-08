@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Commands - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    
+    <div class="container">
+        <h1>⚙️ Custom Commands</h1>
+        
+        <% if (success && success.length > 0) { %>
+            <div class="success-message"><%= success %></div>
+        <% } %>
+        <% if (error && error.length > 0) { %>
+            <div class="error-message"><%= error %></div>
+        <% } %>
+        
+        <!-- Command Executor -->
+        <div class="command-executor">
+            <h2>💬 Execute Command</h2>
+            <form id="executeForm" onsubmit="executeCommand(event)">
+                <select id="channelSelect" required>
+                    <option value="">Select Channel...</option>
+                </select>
+                <input type="text" id="commandInput" placeholder="Enter command (e.g., !hello)" required>
+                <button type="submit">Execute</button>
+            </form>
+            <div id="executeResult"></div>
+        </div>
+        
+        <!-- Create New Command -->
+        <div class="create-command">
+            <h2>➕ Create Custom Command</h2>
+            <form method="POST" action="/commands/create">
+                <div class="form-group">
+                    <label>Trigger (without prefix):</label>
+                    <input type="text" name="trigger" placeholder="e.g., hello" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Response:</label>
+                    <textarea name="response" rows="4" placeholder="Hello {user}! Welcome to the server!" required></textarea>
+                    <small>
+                        Variables: <code>{user}</code>, <code>{user.mention}</code>, <code>{user.id}</code>, 
+                        <code>{channel}</code>, <code>{server}</code>, <code>{membercount}</code>
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Cooldown (seconds):</label>
+                    <input type="number" name="cooldown" value="0" min="0">
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="enabled" checked>
+                        Enabled
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Create Command</button>
+            </form>
+        </div>
+        
+        <!-- Existing Commands -->
+        <div class="commands-list">
+            <h2>📋 Existing Commands (<%= commands.length %>)</h2>
+            
+            <% if (commands.length === 0) { %>
+                <p class="text-muted">No custom commands yet. Create one above!</p>
+            <% } else { %>
+                <div class="command-grid">
+                    <% commands.forEach(cmd => { %>
+                        <div class="command-card <%= cmd.enabled ? 'enabled' : 'disabled' %>">
+                            <div class="command-header">
+                                <h3>!<%= cmd.trigger %></h3>
+                                <div class="command-actions">
+                                    <button 
+                                        class="toggle-btn" 
+                                        onclick="toggleCommand('<%= cmd._id %>')"
+                                        data-id="<%= cmd._id %>"
+                                    >
+                                        <%= cmd.enabled ? '✅ Enabled' : '❌ Disabled' %>
+                                    </button>
+                                    <form method="POST" action="/commands/delete/<%= cmd._id %>" style="display: inline;">
+                                        <button type="submit" class="delete-btn" onclick="return confirm('Delete this command?')">
+                                            🗑️ Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            <div class="command-response">
+                                <%= cmd.response %>
+                            </div>
+                            
+                            <div class="command-meta">
+                                <span>Cooldown: <%= cmd.cooldown %>s</span>
+                                <span>Uses: <%= cmd.uses || 0 %></span>
+                                <span>Created: <%= new Date(cmd.createdAt).toLocaleDateString() %></span>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+            <% } %>
+        </div>
+    </div>
+    
+    <script>
+        // Load channels
+        fetch('/api/channels')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const select = document.getElementById('channelSelect');
+                    data.channels.forEach(channel => {
+                        const option = document.createElement('option');html
+                        option.value = channel.id;
+                        option.textContent = `#${channel.name}`;
+                        select.appendChild(option);
+                    });
+                }
+            });
+        
+        // Execute command
+        async function executeCommand(event) {
+            event.preventDefault();
+            
+            const channelId = document.getElementById('channelSelect').value;
+            const command = document.getElementById('commandInput').value;
+            const resultDiv = document.getElementById('executeResult');
+            
+            resultDiv.innerHTML = '<div class="loading">Executing...</div>';
+            
+            try {
+                const response = await fetch('/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channelId, command })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = '<div class="success-message">✅ Command executed successfully!</div>';
+                    document.getElementById('commandInput').value = '';
+                } else {
+                    resultDiv.innerHTML = `<div class="error-message">❌ Error: ${data.error}</div>`;
+                }
+                
+                setTimeout(() => {
+                    resultDiv.innerHTML = '';
+                }, 3000);
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error-message">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Toggle command status
+        async function toggleCommand(commandId) {
+            try {
+                const response = await fetch(`/commands/toggle/${commandId}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error toggling command: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error toggling command: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

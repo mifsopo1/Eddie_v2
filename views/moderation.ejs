@@ -7,49 +7,83 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">
-            <h2>🤖 <%= client.user.tag %></h2>
-        </div>
-        <div class="nav-links">
-            <a href="/">Dashboard</a>
-            <a href="/messages">Messages</a>
-            <a href="/deleted">Deleted</a>
-            <a href="/members">Members</a>
-            <a href="/moderation">Moderation</a>
-            <a href="/attachments">Attachments</a>
-            <a href="/voice">Voice</a>
-            <a href="/analytics">Analytics</a>
-            <a href="/logout" class="logout">Logout</a>
-        </div>
-    </nav>
+    <%- include('partials/header') %>
     
     <div class="container">
-        <h1>🔨 Moderation Actions</h1>
+        <h1>🔨 Moderation Log</h1>
         
-        <div class="messages-container">
-            <% if (actions.length === 0) { %>
-                <p>No moderation actions found.</p>
-            <% } else { %>
-                <% actions.forEach(action => { %>
-                    <div class="message-item">
-                        <div class="message-header">
-                            <span class="message-type"><%= action.action.toUpperCase() %></span>
-                            <span class="message-user">
-                                Target: <a href="/user/<%= action.targetId %>"><%= action.targetName %></a>
-                            </span>
-                            <span class="message-user">
-                                By: <%= action.moderatorName %>
-                            </span>
-                            <span class="message-time"><%= new Date(action.timestamp).toLocaleString() %></span>
-                        </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🔨</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.totalBans %></div>
+                    <div class="stat-label">Total Bans</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔇</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.totalMutes %></div>
+                    <div class="stat-label">Total Mutes</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📋</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.recentActions %></div>
+                    <div class="stat-label">Actions (7 Days)</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="filter-box">
+            <label>Action Type:</label>
+            <select onchange="window.location='?type=' + this.value">
+                <option value="all" <%= actionType === 'all' ? 'selected' : '' %>>All Actions</option>
+                <option value="ban" <%= actionType === 'ban' ? 'selected' : '' %>>Bans</option>
+                <option value="unban" <%= actionType === 'unban' ? 'selected' : '' %>>Unbans</option>
+                <option value="mute" <%= actionType === 'mute' ? 'selected' : '' %>>Mutes</option>
+                <option value="unmute" <%= actionType === 'unmute' ? 'selected' : '' %>>Unmutes</option>
+            </select>
+        </div>
+        
+        <p class="result-count">Found <%= actions.length %> actions</p>
+        
+        <div class="mod-actions">
+            <% actions.forEach(action => { %>
+                <div class="mod-action <%= action.actionType %>">
+                    <div class="mod-header">
+                        <span class="mod-type"><%= action.actionType.toUpperCase() %></span>
+                        <span class="mod-time"><%= new Date(action.timestamp).toLocaleString() %></span>
+                    </div>
+                    <div class="mod-details">
+                        <p><strong>Target:</strong> 
+                            <a href="/user/<%= action.targetUserId %>"><%= action.targetUserName %></a>
+                        </p>
+                        <% if (action.moderatorName) { %>
+                            <p><strong>Moderator:</strong> <%= action.moderatorName %></p>
+                        <% } %>
                         <% if (action.reason) { %>
-                            <div class="message-content">
-                                Reason: <%= action.reason %>
-                            </div>
+                            <p><strong>Reason:</strong> <%= action.reason %></p>
+                        <% } %>
+                        <% if (action.duration) { %>
+                            <p><strong>Duration:</strong> <%= Math.floor(action.duration / 60000) %> minutes</p>
+                        <% } %>
+                        <% if (action.evidence) { %>
+                            <p><strong>Evidence:</strong> <%= action.evidence %></p>
                         <% } %>
                     </div>
-                <% }); %>
+                </div>
+            <% }); %>
+        </div>
+        
+        <div class="pagination">
+            <% if (currentPage > 1) { %>
+                <a href="?type=<%= actionType %>&page=<%= currentPage - 1 %>" class="btn">← Previous</a>
+            <% } %>
+            <span>Page <%= currentPage %> of <%= totalPages %></span>
+            <% if (currentPage < totalPages) { %>
+                <a href="?type=<%= actionType %>&page=<%= currentPage + 1 %>" class="btn">Next →</a>
             <% } %>
         </div>
     </div>

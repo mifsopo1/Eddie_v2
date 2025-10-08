@@ -794,6 +794,90 @@ client.on('messageCreate', async message => {
     }
 });
 
+// ============================================
+// CUSTOM COMMANDS HANDLER
+// ============================================
+
+client.on('messageCreate', async message => {
+    // Skip if bot or no guild
+    if (message.author.bot || !message.guild) return;
+    
+    // Check if custom commands are enabled
+    if (!config.customCommands || !config.customCommands.enabled) return;
+    
+    const prefix = config.customCommands.prefix || '!';
+    
+    // Check if message starts with prefix
+    if (!message.content.startsWith(prefix)) return;
+    
+    const args = message.content.slice(prefix.length).trim().split(/\s+/);
+    const commandName = args.shift().toLowerCase();
+    
+    // Check if it's a regular bot command first
+    if (commandHandler.commands.has(commandName)) return;
+    
+    try {
+        // Look up custom command in MongoDB
+        const customCommand = await mongoLogger.db.collection('customCommands').findOne({
+            trigger: commandName,
+            enabled: true
+        });
+        
+        if (!customCommand) return;
+        
+        // Check cooldown
+        if (customCommand.cooldown > 0) {
+            const cooldownKey = `${message.author.id}_${commandName}`;
+            const lastUsed = customCommandCooldowns.get(cooldownKey);
+            
+            if (lastUsed) {
+                const timeLeft = (customCommand.cooldown * 1000) - (Date.now() - lastUsed);
+                if (timeLeft > 0) {
+                    const reply = await message.reply(
+                        `⏰ Please wait ${Math.ceil(timeLeft / 1000)} seconds before using this command again.`
+                    );
+                    setTimeout(() => reply.delete().catch(() => {}), 5000);
+                    return;
+                }
+            }
+            
+            customCommandCooldowns.set(cooldownKey, Date.now());
+        }
+        
+        // Parse response with variables
+        let response = customCommand.response;
+        
+        // Replace variables
+        response = response
+            .replace(/{user}/g, message.author.username)
+            .replace(/{user\.mention}/g, `<@${message.author.id}>`)
+            .replace(/{user\.id}/g, message.author.id)
+            .replace(/{channel}/g, message.channel.name)
+            .replace(/{server}/g, message.guild.name)
+            .replace(/{membercount}/g, message.guild.memberCount.toString());
+        
+        // Handle {args} and {args.X}
+        response = response
+            .replace(/{args}/g, args.join(' '))
+            .replace(/{args\.(\d+)}/g, (match, index) => args[parseInt(index)] || '');
+        
+        // Send response
+        await message.channel.send(response);
+        
+        // Increment usage counter
+        await mongoLogger.db.collection('customCommands').updateOne(
+            { _id: customCommand._id },
+            { $inc: { uses: 1 } }
+        );
+        
+    } catch (error) {
+        console.error('Error executing custom command:', error);
+    }
+});
+
+// Store cooldowns in memory
+const customCommandCooldowns = new Map();
+
 // Button interaction handler for spam review
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;

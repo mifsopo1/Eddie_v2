@@ -7,66 +7,59 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">
-            <h2>🤖 <%= client.user.tag %></h2>
-        </div>
-        <div class="nav-links">
-            <a href="/">Dashboard</a>
-            <a href="/messages">Messages</a>
-            <a href="/deleted">Deleted</a>
-            <a href="/members">Members</a>
-            <a href="/moderation">Moderation</a>
-            <a href="/attachments">Attachments</a>
-            <a href="/voice">Voice</a>
-            <a href="/analytics">Analytics</a>
-            <a href="/logout" class="logout">Logout</a>
-        </div>
-    </nav>
+    <%- include('partials/header') %>
     
     <div class="container">
         <h1>👥 Member Activity</h1>
         
-        <h2>Recent Joins</h2>
-        <div class="messages-container">
-            <% if (recentJoins.length === 0) { %>
-                <p>No recent joins found.</p>
-            <% } else { %>
-                <% recentJoins.forEach(member => { %>
-                    <div class="message-item">
-                        <div class="message-header">
-                            <span class="message-type">JOIN</span>
-                            <span class="message-user"><%= member.userName %></span>
-                            <span class="message-time"><%= new Date(member.timestamp).toLocaleString() %></span>
-                        </div>
-                        <div class="message-content">
-                            User ID: <%= member.userId %>
-                            <% if (member.invitedBy) { %>
-                                | Invited by: <%= member.invitedBy %>
-                            <% } %>
-                        </div>
-                    </div>
-                <% }); %>
-            <% } %>
+        <div class="filter-box">
+            <label>Event Type:</label>
+            <select onchange="window.location='?type=' + this.value">
+                <option value="all" <%= eventType === 'all' ? 'selected' : '' %>>All Events</option>
+                <option value="join" <%= eventType === 'join' ? 'selected' : '' %>>Joins</option>
+                <option value="leave" <%= eventType === 'leave' ? 'selected' : '' %>>Leaves</option>
+                <option value="role_add" <%= eventType === 'role_add' ? 'selected' : '' %>>Role Added</option>
+                <option value="role_remove" <%= eventType === 'role_remove' ? 'selected' : '' %>>Role Removed</option>
+            </select>
         </div>
         
-        <h2>Recent Leaves</h2>
-        <div class="messages-container">
-            <% if (recentLeaves.length === 0) { %>
-                <p>No recent leaves found.</p>
-            <% } else { %>
-                <% recentLeaves.forEach(member => { %>
-                    <div class="message-item">
-                        <div class="message-header">
-                            <span class="message-type">LEAVE</span>
-                            <span class="message-user"><%= member.userName %></span>
-                            <span class="message-time"><%= new Date(member.timestamp).toLocaleString() %></span>
-                        </div>
-                        <div class="message-content">
-                            User ID: <%= member.userId %>
-                        </div>
+        <p class="result-count">Found <%= events.length %> events</p>
+        
+        <div class="member-events">
+            <% events.forEach(event => { %>
+                <div class="member-event <%= event.eventType %>">
+                    <div class="event-header">
+                        <span class="event-type"><%= event.eventType.toUpperCase().replace('_', ' ') %></span>
+                        <span class="event-user">
+                            <a href="/user/<%= event.userId %>"><%= event.userName %></a>
+                        </span>
+                        <span class="event-time"><%= new Date(event.timestamp).toLocaleString() %></span>
                     </div>
-                <% }); %>
+                    <div class="event-details">
+                        <% if (event.inviteData) { %>
+                            <p>Invited by: <strong><%= event.inviteData.inviter %></strong> (Code: <code><%= event.inviteData.code %></code>)</p>
+                        <% } %>
+                        <% if (event.roles && event.roles.length > 0) { %>
+                            <p>Roles: <%= event.roles.map(r => r.name).join(', ') %></p>
+                        <% } %>
+                        <% if (event.accountAgeDays !== undefined) { %>
+                            <p>Account age: <%= event.accountAgeDays %> days</p>
+                        <% } %>
+                        <% if (event.timeInServer) { %>
+                            <p>Time in server: <%= Math.floor(event.timeInServer / 86400000) %> days</p>
+                        <% } %>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+        
+        <div class="pagination">
+            <% if (currentPage > 1) { %>
+                <a href="?type=<%= eventType %>&page=<%= currentPage - 1 %>" class="btn">← Previous</a>
+            <% } %>
+            <span>Page <%= currentPage %> of <%= totalPages %></span>
+            <% if (currentPage < totalPages) { %>
+                <a href="?type=<%= eventType %>&page=<%= currentPage + 1 %>" class="btn">Next →</a>
             <% } %>
         </div>
     </div>

@@ -690,3 +690,375 @@ body {
     color: #72767d;
     margin-bottom: 1rem;
 }
+
+/* ============================================
+   LOGIN PAGE - DISCORD OAUTH
+   ============================================ */
+
+.discord-login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px;
+    background: #5865f2;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: background 0.3s;
+    margin-bottom: 20px;
+}
+
+.discord-login-btn:hover {
+    background: #4752c4;
+}
+
+.divider {
+    text-align: center;
+    position: relative;
+    margin: 20px 0;
+}
+
+.divider span {
+    background: #2c2c2c;
+    padding: 0 10px;
+    color: #72767d;
+    position: relative;
+    z-index: 1;
+}
+
+.divider::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: #40444b;
+}
+
+/* ============================================
+   USER INFO IN NAVBAR
+   ============================================ */
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    background: #383838;
+    border-radius: 5px;
+}
+
+.user-avatar-small {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}
+
+/* ============================================
+   FLASH MESSAGES
+   ============================================ */
+
+.success-message {
+    background: #43b581;
+    color: white;
+    padding: 12px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.error-message {
+    background: #ed4245;
+    color: white;
+    padding: 12px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.loading {
+    color: #faa61a;
+    font-style: italic;
+    padding: 10px;
+}
+
+/* ============================================
+   INVITES PAGE
+   ============================================ */
+
+.invites-list {
+    background: #2c2c2c;
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.invite-item {
+    background: #383838;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border-radius: 8px;
+    border-left: 4px solid #00b0f4;
+}
+
+.invite-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.invite-user a {
+    color: #00b0f4;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.invite-user a:hover {
+    text-decoration: underline;
+}
+
+.invite-time {
+    color: #72767d;
+    font-size: 0.85rem;
+}
+
+.invite-details {
+    color: #dcddde;
+    padding-left: 1rem;
+}
+
+.invite-meta {
+    color: #72767d;
+    font-size: 0.85rem;
+    padding-left: 1rem;
+    margin-top: 0.5rem;
+}
+
+/* ============================================
+   COMMANDS PAGE
+   ============================================ */
+
+.command-executor {
+    background: #2c2c2c;
+    padding: 2rem;
+    border-radius: 10px;
+    margin: 2rem 0;
+}
+
+.command-executor form {
+    display: grid;
+    grid-template-columns: 1fr 2fr auto;
+    gap: 1rem;
+    align-items: center;
+}
+
+.command-executor select,
+.command-executor input {
+    padding: 0.75rem;
+    background: #383838;
+    border: 2px solid #40444b;
+    color: white;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.command-executor button {
+    padding: 0.75rem 2rem;
+    background: #5865f2;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.3s;
+}
+
+.command-executor button:hover {
+    background: #4752c4;
+}
+
+#executeResult {
+    margin-top: 1rem;
+}
+
+.create-command {
+    background: #2c2c2c;
+    padding: 2rem;
+    border-radius: 10px;
+    margin: 2rem 0;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #b9bbbe;
+    font-weight: bold;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    background: #383838;
+    border: 2px solid #40444b;
+    color: white;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-family: inherit;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.5rem;
+    color: #72767d;
+    font-size: 0.85rem;
+}
+
+.form-group small code {
+    background: #1e1e1e;
+    padding: 2px 5px;
+    border-radius: 3px;
+    color: #faa61a;
+}
+
+.commands-list {
+    margin: 2rem 0;
+}
+
+.command-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.command-card {
+    background: #2c2c2c;
+    border-radius: 10px;
+    padding: 1.5rem;
+    border: 2px solid #40444b;
+    transition: all 0.3s;
+}
+
+.command-card:hover {
+    border-color: #5865f2;
+    transform: translateY(-2px);
+}
+
+.command-card.disabled {
+    opacity: 0.6;
+}
+
+.command-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.command-header h3 {
+    color: #5865f2;
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.command-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.toggle-btn {
+    padding: 0.5rem 1rem;
+    background: #43b581;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.3s;
+}
+
+.command-card.disabled .toggle-btn {
+    background: #72767d;
+}
+
+.toggle-btn:hover {
+    opacity: 0.8;
+}
+
+.delete-btn {
+    padding: 0.5rem 1rem;
+    background: #ed4245;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.3s;
+}
+
+.delete-btn:hover {
+    background: #c93538;
+}
+
+.command-response {
+    background: #383838;
+    padding: 1rem;
+    border-radius: 5px;
+    color: #dcddde;
+    margin-bottom: 1rem;
+    word-wrap: break-word;
+}
+
+.command-meta {
+    display: flex;
+    gap: 1rem;
+    color: #72767d;
+    font-size: 0.85rem;
+}
+
+.command-meta span {
+    padding: 0.25rem 0.75rem;
+    background: #383838;
+    border-radius: 4px;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 768px) {
+    .nav-links {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .user-info {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .command-executor form {
+        grid-template-columns: 1fr;
+    }
+    
+    .command-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .command-actions {
+        flex-direction: column;
+    }
+}

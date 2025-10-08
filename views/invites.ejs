@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invite Tracking - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    
+    <div class="container">
+        <h1>🎫 Invite Tracking</h1>
+        
+        <div class="section">
+            <h2>📊 Top Inviters</h2>
+            <div class="leaderboard">
+                <% inviteStats.forEach((stat, index) => { %>
+                    <div class="leaderboard-item rank-<%= index + 1 %>">
+                        <div class="rank-badge">#<%= index + 1 %></div>
+                        <div class="leaderboard-info">
+                            <div class="leaderboard-name"><%= stat.inviter %></div>
+                            <div class="leaderboard-stats">
+                                <span>Total Invites: <strong><%= stat.totalInvites %></strong></span>
+                            </div>
+                        </div>
+                        <div class="leaderboard-count"><%= stat.totalInvites %> invites</div>
+                    </div>
+                <% }); %>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🆕 Recent Joins</h2>
+            <div class="invites-list">
+                <% recentInvites.forEach(invite => { %>
+                    <div class="invite-item">
+                        <div class="invite-header">
+                            <span class="invite-user">
+                                <a href="/user/<%= invite.userId %>"><%= invite.userName %></a>
+                            </span>
+                            <span class="invite-time">
+                                <%= new Date(invite.timestamp).toLocaleString() %>
+                            </span>
+                        </div>
+                        <div class="invite-details">
+                            <% if (invite.inviteData) { %>
+                                Invited by: <strong><%= invite.inviteData.inviter %></strong> 
+                                (Code: <code><%= invite.inviteData.code %></code>)
+                            <% } else { %>
+                                No invite data
+                            <% } %>
+                        </div>
+                        <% if (invite.accountAgeDays !== undefined) { %>
+                            <div class="invite-meta">
+                                Account age: <%= invite.accountAgeDays %> days
+                            </div>
+                        <% } %>
+                    </div>
+                <% }); %>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

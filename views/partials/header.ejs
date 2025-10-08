@@ -6,7 +6,21 @@
         <a href="/">Dashboard</a>
         <a href="/messages">Messages</a>
         <a href="/deleted">Deleted</a>
-        <a href="/user/search">User Lookup</a>
+        <a href="/invites">Invites</a>
+        <a href="/commands">Commands</a>
+        <a href="/members">Members</a>
+        <a href="/moderation">Moderation</a>
+        <a href="/attachments">Attachments</a>
+        <a href="/voice">Voice</a>
+        <a href="/analytics">Analytics</a>
+        
+        <% if (user) { %>
+            <div class="user-info">
+                <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar-small">
+                <span><%= user.username %></span>
+            </div>
+        <% } %>
+        
         <a href="/logout" class="logout">Logout</a>
     </div>
 </nav>

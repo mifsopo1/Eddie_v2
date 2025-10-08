@@ -7,42 +7,51 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">
-            <h2>🤖 <%= client.user.tag %></h2>
-        </div>
-        <div class="nav-links">
-            <a href="/">Dashboard</a>
-            <a href="/messages">Messages</a>
-            <a href="/deleted">Deleted</a>
-            <a href="/members">Members</a>
-            <a href="/moderation">Moderation</a>
-            <a href="/attachments">Attachments</a>
-            <a href="/voice">Voice</a>
-            <a href="/analytics">Analytics</a>
-            <a href="/logout" class="logout">Logout</a>
-        </div>
-    </nav>
+    <%- include('partials/header') %>
     
     <div class="container">
-        <h1>🎤 Voice Activity</h1>
+        <h1>🔊 Voice Activity Log</h1>
         
-        <div class="messages-container">
-            <% if (voiceActivity.length === 0) { %>
-                <p>No voice activity found.</p>
-            <% } else { %>
-                <% voiceActivity.forEach(voice => { %>
-                    <div class="message-item">
-                        <div class="message-header">
-                            <span class="message-type"><%= voice.eventType.toUpperCase() %></span>
-                            <span class="message-user">
-                                <a href="/user/<%= voice.userId %>"><%= voice.userName %></a>
-                            </span>
-                            <span class="message-channel"><%= voice.channelName %></span>
-                            <span class="message-time"><%= new Date(voice.timestamp).toLocaleString() %></span>
-                        </div>
+        <div class="filter-box">
+            <label>Action Type:</label>
+            <select onchange="window.location='?type=' + this.value">
+                <option value="all" <%= actionType === 'all' ? 'selected' : '' %>>All Actions</option>
+                <option value="join" <%= actionType === 'join' ? 'selected' : '' %>>Joins</option>
+                <option value="leave" <%= actionType === 'leave' ? 'selected' : '' %>>Leaves</option>
+                <option value="switch" <%= actionType === 'switch' ? 'selected' : '' %>>Channel Switches</option>
+            </select>
+        </div>
+        
+        <p class="result-count">Found <%= events.length %> events</p>
+        
+        <div class="voice-events">
+            <% events.forEach(event => { %>
+                <div class="voice-event <%= event.actionType %>">
+                    <div class="voice-header">
+                        <span class="voice-type"><%= event.actionType.toUpperCase() %></span>
+                        <span class="voice-user">
+                            <a href="/user/<%= event.userId %>"><%= event.userName %></a>
+                        </span>
+                        <span class="voice-time"><%= new Date(event.timestamp).toLocaleString() %></span>
                     </div>
-                <% }); %>
+                    <div class="voice-details">
+                        <% if (event.actionType === 'switch') { %>
+                            <p>From: <strong><%= event.oldChannelName %></strong> → To: <strong><%= event.newChannelName %></strong></p>
+                        <% } else { %>
+                            <p>Channel: <strong><%= event.channelName %></strong></p>
+                        <% } %>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+        
+        <div class="pagination">
+            <% if (currentPage > 1) { %>
+                <a href="?type=<%= actionType %>&page=<%= currentPage - 1 %>" class="btn">← Previous</a>
+            <% } %>
+            <span>Page <%= currentPage %> of <%= totalPages %></span>
+            <% if (currentPage < totalPages) { %>
+                <a href="?type=<%= actionType %>&page=<%= currentPage + 1 %>" class="btn">Next →</a>
             <% } %>
         </div>
     </div>
