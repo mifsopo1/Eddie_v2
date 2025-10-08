@@ -1913,3 +1913,513 @@ input:checked + .slider:before {
 .channel-list::-webkit-scrollbar-thumb:hover {
     background: #4752c4;
 }
+
+.attachments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.attachment-item {
+    background: #2c2c2c;
+    border-radius: 10px;
+    padding: 1.5rem;
+    border-left: 4px solid #5865f2;
+}
+
+.attachment-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+.file-icon {
+    font-size: 1.5rem;
+}
+
+.attachment-details {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.attachment-info {
+    color: #b9bbbe;
+}
+
+.attachment-info p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+}
+
+.attachment-info strong {
+    color: #dcddde;
+}
+
+.attachment-info a {
+    color: #00b0f4;
+    text-decoration: none;
+}
+
+.attachment-info a:hover {
+    text-decoration: underline;
+}
+
+.attachment-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 1rem;
+    max-height: 300px;
+    overflow: hidden;
+}
+
+.attachment-preview img {
+    max-width: 100%;
+    max-height: 250px;
+    border-radius: 5px;
+    object-fit: contain;
+}
+
+.attachment-preview a {
+    display: block;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    margin-right: 0.5rem;
+    color: white;
+    font-weight: bold;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .attachment-details {
+        grid-template-columns: 1fr;
+    }
+    
+    .attachment-preview {
+        max-height: 200px;
+    }
+}
+
+/* Active nav link */
+.nav-links a.active {
+    color: #5865f2;
+    border-bottom: 2px solid #5865f2;
+    padding-bottom: 3px;
+}
+
+/* User avatar inline styles */
+.user-avatar-inline {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+.event-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.event-header .user-avatar-inline {
+    flex-shrink: 0;
+}
+
+/* ============================================
+   ENHANCED MESSAGE DISPLAY
+   ============================================ */
+
+.message-content {
+    background: #1e1e1e;
+    padding: 0.75rem;
+    border-radius: 5px;
+    margin-top: 0.5rem;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.message-meta a {
+    color: #00b0f4;
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.message-meta a:hover {
+    text-decoration: underline;
+}
+
+/* Edit message styling */
+.edit-before {
+    background: #3a2d2d;
+    padding: 0.75rem;
+    border-radius: 5px;
+    margin-bottom: 0.5rem;
+    border-left: 3px solid #ed4245;
+}
+
+.edit-after {
+    background: #2d3a2d;
+    padding: 0.75rem;
+    border-radius: 5px;
+    border-left: 3px solid #43b581;
+}
+
+.edit-before strong,
+.edit-after strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+/* ============================================
+   INVITES PAGE STYLING
+   ============================================ */
+
+.invites-list {
+    background: #2c2c2c;
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.invite-item {
+    background: #383838;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border-radius: 8px;
+    border-left: 4px solid #00b0f4;
+    transition: all 0.3s;
+}
+
+.invite-item:hover {
+    background: #404040;
+    transform: translateX(5px);
+}
+
+.invite-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.invite-user a {
+    color: #00b0f4;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.05rem;
+}
+
+.invite-user a:hover {
+    text-decoration: underline;
+}
+
+.invite-time {
+    color: #72767d;
+    font-size: 0.85rem;
+    margin-left: auto;
+}
+
+.invite-details {
+    padding-left: 2rem;
+    color: #dcddde;
+}
+
+.invite-details p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+}
+
+.invite-details code {
+    background: #1e1e1e;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #faa61a;
+    font-family: 'Courier New', monospace;
+}
+
+/* ============================================
+   IMPROVED COMMANDS PAGE
+   ============================================ */
+
+.command-section {
+    background: #2c2c2c;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    background: #232323;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.3s;
+}
+
+.section-header:hover {
+    background: #2a2a2a;
+}
+
+.section-header h2 {
+    margin: 0;
+    color: #5865f2;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.toggle-icon {
+    font-size: 1rem;
+    transition: transform 0.3s;
+    display: inline-block;
+}
+
+.collapsed .toggle-icon {
+    transform: rotate(0deg);
+}
+
+.section-content {
+    padding: 1.5rem;
+}
+
+/* Command form improvements */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-card {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border-left: 4px solid #5865f2;
+}
+
+.form-card h3 {
+    margin: 0 0 1rem 0;
+    color: #5865f2;
+    font-size: 1.1rem;
+}
+
+/* Channel/Role selector improvements */
+.channel-selector {
+    background: #383838;
+    border-radius: 5px;
+    overflow: hidden;
+    max-height: 250px;
+}
+
+.channel-list {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.channel-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.channel-list::-webkit-scrollbar-track {
+    background: #2c2c2c;
+}
+
+.channel-list::-webkit-scrollbar-thumb {
+    background: #5865f2;
+    border-radius: 4px;
+}
+
+.channel-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.2s;
+}
+
+.channel-item:hover {
+    background: #40444b;
+}
+
+/* Command list improvements */
+.command-row {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #5865f2;
+    transition: all 0.3s;
+}
+
+.command-row:hover {
+    background: #232323;
+    transform: translateX(5px);
+    box-shadow: 0 4px 8px rgba(88, 101, 242, 0.3);
+}
+
+.command-row.disabled {
+    opacity: 0.6;
+    border-left-color: #72767d;
+}
+
+.command-name-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.command-name-row h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.3rem;
+}
+
+.command-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.command-desc {
+    color: #b9bbbe;
+    margin: 0.5rem 0;
+    font-size: 0.95rem;
+}
+
+.command-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-top: 0.75rem;
+}
+
+.detail-item {
+    color: #72767d;
+    font-size: 0.85rem;
+}
+
+.detail-item strong {
+    color: #dcddde;
+}
+
+/* Button improvements */
+.btn-icon {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #383838;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-icon:hover {
+    transform: scale(1.1);
+}
+
+.btn-icon.toggle:hover {
+    background: #faa61a;
+}
+
+.btn-icon.delete:hover {
+    background: #ed4245;
+}
+
+/* Filter buttons */
+.command-filters {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.filter-btn {
+    padding: 0.5rem 1rem;
+    background: #383838;
+    color: #b9bbbe;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+
+.filter-btn:hover {
+    background: #40444b;
+    color: #fff;
+}
+
+.filter-btn.active {
+    background: #5865f2;
+    color: white;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #72767d;
+}
+
+.empty-state p {
+    font-size: 1.1rem;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .command-details {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .attachment-details {
+        grid-template-columns: 1fr;
+    }
+}

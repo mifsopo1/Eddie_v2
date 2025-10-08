@@ -571,6 +571,26 @@ this.app.get('/analytics', this.requireAuth.bind(this), async (req, res) => {
 // CUSTOM COMMANDS PAGE
 // ============================================
 
+// Delete command route (GET method for easier clicking)
+this.app.get('/commands/delete/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const result = await this.mongoLogger.db.collection('customCommands')
+            .deleteOne({ _id: new ObjectId(req.params.id) });
+        
+        if (result.deletedCount > 0) {
+            req.flash('success', 'Command deleted successfully');
+        } else {
+            req.flash('error', 'Command not found');
+        }
+        res.redirect('/commands');
+    } catch (error) {
+        console.error('Delete command error:', error);
+        req.flash('error', 'Error deleting command');
+        res.redirect('/commands');
+    }
+});
+
 this.app.get('/commands', this.requireAuth.bind(this), async (req, res) => {
     try {
         const commands = await this.mongoLogger.db.collection('customCommands')

@@ -8,154 +8,160 @@
 </head>
 <body>
     <nav class="navbar">
-    <div class="nav-brand">
-        <h2>🤖 <%= client.user.tag %></h2>
-    </div>
-    <div class="nav-links">
-        <a href="/">Dashboard</a>
-        <a href="/messages">Messages</a>
-        <a href="/deleted">Deleted</a>
-        <a href="/members">Members</a>
-        <a href="/moderation">Moderation</a>
-        <a href="/attachments">Attachments</a>
-        <a href="/voice">Voice</a>
-        <a href="/invites">Invites</a>
-        <a href="/commands">Commands</a>
-        <a href="/analytics">Analytics</a>
-        <a href="/logout" class="logout">Logout</a>
-    </div>
-</nav>
+        <div class="nav-brand">
+            <h2>🤖 <%= client.user.tag %></h2>
+        </div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/messages">Messages</a>
+            <a href="/deleted">Deleted</a>
+            <a href="/members">Members</a>
+            <a href="/moderation">Moderation</a>
+            <a href="/attachments">Attachments</a>
+            <a href="/voice">Voice</a>
+            <a href="/invites">Invites</a>
+            <a href="/commands" class="active">Commands</a>
+            <a href="/analytics">Analytics</a>
+            <a href="/logout" class="logout">Logout</a>
+        </div>
+    </nav>
     
     <div class="container-fluid">
         <div class="commands-header">
             <h1>⚙️ Custom Commands</h1>
-            <button class="btn btn-primary" onclick="toggleCreateForm()">
-                ➕ Create New Command
+            <button onclick="toggleCreateForm()" class="btn btn-primary btn-large">
+                + Create New Command
             </button>
         </div>
-        
-        <% if (success && success.length > 0) { %>
-            <div class="success-message"><%= success %></div>
-        <% } %>
-        <% if (error && error.length > 0) { %>
-            <div class="error-message"><%= error %></div>
-        <% } %>
-        
-        <!-- Command Executor (Collapsible) -->
-        <div class="command-section collapsible">
-            <div class="section-header" onclick="toggleSection(this)">
-                <h2>💬 Execute Command</h2>
-                <span class="toggle-icon">▼</span>
+
+        <!-- Quick Execute Command -->
+        <div class="command-section" style="margin-bottom: 2rem;">
+            <div class="section-header">
+                <h2>⚡ Quick Execute</h2>
             </div>
             <div class="section-content">
-                <form id="executeForm" onsubmit="executeCommand(event)" class="executor-form">
+                <form onsubmit="executeCommand(event)" class="executor-form">
                     <select id="channelSelect" required>
                         <option value="">Select Channel...</option>
                     </select>
-                    <input type="text" id="commandInput" placeholder="Enter command or message" required>
-                    <button type="submit" class="btn btn-primary">Send</button>
+                    <input type="text" id="commandInput" placeholder="Enter command..." required>
+                    <button type="submit" class="btn">Execute</button>
                 </form>
                 <div id="executeResult"></div>
             </div>
         </div>
-        
-        <!-- Create New Command (Collapsible, Hidden by Default) -->
-        <div class="command-section collapsible collapsed" id="createCommandSection">
+
+        <!-- Create Command Form -->
+        <div class="command-section collapsed" id="createCommandSection">
             <div class="section-header" onclick="toggleSection(this)">
-                <h2>➕ Create Custom Command</h2>
-                <span class="toggle-icon">▶</span>
+                <h2><span class="toggle-icon">▶</span> Create New Command</h2>
             </div>
             <div class="section-content" style="display: none;">
-                <form method="POST" action="/commands/create" id="commandForm">
-                    
-                    <!-- Two Column Layout -->
+                <form method="POST" action="/commands/create">
                     <div class="form-grid">
-                        
                         <!-- Left Column -->
                         <div class="form-column">
-                            
-                            <!-- Basic Settings -->
+                            <!-- Basic Info -->
                             <div class="form-card">
-                                <h3>📋 Basic Settings</h3>
-                                
+                                <h3>📝 Basic Information</h3>
                                 <div class="form-group">
                                     <label>Command Name *</label>
                                     <input type="text" name="name" placeholder="My Command" required>
                                 </div>
                                 
-                                <div class="form-group-row">
-                                    <div class="form-group">
-                                        <label>Category</label>
-                                        <select name="category">
-                                            <option value="general">General</option>
-                                            <option value="fun">Fun</option>
-                                            <option value="moderation">Moderation</option>
-                                            <option value="info">Information</option>
-                                            <option value="utility">Utility</option>
-                                            <option value="custom">Custom</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label>Status</label>
-                                        <label class="switch">
-                                            <input type="checkbox" name="enabled" checked>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-                                
                                 <div class="form-group">
-                                    <label>Description</label>
-                                    <input type="text" name="description" placeholder="What does this command do?">
-                                </div>
-                            </div>
-                            
-                            <!-- Trigger Settings -->
-                            <div class="form-card">
-                                <h3>🎯 Trigger Settings</h3>
-                                
-                                <div class="form-group">
-                                    <label>Trigger Type</label>
-                                    <select name="triggerType" id="triggerType" onchange="updateTriggerHelp()">
-                                        <option value="command">Command (!trigger)</option>
-                                        <option value="exact">Exact Match</option>
-                                        <option value="contains">Contains Word</option>
-                                        <option value="startswith">Starts With</option>
-                                        <option value="regex">Regular Expression</option>
+                                    <label>Category</label>
+                                    <select name="category">
+                                        <option value="general">General</option>
+                                        <option value="fun">Fun</option>
+                                        <option value="moderation">Moderation</option>
+                                        <option value="info">Info</option>
+                                        <option value="utility">Utility</option>
+                                        <option value="custom">Custom</option>
                                     </select>
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label>Trigger(s) *</label>
-                                    <input type="text" name="trigger" id="triggerInput" placeholder="hello, hi, hey" required>
-                                    <small id="triggerHelp">Separate multiple triggers with commas</small>
+                                    <label>Description</label>
+                                    <textarea name="description" rows="2" placeholder="What does this command do?"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Trigger Settings -->
+                            <div class="form-card">
+                                <h3>🎯 Trigger Settings</h3>
+                                <div class="form-group">
+                                    <label>Trigger Type</label>
+                                    <select name="triggerType" id="triggerType" onchange="updateTriggerHelp()">
+                                        <option value="command">Command (!hello)</option>
+                                        <option value="exact">Exact Match</option>
+                                        <option value="contains">Contains Text</option>
+                                        <option value="startswith">Starts With</option>
+                                        <option value="regex">Regex Pattern</option>
+                                    </select>
+                                    <small id="triggerHelp">Don't include the prefix. Separate multiple with commas: hello, hi, hey</small>
                                 </div>
                                 
-                                <div class="form-group-row">
+                                <div class="form-group">
+                                    <label>Trigger Text *</label>
+                                    <input type="text" name="trigger" id="triggerInput" placeholder="hello, hi, hey" required>
+                                </div>
+                                
+                                <div class="form-group">
                                     <label class="checkbox-label">
                                         <input type="checkbox" name="caseSensitive">
                                         <span>Case Sensitive</span>
                                     </label>
-                                    
+                                </div>
+                                
+                                <div class="form-group">
                                     <label class="checkbox-label">
                                         <input type="checkbox" name="deleteTrigger">
                                         <span>Delete Trigger Message</span>
                                     </label>
                                 </div>
                             </div>
-                            
+
+                            <!-- Channel Restrictions -->
+                            <div class="form-card">
+                                <h3>📺 Channel Restrictions</h3>
+                                <div class="form-group">
+                                    <label>Allowed Channels</label>
+                                    <input type="text" id="allowedChannelsSearch" placeholder="Search channels..." onkeyup="filterChannels('allowedChannels')">
+                                    <div class="channel-selector">
+                                        <div class="channel-list" id="allowedChannelsList">
+                                            <label class="channel-item">
+                                                <input type="checkbox" name="allowedChannels" value="all" checked onchange="handleAllChannels('allowedChannels')">
+                                                <span><strong>All Channels</strong></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Ignored Channels</label>
+                                    <input type="text" id="ignoredChannelsSearch" placeholder="Search channels..." onkeyup="filterChannels('ignoredChannels')">
+                                    <div class="channel-selector">
+                                        <div class="channel-list" id="ignoredChannelsList">
+                                            <!-- Populated by JS -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div class="form-column">
                             <!-- Response Settings -->
                             <div class="form-card">
-                                <h3>💬 Response</h3>
-                                
+                                <h3>💬 Response Settings</h3>
                                 <div class="form-group">
                                     <label>Response Type</label>
                                     <select name="responseType" id="responseType" onchange="updateResponseType()">
                                         <option value="text">Text Message</option>
                                         <option value="embed">Embed</option>
+                                        <option value="react">Reaction Only</option>
                                         <option value="dm">Direct Message</option>
-                                        <option value="react">Add Reaction</option>
                                         <option value="multiple">Text + Reaction</option>
                                     </select>
                                 </div>
@@ -163,13 +169,13 @@
                                 <!-- Text Response -->
                                 <div id="textResponse" class="response-type-content">
                                     <div class="form-group">
-                                        <label>Message *</label>
-                                        <textarea name="response" rows="5" placeholder="Hello {user.mention}! Welcome to {server}!"></textarea>
+                                        <label>Message Content</label>
+                                        <textarea name="response" rows="4" placeholder="Hello {user}! Welcome to {server}"></textarea>
                                         <div class="variables-help">
-                                            <strong>Variables:</strong>
+                                            <strong>Available Variables:</strong>
                                             <code>{user}</code> <code>{user.mention}</code> <code>{user.id}</code>
-                                            <code>{channel}</code> <code>{channel.mention}</code> <code>{server}</code>
-                                            <code>{membercount}</code> <code>{args}</code> <code>{args.0}</code>
+                                            <code>{channel}</code> <code>{server}</code> <code>{membercount}</code>
+                                            <code>{args}</code> <code>{args.0}</code> <code>{args.1}</code>
                                         </div>
                                     </div>
                                 </div>
@@ -177,179 +183,145 @@
                                 <!-- Embed Response -->
                                 <div id="embedResponse" class="response-type-content" style="display: none;">
                                     <div class="form-group">
-                                        <label>Title</label>
-                                        <input type="text" name="embedTitle" placeholder="Embed Title">
+                                        <label>Embed Title</label>
+                                        <input type="text" name="embedTitle" placeholder="Welcome!">
                                     </div>
                                     <div class="form-group">
-                                        <label>Description</label>
-                                        <textarea name="embedDescription" rows="4" placeholder="Embed description"></textarea>
+                                        <label>Embed Description</label>
+                                        <textarea name="embedDescription" rows="4" placeholder="Welcome to {server}, {user}!"></textarea>
                                     </div>
                                     <div class="form-group-row">
                                         <div class="form-group">
-                                            <label>Color (hex)</label>
+                                            <label>Color</label>
                                             <input type="color" name="embedColor" value="#5865f2">
                                         </div>
                                         <div class="form-group">
-                                            <label>Footer</label>
-                                            <input type="text" name="embedFooter" placeholder="Footer text">
+                                            <label>Footer Text</label>
+                                            <input type="text" name="embedFooter" placeholder="Server Rules">
                                         </div>
                                     </div>
-                                    <div class="form-group">
-                                        <label>Image URL</label>
-                                        <input type="text" name="embedImage" placeholder="https://example.com/image.png">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Thumbnail URL</label>
-                                        <input type="text" name="embedThumbnail" placeholder="https://example.com/thumb.png">
+                                    <div class="form-group-row">
+                                        <div class="form-group">
+                                            <label>Image URL</label>
+                                            <input type="text" name="embedImage" placeholder="https://...">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Thumbnail URL</label>
+                                            <input type="text" name="embedThumbnail" placeholder="https://...">
+                                        </div>
                                     </div>
                                 </div>
                                 
                                 <!-- Reaction Response -->
                                 <div id="reactionResponse" class="response-type-content" style="display: none;">
                                     <div class="form-group">
-                                        <label>Emoji</label>
-                                        <input type="text" name="reactionEmoji" placeholder="✅ or :emoji_name:">
+                                        <label>Reaction Emoji</label>
+                                        <input type="text" name="reactionEmoji" placeholder="👍 or :custom_emoji:">
+                                        <small>Use Unicode emoji (👍) or custom emoji ID (:custom_emoji:)</small>
                                     </div>
                                 </div>
                             </div>
-                            
-                        </div>
-                        
-                        <!-- Right Column -->
-                        <div class="form-column">
-                            
-                            <!-- Channel Restrictions -->
-                            <div class="form-card">
-                                <h3>🔒 Channel Restrictions</h3>
-                                
-                                <div class="form-group">
-                                    <label>Allowed Channels</label>
-                                    <div class="channel-selector">
-                                        <div class="channel-search">
-                                            <input type="text" id="allowedChannelsSearch" placeholder="Search channels..." onkeyup="filterChannels('allowedChannels')">
-                                        </div>
-                                        <div class="channel-list" id="allowedChannelsList">
-                                            <label class="channel-item">
-                                                <input type="checkbox" name="allowedChannels" value="all" checked onchange="handleAllChannels('allowedChannels')">
-                                                <span>All Channels</span>
-                                            </label>
-                                            <!-- Channels loaded via JS -->
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label>Ignored Channels</label>
-                                    <div class="channel-selector">
-                                        <div class="channel-search">
-                                            <input type="text" id="ignoredChannelsSearch" placeholder="Search channels..." onkeyup="filterChannels('ignoredChannels')">
-                                        </div>
-                                        <div class="channel-list" id="ignoredChannelsList">
-                                            <!-- Channels loaded via JS -->
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
+
                             <!-- Role Restrictions -->
                             <div class="form-card">
-                                <h3>👥 Role Restrictions</h3>
-                                
+                                <h3>👤 Role Restrictions</h3>
                                 <div class="form-group">
                                     <label>Required Roles</label>
+                                    <input type="text" id="requiredRolesSearch" placeholder="Search roles..." onkeyup="filterChannels('requiredRoles')">
                                     <div class="channel-selector">
-                                        <div class="channel-search">
-                                            <input type="text" id="requiredRolesSearch" placeholder="Search roles..." onkeyup="filterChannels('requiredRoles')">
-                                        </div>
                                         <div class="channel-list" id="requiredRolesList">
                                             <label class="channel-item">
                                                 <input type="checkbox" name="requiredRoles" value="everyone" checked onchange="handleEveryoneRole('requiredRoles')">
-                                                <span>@everyone</span>
+                                                <span><strong>@everyone</strong></span>
                                             </label>
-                                            <!-- Roles loaded via JS -->
                                         </div>
                                     </div>
                                 </div>
                                 
                                 <div class="form-group">
                                     <label>Ignored Roles</label>
+                                    <input type="text" id="ignoredRolesSearch" placeholder="Search roles..." onkeyup="filterChannels('ignoredRoles')">
                                     <div class="channel-selector">
-                                        <div class="channel-search">
-                                            <input type="text" id="ignoredRolesSearch" placeholder="Search roles..." onkeyup="filterChannels('ignoredRoles')">
-                                        </div>
                                         <div class="channel-list" id="ignoredRolesList">
-                                            <!-- Roles loaded via JS -->
+                                            <!-- Populated by JS -->
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            
-                            <!-- Cooldowns -->
+
+                            <!-- Cooldowns & Limits -->
                             <div class="form-card">
-                                <h3>⏱️ Cooldowns</h3>
-                                
+                                <h3>⏱️ Cooldowns & Limits</h3>
                                 <div class="form-group-row">
                                     <div class="form-group">
-                                        <label>User (seconds)</label>
+                                        <label>User Cooldown (seconds)</label>
                                         <input type="number" name="userCooldown" value="0" min="0">
                                     </div>
                                     <div class="form-group">
-                                        <label>Channel (seconds)</label>
+                                        <label>Channel Cooldown (seconds)</label>
                                         <input type="number" name="channelCooldown" value="0" min="0">
                                     </div>
-                                    <div class="form-group">
-                                        <label>Server (seconds)</label>
-                                        <input type="number" name="serverCooldown" value="0" min="0">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Advanced Options -->
-                            <div class="form-card">
-                                <h3>⚙️ Advanced</h3>
-                                
-                                <div class="form-group">
-                                    <label>Usage Limit (0 = unlimited)</label>
-                                    <input type="number" name="usageLimit" value="0" min="0">
                                 </div>
                                 
                                 <div class="form-group-row">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" name="dmResponse">
-                                        <span>Send as DM</span>
-                                    </label>
-                                    
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" name="deleteAfter">
-                                        <span>Auto-delete after</span>
-                                    </label>
-                                    
-                                    <input type="number" name="deleteAfterSeconds" value="10" min="1" max="60" style="width: 80px;">
-                                    <span>sec</span>
+                                    <div class="form-group">
+                                        <label>Server Cooldown (seconds)</label>
+                                        <input type="number" name="serverCooldown" value="0" min="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Max Uses (0 = unlimited)</label>
+                                        <input type="number" name="usageLimit" value="0" min="0">
+                                    </div>
                                 </div>
                             </div>
-                            
+
+                            <!-- Additional Options -->
+                            <div class="form-card">
+                                <h3>⚙️ Additional Options</h3>
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="dmResponse">
+                                        <span>Send as Direct Message</span>
+                                    </label>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="deleteAfter">
+                                        <span>Auto-Delete Response</span>
+                                    </label>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Delete After (seconds)</label>
+                                    <input type="number" name="deleteAfterSeconds" value="10" min="1">
+                                    <small>Only if auto-delete is enabled</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="enabled" checked>
+                                        <span>Enabled</span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
-                        
                     </div>
                     
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary btn-large">
-                            ✅ Create Command
-                        </button>
-                        <button type="button" class="btn btn-secondary" onclick="toggleCreateForm()">
-                            ❌ Cancel
-                        </button>
+                        <button type="button" onclick="toggleCreateForm()" class="btn btn-secondary btn-large">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-large">💾 Create Command</button>
                     </div>
-                    
                 </form>
             </div>
         </div>
-        
+
         <!-- Existing Commands -->
         <div class="command-section">
             <div class="section-header">
-                <h2>📋 Custom Commands (<%= commands.length %>)</h2>
+                <h2>📋 Command List</h2>
+            </div>
+            <div class="section-content">
                 <div class="command-filters">
                     <button class="filter-btn active" onclick="filterCommands('all')">All</button>
                     <button class="filter-btn" onclick="filterCommands('general')">General</button>
@@ -359,26 +331,18 @@
                     <button class="filter-btn" onclick="filterCommands('utility')">Utility</button>
                     <button class="filter-btn" onclick="filterCommands('custom')">Custom</button>
                 </div>
-            </div>
-            
-            <div class="section-content">
-                <% if (commands.length === 0) { %>
-                    <div class="empty-state">
-                        <p>No custom commands yet. Create your first one above!</p>
-                    </div>
-                <% } else { %>
-                    <div class="commands-table">
+
+                <div class="commands-table">
+                    <% if (commands && commands.length > 0) { %>
                         <% commands.forEach(cmd => { %>
-                            <div class="command-row <%= cmd.enabled ? 'enabled' : 'disabled' %>" data-category="<%= cmd.category || 'general' %>">
+                            <div class="command-row <%= cmd.enabled ? '' : 'disabled' %>" data-category="<%= cmd.category || 'general' %>">
                                 <div class="command-main">
                                     <div class="command-info">
                                         <div class="command-name-row">
-                                            <h3><%= cmd.name || cmd.trigger %></h3>
-                                            <span class="command-badge <%= cmd.category || 'general' %>">
-                                                <%= (cmd.category || 'general').toUpperCase() %>
-                                            </span>
+                                            <h3><%= cmd.name %></h3>
+                                            <span class="command-badge <%= cmd.category || 'general' %>"><%= cmd.category || 'general' %></span>
                                             <span class="command-status <%= cmd.enabled ? 'enabled' : 'disabled' %>">
-                                                <%= cmd.enabled ? '✅ Enabled' : '❌ Disabled' %>
+                                                <%= cmd.enabled ? 'Enabled' : 'Disabled' %>
                                             </span>
                                         </div>
                                         
@@ -389,55 +353,43 @@
                                         <div class="command-details">
                                             <span class="detail-item">
                                                 <strong>Trigger:</strong> 
-                                                <% if (cmd.triggerType === 'command') { %>
-                                                    !<%= Array.isArray(cmd.trigger) ? cmd.trigger.join(', !') : cmd.trigger %>
-                                                <% } else { %>
-                                                    <%= cmd.triggerType %> - "<%= Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger %>"
-                                                <% } %>
+                                                <%= cmd.triggerType === 'command' ? '!' : '' %><%= Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger %>
                                             </span>
-                                            
                                             <span class="detail-item">
-                                                <strong>Type:</strong> <%= cmd.responseType || 'text' %>
+                                                <strong>Type:</strong> <%= cmd.responseType %>
                                             </span>
-                                            
                                             <span class="detail-item">
                                                 <strong>Uses:</strong> <%= cmd.uses || 0 %>
                                             </span>
-                                            
-                                            <% if (cmd.userCooldown > 0 || cmd.channelCooldown > 0 || cmd.serverCooldown > 0) { %>
+                                            <% if (cmd.usageLimit > 0) { %>
                                                 <span class="detail-item">
-                                                    <strong>Cooldown:</strong> 
-                                                    <% if (cmd.userCooldown > 0) { %><%= cmd.userCooldown %>s/user<% } %>
-                                                    <% if (cmd.channelCooldown > 0) { %><%= cmd.channelCooldown %>s/ch<% } %>
-                                                    <% if (cmd.serverCooldown > 0) { %><%= cmd.serverCooldown %>s/srv<% } %>
+                                                    <strong>Limit:</strong> <%= cmd.uses || 0 %>/<%= cmd.usageLimit %>
                                                 </span>
                                             <% } %>
                                         </div>
                                     </div>
                                     
                                     <div class="command-actions-row">
-                                        <button 
-                                            class="btn-icon toggle" 
-                                            onclick="toggleCommand('<%= cmd._id %>')"
-                                            title="<%= cmd.enabled ? 'Disable' : 'Enable' %>"
-                                        >
-                                            <%= cmd.enabled ? '👁️' : '🚫' %>
+                                        <button class="btn-icon toggle" onclick="toggleCommand('<%= cmd._id %>')" title="Toggle Enable/Disable">
+                                            <%= cmd.enabled ? '⏸️' : '▶️' %>
                                         </button>
-                                        <form method="POST" action="/commands/delete/<%= cmd._id %>" style="display: inline;">
-                                            <button type="submit" class="btn-icon delete" onclick="return confirm('Delete this command?')" title="Delete">                                                🗑️
-                                            </button>
-                                        </form>
+                                        <button class="btn-icon delete" onclick="if(confirm('Delete this command?')) { window.location.href='/commands/delete/<%= cmd._id %>' }" title="Delete Command">
+                                            🗑️
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         <% }); %>
-                    </div>
-                <% } %>
+                    <% } else { %>
+                        <div class="empty-state">
+                            <p>No custom commands yet. Create your first one!</p>
+                        </div>
+                    <% } %>
+                </div>
             </div>
         </div>
-        
     </div>
-    
+
     <script src="/js/commands.js"></script>
 </body>
 </html>

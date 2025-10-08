@@ -51,27 +51,41 @@
         </div>
         
         <div id="messages-tab" class="tab-content active">
-            <h2>Message History</h2>
-            <div class="messages-container">
-                <% messages.forEach(msg => { %>
-                    <div class="message-item <%= msg.eventType %>">
-                        <div class="message-header">
-                            <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
-                            <span class="message-channel">#<%= msg.channelName %></span>
-                            <span class="message-time"><%= new Date(msg.timestamp || msg.deletedTimestamp).toLocaleString() %></span>
-                        </div>
-                        <div class="message-content">
-                            <% if (msg.eventType === 'edit') { %>
-                                <div class="edit-before">Before: <%= msg.contentBefore %></div>
-                                <div class="edit-after">After: <%= msg.contentAfter %></div>
-                            <% } else { %>
-                                <%= msg.content || '[No content]' %>
-                            <% } %>
-                        </div>
+    <h2>💬 Message History</h2>
+    <div class="messages-container">
+        <% if (messages && messages.length > 0) { %>
+            <% messages.forEach(msg => { %>
+                <div class="message-item <%= msg.eventType %>">
+                    <div class="message-header">
+                        <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+                        <span class="message-channel">#<%= msg.channelName %></span>
+                        <span class="message-time"><%= new Date(msg.timestamp || msg.deletedTimestamp).toLocaleString() %></span>
                     </div>
-                <% }); %>
-            </div>
-        </div>
+                    <div class="message-content">
+                        <% if (msg.eventType === 'edit') { %>
+                            <div class="edit-before"><strong>Before:</strong> <%= msg.contentBefore || '[No content]' %></div>
+                            <div class="edit-after"><strong>After:</strong> <%= msg.contentAfter || '[No content]' %></div>
+                            <% if (msg.messageUrl) { %>
+                                <div class="message-meta">
+                                    <a href="<%= msg.messageUrl %>" target="_blank">Jump to Message →</a>
+                                </div>
+                            <% } %>
+                        <% } else if (msg.eventType === 'delete') { %>
+                            <%= msg.content || '[Content not cached]' %>
+                        <% } else { %>
+                            <%= msg.content || '[No text content]' %>
+                        <% } %>
+                        <% if (msg.attachmentCount > 0) { %>
+                            <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
+                        <% } %>
+                    </div>
+                </div>
+            <% }); %>
+        <% } else { %>
+            <p class="text-muted">No messages found for this user</p>
+        <% } %>
+    </div>
+</div>
         
         <div id="moderation-tab" class="tab-content">
             <h2>Moderation History</h2>

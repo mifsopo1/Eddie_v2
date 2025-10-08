@@ -1328,20 +1328,34 @@ client.on('guildMemberAdd', async member => {
     if (!logChannels.member) return;
     
     try {
+        console.log(`👤 New member joined: ${member.user.tag} (${member.id})`);
+        
+        // Fetch current invites
         const newInvites = await member.guild.invites.fetch();
-        const oldInvites = serverInvites.get(member.guild.id);
+        const oldInvites = serverInvites.get(member.guild.id) || new Map();
+        
+        console.log(`📊 Comparing invites - Old: ${oldInvites.size}, New: ${newInvites.size}`);
         
         let usedInvite = null;
-        for (const [code, uses] of newInvites) {
-            const oldUses = oldInvites?.get(code) || 0;
-            if (uses > oldUses) {
-                usedInvite = newInvites.get(code);
+        
+        // Compare invite usage
+        for (const [code, invite] of newInvites) {
+            const oldUses = oldInvites.get(code) || 0;
+            const newUses = invite.uses || 0;
+            
+            console.log(`🔍 Invite ${code}: Old uses: ${oldUses}, New uses: ${newUses}`);
+            
+            if (newUses > oldUses) {
+                usedInvite = invite;
+                console.log(`✅ Found used invite: ${code} by ${invite.inviter?.tag}`);
                 break;
             }
         }
         
+        // Update stored invites
         serverInvites.set(member.guild.id, new Map(newInvites.map(invite => [invite.code, invite.uses])));
         
+        // Create invite data object
         const inviteData = usedInvite ? {
             code: usedInvite.code,
             inviter: usedInvite.inviter?.username || 'Unknown',
@@ -1350,21 +1364,34 @@ client.on('guildMemberAdd', async member => {
             maxUses: usedInvite.maxUses,
             timestamp: Date.now(),
             guildId: member.guild.id
-        } : null;
+        } : {
+            code: 'unknown',
+            inviter: 'Unknown',
+            inviterId: 'Unknown',
+            uses: 0,
+            maxUses: 0,
+            timestamp: Date.now(),
+            guildId: member.guild.id
+        };
         
-        if (inviteData) {
-            memberInvites.set(member.id, inviteData);
-            saveMemberInvites();
-        }
+        // Save to file
+        memberInvites.set(member.id, inviteData);
+        saveMemberInvites();
+        console.log(`💾 Saved invite data for ${member.user.tag}`);
         
         // Log to MongoDB
         if (mongoLogger && mongoLogger.connected) {
             await mongoLogger.logMemberJoin(member, inviteData);
         }
         
+        // Calculate account age
+        const accountAge = Date.now() - member.user.createdTimestamp;
+        const accountAgeDays = Math.floor(accountAge / 86400000);
+        
+        // Create embed
         const embed = new EmbedBuilder()
-            .setColor('#00ff00')
-            .setTitle('Member Joined')
+            .setColor(accountAgeDays < 7 ? '#ff9900' : '#00ff00')
+            .setTitle('👋 Member Joined')
             .setThumbnail(member.user.displayAvatarURL())
             .addFields(
                 { name: 'User', value: `${member.user.tag}\n<@${member.id}>`, inline: true },
@@ -1372,10 +1399,26 @@ client.on('guildMemberAdd', async member => {
                 { name: 'Member Count', value: member.guild.memberCount.toString(), inline: true }
             );
         
+        // Add account age warning
+        if (accountAgeDays < 7) {
+            embed.addFields({
+                name: '⚠️ New Account',
+                value: `Account is only ${accountAgeDays} day${accountAgeDays === 1 ? '' : 's'} old`,
+                inline: false
+            });
+        }
+        
+        // Add invite info
         if (usedInvite) {
             embed.addFields({
-                name: 'Invited By',
+                name: '📨 Invited By',
                 value: `${usedInvite.inviter?.tag || 'Unknown'}\nCode: \`${usedInvite.code}\`\nUses: ${usedInvite.uses}${usedInvite.maxUses ? `/${usedInvite.maxUses}` : ''}`,
+                inline: false
+            });
+        } else {
+            embed.addFields({
+                name: '📨 Invite Info',
+                value: 'Could not determine invite used (may be vanity URL or widget)',
                 inline: false
             });
         }
@@ -1384,8 +1427,9 @@ client.on('guildMemberAdd', async member => {
         embed.setFooter({ text: `ID: ${member.id}` });
         
         await logChannels.member.send({ embeds: [embed] });
+        console.log(`✅ Logged member join to channel`);
     } catch (error) {
-        console.error('Error logging member join:', error);
+        console.error('❌ Error logging member join:', error);
     }
 });
 

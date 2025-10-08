@@ -8,76 +8,89 @@
 </head>
 <body>
     <nav class="navbar">
-    <div class="nav-brand">
-        <h2>🤖 <%= client.user.tag %></h2>
-    </div>
-    <div class="nav-links">
-        <a href="/">Dashboard</a>
-        <a href="/messages">Messages</a>
-        <a href="/deleted">Deleted</a>
-        <a href="/members">Members</a>
-        <a href="/moderation">Moderation</a>
-        <a href="/attachments">Attachments</a>
-        <a href="/voice">Voice</a>
-        <a href="/invites">Invites</a>
-        <a href="/commands">Commands</a>
-        <a href="/analytics">Analytics</a>
-        <a href="/logout" class="logout">Logout</a>
-    </div>
-</nav>
+        <div class="nav-brand">
+            <h2>🤖 <%= client.user.tag %></h2>
+        </div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/messages">Messages</a>
+            <a href="/deleted">Deleted</a>
+            <a href="/members">Members</a>
+            <a href="/moderation">Moderation</a>
+            <a href="/attachments">Attachments</a>
+            <a href="/voice">Voice</a>
+            <a href="/invites" class="active">Invites</a>
+            <a href="/commands">Commands</a>
+            <a href="/analytics">Analytics</a>
+            <a href="/logout" class="logout">Logout</a>
+        </div>
+    </nav>
     
     <div class="container">
-        <h1>🎫 Invite Tracking</h1>
+        <h1>📨 Invite Tracking</h1>
         
-        <div class="section">
-            <h2>📊 Top Inviters</h2>
+        <!-- Invite Leaderboard -->
+        <div class="leaderboard-section">
+            <h2>🏆 Top Inviters</h2>
             <div class="leaderboard">
-                <% inviteStats.forEach((stat, index) => { %>
-                    <div class="leaderboard-item rank-<%= index + 1 %>">
-                        <div class="rank-badge">#<%= index + 1 %></div>
-                        <div class="leaderboard-info">
-                            <div class="leaderboard-name"><%= stat.inviter %></div>
-                            <div class="leaderboard-stats">
-                                <span>Total Invites: <strong><%= stat.totalInvites %></strong></span>
+                <% if (inviteStats && inviteStats.length > 0) { %>
+                    <% inviteStats.forEach((stat, index) => { %>
+                        <div class="leaderboard-item rank-<%= index + 1 %>">
+                            <div class="rank-badge">#<%= index + 1 %></div>
+                            <div class="leaderboard-info">
+                                <div class="leaderboard-name"><%= stat.inviter %></div>
+                                <div class="leaderboard-stats">
+                                    <span>Code: <code><%= stat._id %></code></span>
+                                    <span>Total Invites: <strong><%= stat.uses %></strong></span>
+                                </div>
                             </div>
+                            <div class="leaderboard-bar" style="width: <%= (stat.uses / inviteStats[0].uses) * 100 %>%"></div>
                         </div>
-                        <div class="leaderboard-count"><%= stat.totalInvites %> invites</div>
-                    </div>
-                <% }); %>
+                    <% }); %>
+                <% } else { %>
+                    <p class="text-muted">No invite data yet</p>
+                <% } %>
             </div>
         </div>
         
-        <div class="section">
-            <h2>🆕 Recent Joins</h2>
+        <!-- Recent Invites -->
+        <div style="margin-top: 3rem;">
+            <h2>📋 Recent Invites</h2>
             <div class="invites-list">
-                <% recentInvites.forEach(invite => { %>
-                    <div class="invite-item">
-                        <div class="invite-header">
-                            <span class="invite-user">
-    <% if (invite.userAvatar) { %>
-        <img src="<%= invite.userAvatar %>" alt="<%= invite.userName %>" class="user-avatar-inline">
-    <% } %>
-    <a href="/user/<%= invite.userId %>"><%= invite.userName %></a>
-</span>
-                            <span class="invite-time">
-                                <%= new Date(invite.timestamp).toLocaleString() %>
-                            </span>
-                        </div>
-                        <div class="invite-details">
-                            <% if (invite.inviteData) { %>
-                                Invited by: <strong><%= invite.inviteData.inviter %></strong> 
-                                (Code: <code><%= invite.inviteData.code %></code>)
-                            <% } else { %>
-                                No invite data
-                            <% } %>
-                        </div>
-                        <% if (invite.accountAgeDays !== undefined) { %>
-                            <div class="invite-meta">
-                                Account age: <%= invite.accountAgeDays %> days
+                <% if (recentInvites && recentInvites.length > 0) { %>
+                    <% recentInvites.forEach(invite => { %>
+                        <div class="invite-item">
+                            <div class="invite-header">
+                                <% if (invite.userAvatar) { %>
+                                    <img src="<%= invite.userAvatar %>" alt="Avatar" class="user-avatar-inline">
+                                <% } %>
+                                <span class="invite-user">
+                                    <a href="/user/<%= invite.userId %>"><%= invite.userName %></a>
+                                </span>
+                                <span class="invite-time"><%= new Date(invite.timestamp).toLocaleString() %></span>
                             </div>
-                        <% } %>
-                    </div>
-                <% }); %>
+                            <div class="invite-details">
+                                <% if (invite.inviteData) { %>
+                                    <p><strong>📨 Invited by:</strong> <%= invite.inviteData.inviter %></p>
+                                    <p><strong>🎫 Code:</strong> <code><%= invite.inviteData.code %></code></p>
+                                    <p><strong>📊 Total uses:</strong> <%= invite.inviteData.uses %><%= invite.inviteData.maxUses ? `/${invite.inviteData.maxUses}` : '' %></p>
+                                <% } else { %>
+                                    <p class="text-muted">No invite data available</p>
+                                <% } %>
+                                <% if (invite.accountAgeDays !== undefined) { %>
+                                    <p><strong>📅 Account age:</strong> 
+                                        <%= invite.accountAgeDays %> day<%= invite.accountAgeDays === 1 ? '' : 's' %>
+                                        <% if (invite.accountAgeDays < 7) { %>
+                                            <span style="color: #ff9900;">⚠️ New account</span>
+                                        <% } %>
+                                    </p>
+                                <% } %>
+                            </div>
+                        </div>
+                    <% }); %>
+                <% } else { %>
+                    <p class="text-muted">No recent invites</p>
+                <% } %>
             </div>
         </div>
     </div>

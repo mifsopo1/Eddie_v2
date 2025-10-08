@@ -48,10 +48,10 @@
             <div class="message-item delete">
                 <div class="message-header">
                     <span class="message-type delete">DELETED</span>
+                    <% if (msg.userAvatar) { %>
+                        <img src="<%= msg.userAvatar %>" alt="Avatar" class="user-avatar-inline">
+                    <% } %>
                     <span class="message-user">
-                        <% if (msg.userAvatar) { %>
-                            <img src="<%= msg.userAvatar %>" alt="<%= msg.userName %>" class="user-avatar-inline">
-                        <% } %>
                         <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
                     </span>
                     <span class="message-channel">#<%= msg.channelName %></span>
@@ -60,20 +60,23 @@
                     </span>
                 </div>
                 <div class="message-content">
-                    <%= msg.content || '[No content]' %>
+                    <%= msg.content || '[Content not cached]' %>
                     <% if (msg.attachmentCount > 0) { %>
-                        <span class="attachment-badge">📎 <%= msg.attachmentCount %> (may be unavailable)</span>
+                        <span class="attachment-badge">📎 <%= msg.attachmentCount %> (deleted)</span>
                     <% } %>
                 </div>
                 <% if (msg.originalTimestamp) { %>
                     <div class="message-meta">
                         Originally sent: <%= new Date(msg.originalTimestamp).toLocaleString() %>
+                        <% if (msg.deletedTimestamp && msg.originalTimestamp) { %>
+                            (existed for <%= Math.floor((new Date(msg.deletedTimestamp) - new Date(msg.originalTimestamp)) / 60000) %> minutes)
+                        <% } %>
                     </div>
                 <% } %>
             </div>
         <% }); %>
     <% } else { %>
-        <p class="text-muted">No deleted messages found in this time range.</p>
+        <p class="text-muted">No deleted messages in this timeframe</p>
     <% } %>
 </div>
 </body>

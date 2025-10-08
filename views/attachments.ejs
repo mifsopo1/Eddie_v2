@@ -8,53 +8,53 @@
 </head>
 <body>
     <nav class="navbar">
-    <div class="nav-brand">
-        <h2>🤖 <%= client.user.tag %></h2>
-    </div>
-    <div class="nav-links">
-        <a href="/">Dashboard</a>
-        <a href="/messages">Messages</a>
-        <a href="/deleted">Deleted</a>
-        <a href="/members">Members</a>
-        <a href="/moderation">Moderation</a>
-        <a href="/attachments">Attachments</a>
-        <a href="/voice">Voice</a>
-        <a href="/invites">Invites</a>
-        <a href="/commands">Commands</a>
-        <a href="/analytics">Analytics</a>
-        <a href="/logout" class="logout">Logout</a>
-    </div>
-</nav>
+        <div class="nav-brand">
+            <h2>🤖 <%= client.user.tag %></h2>
+        </div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/messages">Messages</a>
+            <a href="/deleted">Deleted</a>
+            <a href="/members">Members</a>
+            <a href="/moderation">Moderation</a>
+            <a href="/attachments" class="active">Attachments</a>
+            <a href="/voice">Voice</a>
+            <a href="/invites">Invites</a>
+            <a href="/commands">Commands</a>
+            <a href="/analytics">Analytics</a>
+            <a href="/logout" class="logout">Logout</a>
+        </div>
+    </nav>
     
     <div class="container">
-        <h1>📎 Attachment Log</h1>
+        <h1>📎 Attachments</h1>
         
-        <div class="stats-grid">
+        <div class="stats-grid" style="margin-bottom: 2rem;">
             <div class="stat-card">
                 <div class="stat-icon">📎</div>
                 <div class="stat-info">
-                    <div class="stat-value"><%= stats.totalAttachments %></div>
-                    <div class="stat-label">Total Attachments</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">🖼️</div>
-                <div class="stat-info">
-                    <div class="stat-value"><%= stats.imageCount %></div>
-                    <div class="stat-label">Images</div>
+                    <div class="stat-value"><%= stats.totalAttachments || 0 %></div>
+                    <div class="stat-label">Total Files</div>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">💾</div>
                 <div class="stat-info">
-                    <div class="stat-value"><%= (stats.totalSize / 1024 / 1024).toFixed(2) %> MB</div>
+                    <div class="stat-value"><%= ((stats.totalSize || 0) / 1024 / 1024).toFixed(2) %> MB</div>
                     <div class="stat-label">Total Size</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🖼️</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.imageCount || 0 %></div>
+                    <div class="stat-label">Images</div>
                 </div>
             </div>
         </div>
         
         <div class="filter-box">
-            <label>File Type:</label>
+            <label>Filter by Type:</label>
             <select onchange="window.location='?type=' + this.value">
                 <option value="all" <%= fileType === 'all' ? 'selected' : '' %>>All Files</option>
                 <option value="image" <%= fileType === 'image' ? 'selected' : '' %>>Images</option>
@@ -64,43 +64,60 @@
             </select>
         </div>
         
-        <p class="result-count">Found <%= attachments.length %> attachments</p>
-        
-        <div class="attachments-grid">
-            <% attachments.forEach(att => { %>
-                <div class="attachment-card">
-                    <% if (att.contentType && att.contentType.startsWith('image/')) { %>
-                        <img src="<%= att.url %>" alt="<%= att.filename %>" class="attachment-preview">
-                    <% } else { %>
-                        <div class="attachment-icon">📄</div>
-                    <% } %>
-                    <div class="attachment-info">
-                        <div class="attachment-filename"><%= att.filename %></div>
-                        <div class="attachment-meta">
-                            <span><%= (att.size / 1024).toFixed(2) %> KB</span>
-                            <span><%= att.contentType || 'unknown' %></span>
+        <div class="attachments-list">
+            <% if (attachments && attachments.length > 0) { %>
+                <% attachments.forEach(att => { %>
+                    <div class="attachment-item">
+                        <div class="attachment-header">
+                            <% if (att.contentType && att.contentType.startsWith('image/')) { %>
+                                <span class="file-icon">🖼️</span>
+                            <% } else if (att.contentType && att.contentType.startsWith('video/')) { %>
+                                <span class="file-icon">🎥</span>
+                            <% } else if (att.contentType && att.contentType.startsWith('audio/')) { %>
+                                <span class="file-icon">🎵</span>
+                            <% } else { %>
+                                <span class="file-icon">📄</span>
+                            <% } %>
+                            <strong><%= att.filename %></strong>
                         </div>
-                        <div class="attachment-user">
-                            By: <a href="/user/<%= att.userId %>"><%= att.userName %></a>
+                        <div class="attachment-details">
+                            <div class="attachment-info">
+                                <p><strong>User:</strong> <a href="/user/<%= att.userId %>"><%= att.userName %></a></p>
+                                <p><strong>Channel:</strong> #<%= att.channelName %></p>
+                                <p><strong>Size:</strong> <%= (att.size / 1024).toFixed(2) %> KB</p>
+                                <p><strong>Type:</strong> <%= att.contentType || 'unknown' %></p>
+                                <p><strong>Uploaded:</strong> <%= new Date(att.timestamp).toLocaleString() %></p>
+                            </div>
+                            <% if (att.contentType && att.contentType.startsWith('image/')) { %>
+                                <div class="attachment-preview">
+                                    <a href="<%= att.url %>" target="_blank">
+                                        <img src="<%= att.proxyUrl || att.url %>" alt="<%= att.filename %>" loading="lazy">
+                                    </a>
+                                </div>
+                            <% } else { %>
+                                <div class="attachment-preview">
+                                    <a href="<%= att.url %>" target="_blank" class="btn">📥 Download</a>
+                                </div>
+                            <% } %>
                         </div>
-                        <div class="attachment-time">
-                            <%= new Date(att.timestamp).toLocaleString() %>
-                        </div>
-                        <a href="<%= att.url %>" target="_blank" class="btn btn-small">View</a>
                     </div>
-                </div>
-            <% }); %>
+                <% }); %>
+            <% } else { %>
+                <p class="text-muted">No attachments found</p>
+            <% } %>
         </div>
         
-        <div class="pagination">
-            <% if (currentPage > 1) { %>
-                <a href="?type=<%= fileType %>&page=<%= currentPage - 1 %>" class="btn">← Previous</a>
-            <% } %>
-            <span>Page <%= currentPage %> of <%= totalPages %></span>
-            <% if (currentPage < totalPages) { %>
-                <a href="?type=<%= fileType %>&page=<%= currentPage + 1 %>" class="btn">Next →</a>
-            <% } %>
-        </div>
+        <% if (totalPages > 1) { %>
+            <div class="pagination">
+                <% if (currentPage > 1) { %>
+                    <a href="?type=<%= fileType %>&page=<%= currentPage - 1 %>" class="btn">← Previous</a>
+                <% } %>
+                <span>Page <%= currentPage %> of <%= totalPages %></span>
+                <% if (currentPage < totalPages) { %>
+                    <a href="?type=<%= fileType %>&page=<%= currentPage + 1 %>" class="btn">Next →</a>
+                <% } %>
+            </div>
+        <% } %>
     </div>
 </body>
 </html>

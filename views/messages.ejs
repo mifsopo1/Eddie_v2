@@ -35,30 +35,40 @@
             <div class="message-item <%= msg.eventType %>">
                 <div class="message-header">
                     <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+                    <% if (msg.userAvatar) { %>
+                        <img src="<%= msg.userAvatar %>" alt="Avatar" class="user-avatar-inline">
+                    <% } %>
                     <span class="message-user">
-                        <% if (msg.userAvatar) { %>
-                            <img src="<%= msg.userAvatar %>" alt="<%= msg.userName %>" class="user-avatar-inline">
-                        <% } %>
                         <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
                     </span>
                     <span class="message-channel">#<%= msg.channelName %></span>
-                    <span class="message-time"><%= new Date(msg.timestamp).toLocaleString() %></span>
+                    <span class="message-time"><%= new Date(msg.timestamp || msg.deletedTimestamp).toLocaleString() %></span>
                 </div>
                 <div class="message-content">
                     <% if (msg.eventType === 'edit') { %>
-                        <div class="edit-before">Before: <%= msg.contentBefore || '[No content]' %></div>
-                        <div class="edit-after">After: <%= msg.contentAfter || '[No content]' %></div>
+                        <div class="edit-before"><strong>Before:</strong> <%= msg.contentBefore || '[No content]' %></div>
+                        <div class="edit-after"><strong>After:</strong> <%= msg.contentAfter || '[No content]' %></div>
+                    <% } else if (msg.eventType === 'delete') { %>
+                        <%= msg.content || '[Content not cached]' %>
                     <% } else { %>
-                        <%= msg.content || msg.contentAfter || '[No content]' %>
+                        <%= msg.content || '[No text content]' %>
                     <% } %>
                     <% if (msg.attachmentCount > 0) { %>
                         <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
                     <% } %>
+                    <% if (msg.embedCount > 0) { %>
+                        <span class="attachment-badge">📋 <%= msg.embedCount %> embed(s)</span>
+                    <% } %>
                 </div>
+                <% if (msg.messageUrl) { %>
+                    <div class="message-meta">
+                        <a href="<%= msg.messageUrl %>" target="_blank">Jump to Message →</a>
+                    </div>
+                <% } %>
             </div>
         <% }); %>
     <% } else { %>
-        <p class="text-muted">No messages found.</p>
+        <p class="text-muted">No messages found</p>
     <% } %>
 </div>
         
