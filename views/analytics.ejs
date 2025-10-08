@@ -8,24 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <nav class="navbar">
-    <div class="nav-brand">
-        <h2>🤖 <%= client.user.tag %></h2>
-    </div>
-    <div class="nav-links">
-        <a href="/">Dashboard</a>
-        <a href="/messages">Messages</a>
-        <a href="/deleted">Deleted</a>
-        <a href="/members">Members</a>
-        <a href="/moderation">Moderation</a>
-        <a href="/attachments">Attachments</a>
-        <a href="/voice">Voice</a>
-        <a href="/invites">Invites</a>
-        <a href="/commands">Commands</a>
-        <a href="/analytics">Analytics</a>
-        <a href="/logout" class="logout">Logout</a>
-    </div>
-</nav>
+    <%- include('partials/navbar') %>
     
     <div class="container">
         <h1>📊 Server Analytics</h1>
@@ -93,15 +76,17 @@
             <div class="leaderboard">
                 <% topUsers.forEach((user, index) => { %>
                     <div class="leaderboard-item rank-<%= index + 1 %>">
-    <div class="rank-badge">#<%= index + 1 %></div>
-    <% if (user.userAvatar) { %>
-        <img src="<%= user.userAvatar %>" alt="<%= user.userName %>" class="leaderboard-avatar">
-    <% } %>
-    <div class="leaderboard-info">
-        <a href="/user/<%= user.userId %>" class="leaderboard-name"><%= user.userName %></a>
-        <!-- rest -->
-    </div>
-</div>
+                        <div class="rank-badge">#<%= index + 1 %></div>
+                        <% if (user.userAvatar) { %>
+                            <img src="<%= user.userAvatar %>" alt="<%= user.userName %>" class="leaderboard-avatar">
+                        <% } %>
+                        <div class="leaderboard-info">
+                            <a href="/user/<%= user.userId %>" class="leaderboard-name"><%= user.userName %></a>
+                            <div class="leaderboard-stats">
+                                <span><%= user.messageCount %> messages</span>
+                            </div>
+                        </div>
+                    </div>
                 <% }); %>
             </div>
         </div>
@@ -110,13 +95,15 @@
         <div class="channels-section">
             <h2>📺 Most Active Channels (Last 7 Days)</h2>
             <div class="channels-grid">
-                <% analytics.channels?.topChannels.forEach(channel => { %>
-                    <div class="channel-card">
-                        <div class="channel-name">#<%= channel.channelName %></div>
-                        <div class="channel-count"><%= channel.count.toLocaleString() %> messages</div>
-                        <div class="channel-bar" style="width: <%= (channel.count / analytics.channels.topChannels[0].count * 100) %>%"></div>
-                    </div>
-                <% }); %>
+                <% if (analytics.channels?.topChannels) { %>
+                    <% analytics.channels.topChannels.forEach(channel => { %>
+                        <div class="channel-card">
+                            <div class="channel-name">#<%= channel.channelName %></div>
+                            <div class="channel-count"><%= channel.count.toLocaleString() %> messages</div>
+                            <div class="channel-bar" style="width: <%= (channel.count / analytics.channels.topChannels[0].count * 100) %>%"></div>
+                        </div>
+                    <% }); %>
+                <% } %>
             </div>
         </div>
         

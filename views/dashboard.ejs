@@ -8,23 +8,73 @@
 </head>
 <body>
     <nav class="navbar">
-    <div class="nav-brand">
-        <h2>🤖 <%= client.user.tag %></h2>
-    </div>
-    <div class="nav-links">
-        <a href="/">Dashboard</a>
-        <a href="/messages">Messages</a>
-        <a href="/deleted">Deleted</a>
-        <a href="/members">Members</a>
-        <a href="/moderation">Moderation</a>
-        <a href="/attachments">Attachments</a>
-        <a href="/voice">Voice</a>
-        <a href="/invites">Invites</a>
-        <a href="/commands">Commands</a>
-        <a href="/analytics">Analytics</a>
-        <a href="/logout" class="logout">Logout</a>
-    </div>
-</nav>
+        <div class="nav-brand">
+            <img src="<%= client.user.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
+            <div class="bot-info">
+                <h2>Eddie's Logger</h2>
+                <span class="bot-status">Online • Monitoring</span>
+            </div>
+        </div>
+        
+        <div class="nav-center">
+            <div class="nav-links">
+                <a href="/" class="<%= page === 'dashboard' ? 'active' : '' %>">
+                    <span class="nav-icon">📊</span> Dashboard
+                </a>
+                <a href="/messages" class="<%= page === 'messages' ? 'active' : '' %>">
+                    <span class="nav-icon">💬</span> Messages
+                </a>
+                <a href="/deleted" class="<%= page === 'deleted' ? 'active' : '' %>">
+                    <span class="nav-icon">🗑️</span> Deleted
+                </a>
+                <a href="/members" class="<%= page === 'members' ? 'active' : '' %>">
+                    <span class="nav-icon">👥</span> Members
+                </a>
+                <a href="/moderation" class="<%= page === 'moderation' ? 'active' : '' %>">
+                    <span class="nav-icon">🔨</span> Moderation
+                </a>
+                <a href="/attachments" class="<%= page === 'attachments' ? 'active' : '' %>">
+                    <span class="nav-icon">📎</span> Attachments
+                </a>
+                <a href="/voice" class="<%= page === 'voice' ? 'active' : '' %>">
+                    <span class="nav-icon">🔊</span> Voice
+                </a>
+                <a href="/invites" class="<%= page === 'invites' ? 'active' : '' %>">
+                    <span class="nav-icon">🎫</span> Invites
+                </a>
+                <a href="/commands" class="<%= page === 'commands' ? 'active' : '' %>">
+                    <span class="nav-icon">⚙️</span> Commands
+                </a>
+                <a href="/analytics" class="<%= page === 'analytics' ? 'active' : '' %>">
+                    <span class="nav-icon">📈</span> Analytics
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-user">
+            <% if (user) { %>
+                <div class="user-profile">
+                    <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
+                    <div class="user-details">
+                        <span class="user-name"><%= user.username %></span>
+                        <span class="user-badge admin">Admin</span>
+                    </div>
+                </div>
+            <% } else { %>
+                <div class="user-profile">
+                    <div class="user-avatar-placeholder">👤</div>
+                    <div class="user-details">
+                        <span class="user-name">Admin</span>
+                        <span class="user-badge password">Password Auth</span>
+                    </div>
+                </div>
+            <% } %>
+            
+            <a href="/logout" class="logout-btn" title="Logout">
+                <span class="nav-icon">🚪</span>
+            </a>
+        </div>
+    </nav>
     
     <div class="container">
         <h1>📊 Dashboard Overview</h1>
@@ -74,45 +124,44 @@
                     <% } else { %>
                         <div class="stat-value">N/A</div>
                         <div class="stat-label">Disk Space</div>
-                        <div class="stat-change">Unable to fetch disk info</div>
                     <% } %>
                 </div>
             </div>
         </div>
         
         <h2>📝 Recent Messages</h2>
-<div class="messages-container">
-    <% if (recentMessages && recentMessages.length > 0) { %>
-        <% recentMessages.forEach(msg => { %>
-            <div class="message-item <%= msg.eventType %>">
-                <div class="message-header">
-                    <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
-                    <% if (msg.userAvatar) { %>
-                        <img src="<%= msg.userAvatar %>" alt="Avatar" class="user-avatar-inline">
-                    <% } %>
-                    <span class="message-user">
-                        <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
-                    </span>
-                    <span class="message-channel">#<%= msg.channelName %></span>
-                    <span class="message-time"><%= new Date(msg.timestamp).toLocaleString() %></span>
-                </div>
-                <div class="message-content">
-                    <% if (msg.eventType === 'edit') { %>
-                        <div class="edit-before"><strong>Before:</strong> <%= msg.contentBefore %></div>
-                        <div class="edit-after"><strong>After:</strong> <%= msg.contentAfter %></div>
-                    <% } else { %>
-                        <%= msg.content || msg.contentAfter || '[No content]' %>
-                    <% } %>
-                    <% if (msg.attachmentCount > 0) { %>
-                        <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
-                    <% } %>
-                </div>
-            </div>
-        <% }); %>
-    <% } else { %>
-        <p class="text-muted">No messages logged yet</p>
-    <% } %>
-</div>
+        <div class="messages-container">
+            <% if (recentMessages && recentMessages.length > 0) { %>
+                <% recentMessages.forEach(msg => { %>
+                    <div class="message-item <%= msg.eventType %>">
+                        <div class="message-header">
+                            <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+                            <% if (msg.userAvatar) { %>
+                                <img src="<%= msg.userAvatar %>" alt="Avatar" class="user-avatar-inline">
+                            <% } %>
+                            <span class="message-user">
+                                <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
+                            </span>
+                            <span class="message-channel">#<%= msg.channelName %></span>
+                            <span class="message-time"><%= new Date(msg.timestamp).toLocaleString() %></span>
+                        </div>
+                        <div class="message-content">
+                            <% if (msg.eventType === 'edit') { %>
+                                <div class="edit-before"><strong>Before:</strong> <%= msg.contentBefore %></div>
+                                <div class="edit-after"><strong>After:</strong> <%= msg.contentAfter %></div>
+                            <% } else { %>
+                                <%= msg.content || msg.contentAfter || '[No content]' %>
+                            <% } %>
+                            <% if (msg.attachmentCount > 0) { %>
+                                <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
+                            <% } %>
+                        </div>
+                    </div>
+                <% }); %>
+            <% } else { %>
+                <p class="text-muted">No messages logged yet</p>
+            <% } %>
+        </div>
         
         <div class="view-more">
             <a href="/messages" class="btn btn-primary">View All Messages →</a>

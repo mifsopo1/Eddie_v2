@@ -7,27 +7,10 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">
-            <h2>🤖 <%= client.user.tag %></h2>
-        </div>
-        <div class="nav-links">
-            <a href="/">Dashboard</a>
-            <a href="/messages">Messages</a>
-            <a href="/deleted">Deleted</a>
-            <a href="/members">Members</a>
-            <a href="/moderation">Moderation</a>
-            <a href="/attachments">Attachments</a>
-            <a href="/voice">Voice</a>
-            <a href="/invites" class="active">Invites</a>
-            <a href="/commands">Commands</a>
-            <a href="/analytics">Analytics</a>
-            <a href="/logout" class="logout">Logout</a>
-        </div>
-    </nav>
+    <%- include('partials/navbar') %>
     
     <div class="container">
-        <h1>📨 Invite Tracking</h1>
+        <h1>🎫 Invite Tracking</h1>
         
         <!-- Invite Leaderboard -->
         <div class="leaderboard-section">
@@ -41,10 +24,10 @@
                                 <div class="leaderboard-name"><%= stat.inviter %></div>
                                 <div class="leaderboard-stats">
                                     <span>Code: <code><%= stat._id %></code></span>
-                                    <span>Total Invites: <strong><%= stat.uses %></strong></span>
+                                    <span>Total Invites: <strong><%= stat.uses || stat.totalInvites %></strong></span>
                                 </div>
                             </div>
-                            <div class="leaderboard-bar" style="width: <%= (stat.uses / inviteStats[0].uses) * 100 %>%"></div>
+                            <div class="leaderboard-bar" style="width: <%= (stat.uses || stat.totalInvites) / (inviteStats[0].uses || inviteStats[0].totalInvites) * 100 %>%"></div>
                         </div>
                     <% }); %>
                 <% } else { %>
@@ -71,8 +54,8 @@
                             </div>
                             <div class="invite-details">
                                 <% if (invite.inviteData) { %>
-                                    <p><strong>📨 Invited by:</strong> <%= invite.inviteData.inviter %></p>
-                                    <p><strong>🎫 Code:</strong> <code><%= invite.inviteData.code %></code></p>
+                                    <p><strong>🎫 Invited by:</strong> <%= invite.inviteData.inviter %></p>
+                                    <p><strong>🎟️ Code:</strong> <code><%= invite.inviteData.code %></code></p>
                                     <p><strong>📊 Total uses:</strong> <%= invite.inviteData.uses %><%= invite.inviteData.maxUses ? `/${invite.inviteData.maxUses}` : '' %></p>
                                 <% } else { %>
                                     <p class="text-muted">No invite data available</p>

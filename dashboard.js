@@ -48,9 +48,15 @@ class Dashboard {
         this.app.set('view engine', 'ejs');
         this.app.set('views', path.join(__dirname, 'views'));
         
-        // Make user available to all templates
+        // Make user and flash messages available to all templates
         this.app.use((req, res, next) => {
-            res.locals.user = req.user;
+            // Pass Discord OAuth user OR null for password auth
+            if (req.user) {
+                res.locals.user = req.user;
+            } else {
+                res.locals.user = null;
+            }
+            
             res.locals.success = req.flash('success');
             res.locals.error = req.flash('error');
             next();
@@ -115,7 +121,6 @@ class Dashboard {
     }
 
     requireAuth(req, res, next) {
-        // Allow both OAuth and password login
         if (req.isAuthenticated() || (req.session && req.session.passwordAuth)) {
             return next();
         }
@@ -135,7 +140,6 @@ class Dashboard {
         // AUTH ROUTES
         // ============================================
         
-        // Login page
         this.app.get('/login', (req, res) => {
             if (req.isAuthenticated() || req.session.passwordAuth) {
                 return res.redirect('/');
@@ -146,7 +150,6 @@ class Dashboard {
             });
         });
 
-        // Password login (fallback)
         this.app.post('/login', async (req, res) => {
             const { password } = req.body;
             
@@ -162,7 +165,6 @@ class Dashboard {
             }
         });
 
-        // Discord OAuth routes
         if (this.config.dashboard.oauth?.enabled) {
             this.app.get('/auth/discord', 
                 passport.authenticate('discord', { scope: ['identify', 'guilds'] })
@@ -180,7 +182,6 @@ class Dashboard {
             );
         }
 
-        // Logout
         this.app.get('/logout', (req, res) => {
             req.logout(() => {});
             req.session.destroy();
@@ -192,38 +193,38 @@ class Dashboard {
         // ============================================
         
         this.app.get('/', this.requireAuth.bind(this), async (req, res) => {
-    try {
-        const stats = await this.mongoLogger.getStats();
-        const recentMessages = await this.mongoLogger.getRecentMessages(50);
-        
-        // Get disk space
-        const { execSync } = require('child_process');
-        let diskSpace = null;
-        try {
-            const output = execSync('df -h /var/lib/jenkins/discord-logger-bot | tail -1').toString();
-            const parts = output.split(/\s+/);
-            diskSpace = {
-                total: parts[1],
-                used: parts[2],
-                available: parts[3],
-                percentage: parts[4]
-            };
-        } catch (error) {
-            console.error('Error getting disk space:', error);
-        }
-        
-        res.render('dashboard', {
-            client: this.client,
-            stats: stats || {},
-            recentMessages: recentMessages || [],
-            diskSpace: diskSpace
-        });
-    } catch (error) {
-        console.error('Dashboard error:', error);
-        req.flash('error', 'Error loading dashboard');
-        res.redirect('/login');
-    }
+            try {
+                const stats = await this.mongoLogger.getStats();
+                const recentMessages = await this.mongoLogger.getRecentMessages(50);
+                
+                const { execSync } = require('child_process');
+                let diskSpace = null;
+                try {
+                    const output = execSync('df -h /var/lib/jenkins/discord-logger-bot | tail -1').toString();
+                    const parts = output.split(/\s+/);
+                    diskSpace = {
+                        total: parts[1],
+                        used: parts[2],
+                        available: parts[3],
+                        percentage: parts[4]
+                    };
+                } catch (error) {
+                    console.error('Error getting disk space:', error);
+                }
+                
+                res.render('dashboard', {
+    client: this.client,
+    stats: stats || {},
+    recentMessages: recentMessages || [],
+    diskSpace: diskSpace,
+    page: 'dashboard'  // <-- This line is critical!
 });
+            } catch (error) {
+                console.error('Dashboard error:', error);
+                req.flash('error', 'Error loading dashboard');
+                res.redirect('/login');
+            }
+        });
 
         // ============================================
         // MESSAGES PAGE
@@ -249,7 +250,8 @@ class Dashboard {
                     messages,
                     currentPage: page,
                     totalPages,
-                    client: this.client
+                    client: this.client,
+                    page: 'messages'
                 });
             } catch (error) {
                 console.error('Messages page error:', error);
@@ -269,7 +271,8 @@ class Dashboard {
                 res.render('deleted', {
                     messages,
                     hours,
-                    client: this.client
+                    client: this.client,
+                    page: 'deleted'
                 });
             } catch (error) {
                 console.error('Deleted messages error:', error);
@@ -304,32 +307,12 @@ class Dashboard {
                     messages,
                     moderationHistory,
                     memberData,
-                    client: this.client
+                    client: this.client,
+                    page: 'user'
                 });
             } catch (error) {
                 console.error('User lookup error:', error);
                 res.status(500).send('Error loading user data');
-            }
-        });
-
-        // ============================================
-        // INVITE TRACKING PAGE
-        // ============================================
-        
-        this.app.get('/invites', this.requireAuth.bind(this), async (req, res) => {
-            try {
-                const inviteStats = await this.getInviteLeaderboard();
-                const recentInvites = await this.getRecentInvites(50);
-                
-                res.render('invites', {
-                    client: this.client,
-                    inviteStats: inviteStats,
-                    recentInvites: recentInvites
-                });
-            } catch (error) {
-                console.error('Invites page error:', error);
-                req.flash('error', 'Error loading invites');
-                res.redirect('/');
             }
         });
 
@@ -366,7 +349,8 @@ class Dashboard {
                     events,
                     eventType,
                     currentPage: page,
-                    totalPages
+                    totalPages,
+                    page: 'members'
                 });
             } catch (error) {
                 console.error('Members page error:', error);
@@ -410,7 +394,8 @@ class Dashboard {
                     stats,
                     actionType,
                     currentPage: page,
-                    totalPages
+                    totalPages,
+                    page: 'moderation'
                 });
             } catch (error) {
                 console.error('Moderation page error:', error);
@@ -462,7 +447,8 @@ class Dashboard {
                     stats,
                     fileType,
                     currentPage: page,
-                    totalPages
+                    totalPages,
+                    page: 'attachments'
                 });
             } catch (error) {
                 console.error('Attachments page error:', error);
@@ -504,7 +490,8 @@ class Dashboard {
                     events,
                     actionType,
                     currentPage: page,
-                    totalPages
+                    totalPages,
+                    page: 'voice'
                 });
             } catch (error) {
                 console.error('Voice page error:', error);
@@ -513,390 +500,221 @@ class Dashboard {
             }
         });
 
-// Analytics page
-this.app.get('/analytics', this.requireAuth.bind(this), async (req, res) => {
-    try {
-        if (!this.mongoLogger || !this.mongoLogger.connected) {
-            return res.status(500).send('MongoDB not connected. <a href="/">Go back</a>');
-        }
+        // ============================================
+        // INVITES PAGE
+        // ============================================
         
-        // Get analytics data with fallbacks
-        let analytics = {};
-        let topUsers = [];
-        let inviteStats = [];
-        let timeline = [];
-        let attachmentStats = {};
-        let newAccounts = [];
-        
-        try {
-            analytics = await this.mongoLogger.getServerAnalytics() || {};
-        } catch (e) {
-            console.log('getServerAnalytics error:', e.message);
-        }
-        
-        try {
-            topUsers = await this.mongoLogger.getTopUsers(7, 15) || [];
-        } catch (e) {
-            console.log('getTopUsers error:', e.message);
-        }
-        
-        try {
-            inviteStats = await this.mongoLogger.getInviteStats() || [];
-        } catch (e) {
-            console.log('getInviteStats error:', e.message);
-        }
-        
-        try {
-            timeline = await this.mongoLogger.getMessageTimeline(14) || [];
-        } catch (e) {
-            console.log('getMessageTimeline error:', e.message);
-        }
-        
-        try {
-            attachmentStats = await this.mongoLogger.getAttachmentStats() || {};
-        } catch (e) {
-            console.log('getAttachmentStats error:', e.message);
-        }
-        
-        try {
-            newAccounts = await this.mongoLogger.getNewAccountJoins(7) || [];
-        } catch (e) {
-            console.log('getNewAccountJoins error:', e.message);
-        }
-        
-        res.render('analytics', {
-            analytics: analytics,
-            topUsers: topUsers,
-            inviteStats: inviteStats,
-            timeline: timeline,
-            attachmentStats: attachmentStats,
-            newAccounts: newAccounts,
-            client: this.client
+        this.app.get('/invites', this.requireAuth.bind(this), async (req, res) => {
+            try {
+                const inviteStats = await this.getInviteLeaderboard();
+                const recentInvites = await this.getRecentInvites(50);
+                
+                res.render('invites', {
+                    client: this.client,
+                    inviteStats: inviteStats,
+                    recentInvites: recentInvites,
+                    page: 'invites'
+                });
+            } catch (error) {
+                console.error('Invites page error:', error);
+                req.flash('error', 'Error loading invites');
+                res.redirect('/');
+            }
         });
-    } catch (error) {
-        console.error('Analytics page error:', error);
-        res.status(500).send(`
-            <h1>Error Loading Analytics</h1>
-            <p>${error.message}</p>
-            <pre>${error.stack}</pre>
-            <a href="/">Go back</a>
-        `);
-    }
-});
-
-// Execute command manually
-this.app.post('/execute', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const { channelId, command } = req.body;
-        
-        if (!channelId || !command) {
-            return res.json({ success: false, error: 'Missing channel or command' });
-        }
-        
-        // Get the channel
-        const channel = await this.client.channels.fetch(channelId).catch(() => null);
-        
-        if (!channel) {
-            return res.json({ success: false, error: 'Channel not found' });
-        }
-        
-        if (!channel.isTextBased()) {
-            return res.json({ success: false, error: 'Channel is not a text channel' });
-        }
-        
-        // Send the command
-        await channel.send(command);
-        
-        res.json({ 
-            success: true, 
-            message: `Command executed in #${channel.name}` 
-        });
-        
-    } catch (error) {
-        console.error('Execute command error:', error);
-        res.json({ 
-            success: false, 
-            error: error.message || 'Failed to execute command' 
-        });
-    }
-});
 
         // ============================================
-// CUSTOM COMMANDS PAGE
-// ============================================
-
-// Delete command route (GET method for easier clicking)
-// In your dashboard.js or routes file
-app.get('/commands', isAuthenticated, async (req, res) => {
-    try {
-        const commands = await mongoLogger.db.collection('customCommands')
-            .find({})
-            .toArray();
+        // ANALYTICS PAGE
+        // ============================================
         
-        const channels = client.guilds.cache.first().channels.cache
-            .filter(ch => ch.type === 0) // Text channels only
-            .map(ch => ({ id: ch.id, name: ch.name }));
-        
-        res.render('commands', {
-            client: client,
-            commands: commands,
-            channels: channels
+        this.app.get('/analytics', this.requireAuth.bind(this), async (req, res) => {
+            try {
+                if (!this.mongoLogger || !this.mongoLogger.connected) {
+                    return res.status(500).send('MongoDB not connected. <a href="/">Go back</a>');
+                }
+                
+                let analytics = {};
+                let topUsers = [];
+                let inviteStats = [];
+                let timeline = [];
+                let attachmentStats = {};
+                let newAccounts = [];
+                
+                try { analytics = await this.mongoLogger.getServerAnalytics() || {}; } catch (e) {}
+                try { topUsers = await this.mongoLogger.getTopUsers(7, 15) || []; } catch (e) {}
+                try { inviteStats = await this.mongoLogger.getInviteStats() || []; } catch (e) {}
+                try { timeline = await this.mongoLogger.getMessageTimeline(14) || []; } catch (e) {}
+                try { attachmentStats = await this.mongoLogger.getAttachmentStats() || {}; } catch (e) {}
+                try { newAccounts = await this.mongoLogger.getNewAccountJoins(7) || []; } catch (e) {}
+                
+                res.render('analytics', {
+                    analytics,
+                    topUsers,
+                    inviteStats,
+                    timeline,
+                    attachmentStats,
+                    newAccounts,
+                    client: this.client,
+                    page: 'analytics'
+                });
+            } catch (error) {
+                console.error('Analytics page error:', error);
+                res.status(500).send(`Error Loading Analytics: ${error.message}`);
+            }
         });
-    } catch (error) {
-        console.error('Error loading commands page:', error);
-        res.render('commands', {
-            client: client,
-            commands: [],
-            channels: [],
-            error: 'Failed to load commands'
-        });
-    }
-});
-
-this.app.get('/commands', this.requireAuth.bind(this), async (req, res) => {
-    try {
-        const commands = await this.mongoLogger.db.collection('customCommands')
-            .find({})
-            .sort({ category: 1, trigger: 1 })
-            .toArray();
-        
-        res.render('commands', {
-            client: this.client,
-            commands: commands || []
-        });
-    } catch (error) {
-        console.error('Commands page error:', error);
-        req.flash('error', 'Error loading commands');
-        res.redirect('/');
-    }
-});
-
-// Create custom command (ADVANCED)
-this.app.post('/commands/create', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const {
-            name,
-            category,
-            description,
-            triggerType,
-            trigger,
-            caseSensitive,
-            deleteTrigger,
-            allowedChannels,
-            ignoredChannels,
-            requiredRoles,
-            ignoredRoles,
-            responseType,
-            response,
-            embedTitle,
-            embedDescription,
-            embedColor,
-            embedFooter,
-            embedImage,
-            embedThumbnail,
-            reactionEmoji,
-            userCooldown,
-            channelCooldown,
-            serverCooldown,
-            usageLimit,
-            dmResponse,
-            deleteAfter,
-            deleteAfterSeconds,
-            enabled
-        } = req.body;
-        
-        // Parse triggers (comma-separated)
-        const triggers = trigger.split(',').map(t => t.trim().toLowerCase());
-        
-        const command = {
-            name: name,
-            category: category || 'general',
-            description: description || '',
-            triggerType: triggerType || 'command',
-            trigger: triggers.length === 1 ? triggers[0] : triggers,
-            caseSensitive: caseSensitive === 'on',
-            deleteTrigger: deleteTrigger === 'on',
-            
-            // Channel & Role restrictions
-            allowedChannels: Array.isArray(allowedChannels) ? allowedChannels : [allowedChannels || 'all'],
-            ignoredChannels: Array.isArray(ignoredChannels) ? ignoredChannels : (ignoredChannels ? [ignoredChannels] : []),
-            requiredRoles: Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles || 'everyone'],
-            ignoredRoles: Array.isArray(ignoredRoles) ? ignoredRoles : (ignoredRoles ? [ignoredRoles] : []),
-            
-            // Response settings
-            responseType: responseType || 'text',
-            response: response || '',
-            
-            // Embed settings
-            embedTitle: embedTitle || '',
-            embedDescription: embedDescription || '',
-            embedColor: embedColor || '#5865f2',
-            embedFooter: embedFooter || '',
-            embedImage: embedImage || '',
-            embedThumbnail: embedThumbnail || '',
-            
-            // Reaction settings
-            reactionEmoji: reactionEmoji || '',
-            
-            // Cooldowns
-            userCooldown: parseInt(userCooldown) || 0,
-            channelCooldown: parseInt(channelCooldown) || 0,
-            serverCooldown: parseInt(serverCooldown) || 0,
-            
-            // Advanced settings
-            usageLimit: parseInt(usageLimit) || 0,
-            dmResponse: dmResponse === 'on',
-            deleteAfter: deleteAfter === 'on',
-            deleteAfterSeconds: parseInt(deleteAfterSeconds) || 10,
-            
-            enabled: enabled === 'on',
-            createdBy: req.user?.id || 'admin',
-            createdAt: new Date(),
-            uses: 0
-        };
-        
-        await this.mongoLogger.db.collection('customCommands').insertOne(command);
-        
-        req.flash('success', `Command "${name}" created!`);
-        res.redirect('/commands');
-    } catch (error) {
-        console.error('Create command error:', error);
-        req.flash('error', 'Error creating command: ' + error.message);
-        res.redirect('/commands');
-    }
-});
-
-// Delete custom command
-this.app.post('/commands/delete/:id', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const { ObjectId } = require('mongodb');
-        await this.mongoLogger.db.collection('customCommands')
-            .deleteOne({ _id: new ObjectId(req.params.id) });
-        
-        req.flash('success', 'Command deleted');
-        res.redirect('/commands');
-    } catch (error) {
-        console.error('Delete command error:', error);
-        req.flash('error', 'Error deleting command');
-        res.redirect('/commands');
-    }
-});
-
-// Toggle command status
-this.app.post('/commands/toggle/:id', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const { ObjectId } = require('mongodb');
-        const command = await this.mongoLogger.db.collection('customCommands')
-            .findOne({ _id: new ObjectId(req.params.id) });
-        
-        await this.mongoLogger.db.collection('customCommands')
-            .updateOne(
-                { _id: new ObjectId(req.params.id) },
-                { $set: { enabled: !command.enabled } }
-            );
-        
-        res.json({ success: true, enabled: !command.enabled });
-    } catch (error) {
-        console.error('Toggle command error:', error);
-        res.json({ success: false, error: error.message });
-    }
-});
-
-// Get roles API
-this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
-    try {
-        const guild = this.client.guilds.cache.first();
-        
-        if (!guild) {
-            return res.json({ success: false, error: 'No guild found' });
-        }
-        
-        // Fetch all roles to ensure we get everything
-        await guild.roles.fetch();
-        
-        const roles = guild.roles.cache
-            .filter(r => r.name !== '@everyone')
-            .map(r => ({
-                id: r.id,
-                name: r.name,
-                color: r.hexColor,
-                position: r.position
-            }))
-            .sort((a, b) => b.position - a.position);
-        
-        console.log(`✅ Loaded ${roles.length} roles for API`);
-        
-        res.json({ success: true, roles });
-    } catch (error) {
-        console.error('Error fetching roles:', error);
-        res.json({ success: false, error: error.message });
-    }
-});
 
         // ============================================
-        // API - STATS
+        // COMMANDS PAGE
         // ============================================
-        // Get all channels
-this.app.get('/api/channels', this.requireAuth.bind(this), async (req, res) => {
-    try {
-        const guild = this.client.guilds.cache.first();
         
-        if (!guild) {
-            return res.json({ success: false, error: 'No guild found' });
-        }
-        
-        await guild.channels.fetch();
-        
-        const channels = guild.channels.cache
-            .filter(c => c.isTextBased() && c.type !== 4)
-            .map(c => ({
-                id: c.id,
-                name: c.name,
-                type: c.type,
-                position: c.position
-            }))
-            .sort((a, b) => a.position - b.position);
-        
-        res.json({ success: true, channels });
-    } catch (error) {
-        console.error('Error fetching channels:', error);
-        res.json({ success: false, error: error.message });
-    }
-});
+        this.app.get('/commands', this.requireAuth.bind(this), async (req, res) => {
+            try {
+                const commands = await this.mongoLogger.db.collection('customCommands')
+                    .find({})
+                    .sort({ category: 1, trigger: 1 })
+                    .toArray();
+                
+                res.render('commands', {
+                    client: this.client,
+                    commands: commands || [],
+                    page: 'commands'
+                });
+            } catch (error) {
+                console.error('Commands page error:', error);
+                req.flash('error', 'Error loading commands');
+                res.redirect('/');
+            }
+        });
 
-// Get all roles
-this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
-    try {
-        const guild = this.client.guilds.cache.first();
+        // ============================================
+        // COMMAND ACTIONS
+        // ============================================
         
-        if (!guild) {
-            return res.json({ success: false, error: 'No guild found' });
-        }
+        this.app.post('/execute', this.requireAdmin.bind(this), async (req, res) => {
+            try {
+                const { channelId, command } = req.body;
+                
+                if (!channelId || !command) {
+                    return res.json({ success: false, error: 'Missing channel or command' });
+                }
+                
+                const channel = await this.client.channels.fetch(channelId).catch(() => null);
+                
+                if (!channel || !channel.isTextBased()) {
+                    return res.json({ success: false, error: 'Invalid channel' });
+                }
+                
+                await channel.send(command);
+                res.json({ success: true, message: `Command executed in #${channel.name}` });
+            } catch (error) {
+                console.error('Execute command error:', error);
+                res.json({ success: false, error: error.message });
+            }
+        });
+
+        this.app.post('/commands/create', this.requireAdmin.bind(this), async (req, res) => {
+            try {
+                const triggers = req.body.trigger.split(',').map(t => t.trim().toLowerCase());
+                
+                const command = {
+                    name: req.body.name,
+                    category: req.body.category || 'general',
+                    description: req.body.description || '',
+                    triggerType: req.body.triggerType || 'command',
+                    trigger: triggers.length === 1 ? triggers[0] : triggers,
+                    responseType: req.body.responseType || 'text',
+                    response: req.body.response || '',
+                    enabled: req.body.enabled === 'on',
+                    deleteTrigger: req.body.deleteTrigger === 'on',
+                    createdBy: req.user?.id || 'admin',
+                    createdAt: new Date(),
+                    uses: 0
+                };
+                
+                await this.mongoLogger.db.collection('customCommands').insertOne(command);
+                req.flash('success', `Command "${req.body.name}" created!`);
+                res.redirect('/commands');
+            } catch (error) {
+                console.error('Create command error:', error);
+                req.flash('error', 'Error creating command');
+                res.redirect('/commands');
+            }
+        });
+
+        this.app.get('/commands/delete/:id', this.requireAdmin.bind(this), async (req, res) => {
+            try {
+                const { ObjectId } = require('mongodb');
+                await this.mongoLogger.db.collection('customCommands')
+                    .deleteOne({ _id: new ObjectId(req.params.id) });
+                req.flash('success', 'Command deleted');
+                res.redirect('/commands');
+            } catch (error) {
+                console.error('Delete command error:', error);
+                req.flash('error', 'Error deleting command');
+                res.redirect('/commands');
+            }
+        });
+
+        this.app.post('/commands/toggle/:id', this.requireAdmin.bind(this), async (req, res) => {
+            try {
+                const { ObjectId } = require('mongodb');
+                const command = await this.mongoLogger.db.collection('customCommands')
+                    .findOne({ _id: new ObjectId(req.params.id) });
+                
+                await this.mongoLogger.db.collection('customCommands')
+                    .updateOne(
+                        { _id: new ObjectId(req.params.id) },
+                        { $set: { enabled: !command.enabled } }
+                    );
+                
+                res.json({ success: true, enabled: !command.enabled });
+            } catch (error) {
+                res.json({ success: false, error: error.message });
+            }
+        });
+
+        // ============================================
+        // API ROUTES
+        // ============================================
         
-        await guild.roles.fetch();
-        
-        const roles = guild.roles.cache
-            .filter(r => r.name !== '@everyone')
-            .map(r => ({
-                id: r.id,
-                name: r.name,
-                color: r.hexColor,
-                position: r.position
-            }))
-            .sort((a, b) => b.position - a.position);
-        
-        res.json({ success: true, roles });
-    } catch (error) {
-        console.error('Error fetching roles:', error);
-        res.json({ success: false, error: error.message });
-    }
-});
+        this.app.get('/api/channels', this.requireAuth.bind(this), async (req, res) => {
+            try {
+                const guild = this.client.guilds.cache.first();
+                if (!guild) return res.json({ success: false, error: 'No guild found' });
+                
+                await guild.channels.fetch();
+                const channels = guild.channels.cache
+                    .filter(c => c.isTextBased() && c.type !== 4)
+                    .map(c => ({ id: c.id, name: c.name, type: c.type, position: c.position }))
+                    .sort((a, b) => a.position - b.position);
+                
+                res.json({ success: true, channels });
+            } catch (error) {
+                res.json({ success: false, error: error.message });
+            }
+        });
+
+        this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
+            try {
+                const guild = this.client.guilds.cache.first();
+                if (!guild) return res.json({ success: false, error: 'No guild found' });
+                
+                await guild.roles.fetch();
+                const roles = guild.roles.cache
+                    .filter(r => r.name !== '@everyone')
+                    .map(r => ({ id: r.id, name: r.name, color: r.hexColor, position: r.position }))
+                    .sort((a, b) => b.position - a.position);
+                
+                res.json({ success: true, roles });
+            } catch (error) {
+                res.json({ success: false, error: error.message });
+            }
+        });
+
         this.app.get('/api/stats', this.requireAuth.bind(this), async (req, res) => {
             try {
                 const stats = await this.mongoLogger.getStats();
                 res.json({ success: true, stats });
             } catch (error) {
-                console.error('Stats API error:', error);
                 res.json({ success: false, error: error.message });
             }
         });
@@ -908,7 +726,7 @@ this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
     
     async getInviteLeaderboard() {
         try {
-            const inviteData = await this.mongoLogger.db.collection('members').aggregate([
+            return await this.mongoLogger.db.collection('members').aggregate([
                 { 
                     $match: { 
                         eventType: 'join',
@@ -932,8 +750,6 @@ this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
                 { $sort: { totalInvites: -1 } },
                 { $limit: 50 }
             ]).toArray();
-            
-            return inviteData;
         } catch (error) {
             console.error('Error getting invite leaderboard:', error);
             return [];
@@ -942,7 +758,7 @@ this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
 
     async getRecentInvites(limit = 50) {
         try {
-            const recentInvites = await this.mongoLogger.db.collection('members')
+            return await this.mongoLogger.db.collection('members')
                 .find({ 
                     eventType: 'join',
                     'inviteData.code': { $exists: true }
@@ -950,8 +766,6 @@ this.app.get('/api/roles', this.requireAuth.bind(this), async (req, res) => {
                 .sort({ timestamp: -1 })
                 .limit(limit)
                 .toArray();
-            
-            return recentInvites;
         } catch (error) {
             console.error('Error getting recent invites:', error);
             return [];

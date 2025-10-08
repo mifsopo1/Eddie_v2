@@ -7,24 +7,7 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <nav class="navbar">
-    <div class="nav-brand">
-        <h2>🤖 <%= client.user.tag %></h2>
-    </div>
-    <div class="nav-links">
-        <a href="/">Dashboard</a>
-        <a href="/messages">Messages</a>
-        <a href="/deleted">Deleted</a>
-        <a href="/members">Members</a>
-        <a href="/moderation">Moderation</a>
-        <a href="/attachments">Attachments</a>
-        <a href="/voice">Voice</a>
-        <a href="/invites">Invites</a>
-        <a href="/commands">Commands</a>
-        <a href="/analytics">Analytics</a>
-        <a href="/logout" class="logout">Logout</a>
-    </div>
-</nav>
+    <%- include('partials/navbar') %>
     
     <div class="container">
         <div class="user-profile">
@@ -45,50 +28,50 @@
         </div>
         
         <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('messages')">Messages (<%= messages.length %>)</button>
-            <button class="tab-btn" onclick="showTab('moderation')">Mod History (<%= moderationHistory.length %>)</button>
-            <button class="tab-btn" onclick="showTab('member')">Member Data (<%= memberData.length %>)</button>
+            <button class="tab active" onclick="showTab('messages')">Messages (<%= messages.length %>)</button>
+            <button class="tab" onclick="showTab('moderation')">Mod History (<%= moderationHistory.length %>)</button>
+            <button class="tab" onclick="showTab('member')">Member Data (<%= memberData.length %>)</button>
         </div>
         
         <div id="messages-tab" class="tab-content active">
-    <h2>💬 Message History</h2>
-    <div class="messages-container">
-        <% if (messages && messages.length > 0) { %>
-            <% messages.forEach(msg => { %>
-                <div class="message-item <%= msg.eventType %>">
-                    <div class="message-header">
-                        <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
-                        <span class="message-channel">#<%= msg.channelName %></span>
-                        <span class="message-time"><%= new Date(msg.timestamp || msg.deletedTimestamp).toLocaleString() %></span>
-                    </div>
-                    <div class="message-content">
-                        <% if (msg.eventType === 'edit') { %>
-                            <div class="edit-before"><strong>Before:</strong> <%= msg.contentBefore || '[No content]' %></div>
-                            <div class="edit-after"><strong>After:</strong> <%= msg.contentAfter || '[No content]' %></div>
-                            <% if (msg.messageUrl) { %>
-                                <div class="message-meta">
-                                    <a href="<%= msg.messageUrl %>" target="_blank">Jump to Message →</a>
-                                </div>
-                            <% } %>
-                        <% } else if (msg.eventType === 'delete') { %>
-                            <%= msg.content || '[Content not cached]' %>
-                        <% } else { %>
-                            <%= msg.content || '[No text content]' %>
-                        <% } %>
-                        <% if (msg.attachmentCount > 0) { %>
-                            <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
-                        <% } %>
-                    </div>
-                </div>
-            <% }); %>
-        <% } else { %>
-            <p class="text-muted">No messages found for this user</p>
-        <% } %>
-    </div>
-</div>
+            <h2>💬 Message History</h2>
+            <div class="messages-container">
+                <% if (messages && messages.length > 0) { %>
+                    <% messages.forEach(msg => { %>
+                        <div class="message-item <%= msg.eventType %>">
+                            <div class="message-header">
+                                <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+                                <span class="message-channel">#<%= msg.channelName %></span>
+                                <span class="message-time"><%= new Date(msg.timestamp || msg.deletedTimestamp).toLocaleString() %></span>
+                            </div>
+                            <div class="message-content">
+                                <% if (msg.eventType === 'edit') { %>
+                                    <div class="edit-before"><strong>Before:</strong> <%= msg.contentBefore || '[No content]' %></div>
+                                    <div class="edit-after"><strong>After:</strong> <%= msg.contentAfter || '[No content]' %></div>
+                                    <% if (msg.messageUrl) { %>
+                                        <div class="message-meta">
+                                            <a href="<%= msg.messageUrl %>" target="_blank">Jump to Message →</a>
+                                        </div>
+                                    <% } %>
+                                <% } else if (msg.eventType === 'delete') { %>
+                                    <%= msg.content || '[Content not cached]' %>
+                                <% } else { %>
+                                    <%= msg.content || '[No text content]' %>
+                                <% } %>
+                                <% if (msg.attachmentCount > 0) { %>
+                                    <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
+                                <% } %>
+                            </div>
+                        </div>
+                    <% }); %>
+                <% } else { %>
+                    <p class="text-muted">No messages found for this user</p>
+                <% } %>
+            </div>
+        </div>
         
         <div id="moderation-tab" class="tab-content">
-            <h2>Moderation History</h2>
+            <h2>🔨 Moderation History</h2>
             <% if (moderationHistory.length === 0) { %>
                 <p class="text-muted">No moderation actions on record</p>
             <% } else { %>
@@ -114,7 +97,7 @@
         </div>
         
         <div id="member-tab" class="tab-content">
-            <h2>Member Activity</h2>
+            <h2>👥 Member Activity</h2>
             <div class="member-events">
                 <% memberData.forEach(event => { %>
                     <div class="member-event <%= event.eventType %>">
@@ -139,7 +122,7 @@
     <script>
         function showTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
             
             document.getElementById(tabName + '-tab').classList.add('active');
             event.target.classList.add('active');
