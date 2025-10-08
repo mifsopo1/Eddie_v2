@@ -1,0 +1,18 @@
+<nav class="navbar">
+    <div class="nav-brand">
+        <h2>🤖 <%= typeof client !== 'undefined' ? client.user.tag : 'Discord Logger' %></h2>
+    </div>
+    <div class="nav-links">
+        <a href="/">Dashboard</a>
+        <a href="/messages">Messages</a>
+        <a href="/deleted">Deleted</a>
+        <a href="/members">Members</a>
+        <a href="/moderation">Moderation</a>
+        <a href="/attachments">Attachments</a>
+        <a href="/voice">Voice</a>
+        <a href="/invites">Invites</a>
+        <a href="/commands" class="active">Commands</a>
+        <a href="/analytics">Analytics</a>
+        <a href="/logout" class="logout">Logout</a>
+    </div>
+</nav>

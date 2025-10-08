@@ -626,22 +626,30 @@ this.app.post('/execute', this.requireAdmin.bind(this), async (req, res) => {
 // ============================================
 
 // Delete command route (GET method for easier clicking)
-this.app.get('/commands/delete/:id', this.requireAdmin.bind(this), async (req, res) => {
+// In your dashboard.js or routes file
+app.get('/commands', isAuthenticated, async (req, res) => {
     try {
-        const { ObjectId } = require('mongodb');
-        const result = await this.mongoLogger.db.collection('customCommands')
-            .deleteOne({ _id: new ObjectId(req.params.id) });
+        const commands = await mongoLogger.db.collection('customCommands')
+            .find({})
+            .toArray();
         
-        if (result.deletedCount > 0) {
-            req.flash('success', 'Command deleted successfully');
-        } else {
-            req.flash('error', 'Command not found');
-        }
-        res.redirect('/commands');
+        const channels = client.guilds.cache.first().channels.cache
+            .filter(ch => ch.type === 0) // Text channels only
+            .map(ch => ({ id: ch.id, name: ch.name }));
+        
+        res.render('commands', {
+            client: client,
+            commands: commands,
+            channels: channels
+        });
     } catch (error) {
-        console.error('Delete command error:', error);
-        req.flash('error', 'Error deleting command');
-        res.redirect('/commands');
+        console.error('Error loading commands page:', error);
+        res.render('commands', {
+            client: client,
+            commands: [],
+            channels: [],
+            error: 'Failed to load commands'
+        });
     }
 });
 

@@ -127,6 +127,11 @@ async function executeCommand(event) {
     const command = document.getElementById('commandInput').value;
     const resultDiv = document.getElementById('executeResult');
     
+    if (!channelId || !command) {
+        resultDiv.innerHTML = '<div class="error-message">❌ Please select a channel and enter a command</div>';
+        return;
+    }
+    
     resultDiv.innerHTML = '<div class="loading">Executing...</div>';
     
     try {
@@ -135,6 +140,11 @@ async function executeCommand(event) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ channelId, command })
         });
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Server returned non-JSON response');
+        }
         
         const data = await response.json();
         
@@ -145,8 +155,9 @@ async function executeCommand(event) {
             resultDiv.innerHTML = `<div class="error-message">❌ ${data.error}</div>`;
         }
         
-        setTimeout(() => { resultDiv.innerHTML = ''; }, 3000);
+        setTimeout(() => { resultDiv.innerHTML = ''; }, 5000);
     } catch (error) {
+        console.error('Execute error:', error);
         resultDiv.innerHTML = `<div class="error-message">❌ ${error.message}</div>`;
     }
 }
