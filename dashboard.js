@@ -36,12 +36,12 @@ class Dashboard {
             }
         }));
         
-        this.app.use(express.static('public'));
+        // Set static files path
+        this.app.use(express.static(path.join(__dirname, 'public')));
         
-        // EJS Configuration
+        // Set view engine with absolute path
         this.app.set('view engine', 'ejs');
         this.app.set('views', path.join(__dirname, 'views'));
-        this.app.engine('ejs', require('ejs').__express);
     }
 
     requireAuth(req, res, next) {
