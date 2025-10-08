@@ -3,6 +3,7 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const bcrypt = require('bcrypt');
 const path = require('path');
+const ejs = require('ejs');
 
 class Dashboard {
     constructor(client, mongoLogger, config) {
@@ -36,12 +37,12 @@ class Dashboard {
             }
         }));
         
-        // Set static files path
-        this.app.use(express.static(path.join(__dirname, 'public')));
-        
-        // Set view engine with absolute path
+        this.app.use(express.static('public'));
+
+        // EJS Configuration
         this.app.set('view engine', 'ejs');
         this.app.set('views', path.join(__dirname, 'views'));
+        this.app.engine('ejs', ejs.renderFile);
     }
 
     requireAuth(req, res, next) {
