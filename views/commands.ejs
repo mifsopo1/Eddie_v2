@@ -737,7 +737,106 @@
             </form>
         </div>
     </div>
-
+    <!-- Edit Ruleset Modal -->
+<div id="editRulesetModal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+            <h2 style="color: #fff; margin: 0;">✏️ Edit AutoMod Ruleset</h2>
+            <span class="close" onclick="window.commandsApp.closeEditRulesetModal()">&times;</span>
+        </div>
+        <form id="editRulesetForm" onsubmit="window.commandsApp.updateRuleset(event)">
+            <input type="hidden" id="editRulesetId" name="rulesetId">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Ruleset Name *</label>
+                    <input type="text" name="name" id="editRulesetName" required placeholder="Anti-Spam">
+                </div>
+                <div class="form-group">
+                    <label>Priority</label>
+                    <select name="priority" id="editRulesetPriority">
+                        <option value="high">🔴 High</option>
+                        <option value="medium">🟡 Medium</option>
+                        <option value="low">🟢 Low</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" id="editRulesetDescription" rows="2" placeholder="What does this ruleset do?"></textarea>
+            </div>
+            
+            <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1.5rem 0; padding-top: 1.5rem;">
+                <h3 style="color: #fff; margin-bottom: 1rem;">🎯 Trigger Conditions</h3>
+                
+                <div class="form-group">
+                    <label>Trigger Type *</label>
+                    <select name="triggerType" id="editRulesetTriggerType" onchange="window.commandsApp.updateEditRulesetTriggerFields()" required>
+                        <option value="">Select trigger type...</option>
+                        <option value="spam">💬 Spam Detection (rapid messages)</option>
+                        <option value="links">🔗 Link Filter (URLs & invites)</option>
+                        <option value="words">🚫 Banned Words</option>
+                        <option value="mentions">👥 Excessive Mentions</option>
+                        <option value="caps">🔠 Caps Lock Abuse</option>
+                        <option value="attachments">📎 Attachment Limits</option>
+                    </select>
+                </div>
+                
+                <div id="editTriggerConfigFields" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                    <p style="color: rgba(255,255,255,0.6);">Select a trigger type to configure</p>
+                </div>
+            </div>
+            
+            <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1.5rem 0; padding-top: 1.5rem;">
+                <h3 style="color: #fff; margin-bottom: 1rem;">⚡ Actions</h3>
+                
+                <div class="form-group">
+                    <label>Action Type *</label>
+                    <select name="actionType" id="editRulesetActionType" onchange="window.commandsApp.updateEditRulesetActionFields()" required>
+                        <option value="">Select action...</option>
+                        <option value="delete">🗑️ Delete Message</option>
+                        <option value="warn">⚠️ Warn User</option>
+                        <option value="timeout">⏰ Timeout User</option>
+                        <option value="kick">👢 Kick User</option>
+                        <option value="ban">🔨 Ban User</option>
+                    </select>
+                </div>
+                
+                <div id="editActionConfigFields" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                    <p style="color: rgba(255,255,255,0.6);">Select an action type to configure</p>
+                </div>
+            </div>
+            
+            <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1.5rem 0; padding-top: 1.5rem;">
+                <h3 style="color: #fff; margin-bottom: 1rem;">🛡️ Exclusions</h3>
+                
+                <div class="form-group">
+                    <label>Excluded Roles (comma-separated IDs)</label>
+                    <input type="text" name="excludedRoles" id="editExcludedRoles" placeholder="123456789, 987654321">
+                    <small>Users with these roles will be exempt</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Excluded Channels (comma-separated IDs)</label>
+                    <input type="text" name="excludedChannels" id="editExcludedChannels" placeholder="123456789, 987654321">
+                    <small>Rule won't apply in these channels</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Whitelisted Domains (for link filters, comma-separated)</label>
+                    <input type="text" name="whitelistedDomains" id="editWhitelistedDomains" placeholder="youtube.com, twitter.com">
+                    <small>These domains will be allowed through link filters</small>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button type="button" onclick="window.commandsApp.closeEditRulesetModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
     <!-- Edit Command Modal -->
     <div id="editModal" class="modal">
         <div class="modal-content">
@@ -1756,9 +1855,357 @@
         },
         
         editRuleset: async function(rulesetId) {
-            alert('Edit ruleset feature coming soon!\n\nRuleset ID: ' + rulesetId);
-            // TODO: Implement edit functionality
-        },
+    try {
+        const response = await fetch(`/api/automod/rulesets/${rulesetId}`);
+        const data = await response.json();
+        
+        if (!data.success || !data.ruleset) {
+            alert('Failed to load ruleset');
+            return;
+        }
+        
+        const ruleset = data.ruleset;
+        
+        // Populate form fields
+        document.getElementById('editRulesetId').value = ruleset._id;
+        document.getElementById('editRulesetName').value = ruleset.name;
+        document.getElementById('editRulesetDescription').value = ruleset.description || '';
+        document.getElementById('editRulesetPriority').value = ruleset.priority || 'medium';
+        
+        // Set trigger type
+        document.getElementById('editRulesetTriggerType').value = ruleset.trigger.type;
+        
+        // Set action type
+        document.getElementById('editRulesetActionType').value = ruleset.action.type;
+        
+        // Set exclusions
+        if (ruleset.exclusions) {
+            document.getElementById('editExcludedRoles').value = (ruleset.exclusions.roles || []).join(', ');
+            document.getElementById('editExcludedChannels').value = (ruleset.exclusions.channels || []).join(', ');
+        }
+        
+        // Set whitelist
+        if (ruleset.whitelist) {
+            document.getElementById('editWhitelistedDomains').value = ruleset.whitelist.join(', ');
+        }
+        
+        // Update the config fields
+        this.updateEditRulesetTriggerFields();
+        this.updateEditRulesetActionFields();
+        
+        // Populate trigger config
+        setTimeout(() => {
+            this.populateEditTriggerConfig(ruleset.trigger);
+            this.populateEditActionConfig(ruleset.action);
+        }, 100);
+        
+        // Show modal
+        document.getElementById('editRulesetModal').style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading ruleset:', error);
+        alert('Failed to load ruleset: ' + error.message);
+    }
+},
+
+closeEditRulesetModal: function() {
+    document.getElementById('editRulesetModal').style.display = 'none';
+},
+
+updateEditRulesetTriggerFields: function() {
+    const triggerType = document.getElementById('editRulesetTriggerType')?.value;
+    const container = document.getElementById('editTriggerConfigFields');
+    
+    if (!container) return;
+    
+    let html = '';
+    
+    switch(triggerType) {
+        case 'spam':
+            html = `
+                <div class="form-group">
+                    <label>Message Count</label>
+                    <input type="number" name="messageCount" id="editMessageCount" value="5" min="2" max="20">
+                </div>
+                <div class="form-group">
+                    <label>Time Window (seconds)</label>
+                    <input type="number" name="timeWindow" id="editTimeWindow" value="3" min="1" max="60">
+                </div>
+            `;
+            break;
+            
+        case 'links':
+            html = `
+                <div class="form-group">
+                    <label><input type="checkbox" name="blockDiscordInvites" id="editBlockDiscordInvites"> Block Discord Invites</label>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" name="blockAllUrls" id="editBlockAllUrls"> Block All URLs</label>
+                </div>
+            `;
+            break;
+            
+        case 'words':
+            html = `
+                <div class="form-group">
+                    <label>Banned Words (one per line)</label>
+                    <textarea name="bannedWords" id="editBannedWords" rows="5" placeholder="word1&#10;word2&#10;word3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" name="caseSensitive" id="editCaseSensitive"> Case Sensitive</label>
+                </div>
+            `;
+            break;
+            
+        case 'mentions':
+            html = `
+                <div class="form-group">
+                    <label>Max Mentions</label>
+                    <input type="number" name="maxMentions" id="editMaxMentions" value="5" min="1" max="20">
+                </div>
+            `;
+            break;
+            
+        case 'caps':
+            html = `
+                <div class="form-group">
+                    <label>Caps Percentage</label>
+                    <input type="number" name="capsPercentage" id="editCapsPercentage" value="70" min="50" max="100">
+                </div>
+                <div class="form-group">
+                    <label>Minimum Length</label>
+                    <input type="number" name="minLength" id="editMinLength" value="10" min="5" max="50">
+                </div>
+            `;
+            break;
+            
+        case 'attachments':
+            html = `
+                <div class="form-group">
+                    <label>Max Attachments</label>
+                    <input type="number" name="maxAttachments" id="editMaxAttachments" value="3" min="1" max="10">
+                </div>
+            `;
+            break;
+            
+        default:
+            html = '<p style="color: rgba(255,255,255,0.6);">Select a trigger type</p>';
+    }
+    
+    container.innerHTML = html;
+},
+
+updateEditRulesetActionFields: function() {
+    const actionType = document.getElementById('editRulesetActionType')?.value;
+    const container = document.getElementById('editActionConfigFields');
+    
+    if (!container) return;
+    
+    let html = '';
+    
+    switch(actionType) {
+        case 'delete':
+            html = `
+                <div class="form-group">
+                    <label><input type="checkbox" name="notifyUser" id="editNotifyUser"> Notify User</label>
+                </div>
+            `;
+            break;
+            
+        case 'warn':
+            html = `
+                <div class="form-group">
+                    <label>Warning Message</label>
+                    <textarea name="warnMessage" id="editWarnMessage" rows="3" placeholder="You have been warned for..."></textarea>
+                </div>
+            `;
+            break;
+            
+        case 'timeout':
+            html = `
+                <div class="form-group">
+                    <label>Timeout Duration</label>
+                    <select name="timeoutDuration" id="editTimeoutDuration">
+                        <option value="60">1 minute</option>
+                        <option value="300">5 minutes</option>
+                        <option value="600">10 minutes</option>
+                        <option value="1800">30 minutes</option>
+                        <option value="3600">1 hour</option>
+                    </select>
+                </div>
+            `;
+            break;
+            
+        case 'kick':
+            html = `
+                <div class="form-group">
+                    <label>Kick Reason</label>
+                    <textarea name="kickReason" id="editKickReason" rows="2" placeholder="Kicked for violating rules"></textarea>
+                </div>
+            `;
+            break;
+            
+        case 'ban':
+            html = `
+                <div class="form-group">
+                    <label>Ban Reason</label>
+                    <textarea name="banReason" id="editBanReason" rows="2" placeholder="Banned for violating rules"></textarea>
+                </div>
+            `;
+            break;
+            
+        default:
+            html = '<p style="color: rgba(255,255,255,0.6);">Select an action type</p>';
+    }
+    
+    container.innerHTML = html;
+},
+
+populateEditTriggerConfig: function(trigger) {
+    if (!trigger || !trigger.config) return;
+    
+    const config = trigger.config;
+    
+    switch(trigger.type) {
+        case 'spam':
+            if (config.messageCount) document.getElementById('editMessageCount').value = config.messageCount;
+            if (config.timeWindow) document.getElementById('editTimeWindow').value = config.timeWindow;
+            break;
+        case 'links':
+            if (config.blockDiscordInvites) document.getElementById('editBlockDiscordInvites').checked = true;
+            if (config.blockAllUrls) document.getElementById('editBlockAllUrls').checked = true;
+            break;
+        case 'words':
+            if (config.bannedWords) document.getElementById('editBannedWords').value = config.bannedWords.join('\n');
+            if (config.caseSensitive) document.getElementById('editCaseSensitive').checked = true;
+            break;
+        case 'mentions':
+            if (config.maxMentions) document.getElementById('editMaxMentions').value = config.maxMentions;
+            break;
+        case 'caps':
+            if (config.capsPercentage) document.getElementById('editCapsPercentage').value = config.capsPercentage;
+            if (config.minLength) document.getElementById('editMinLength').value = config.minLength;
+            break;
+        case 'attachments':
+            if (config.maxAttachments) document.getElementById('editMaxAttachments').value = config.maxAttachments;
+            break;
+    }
+},
+
+populateEditActionConfig: function(action) {
+    if (!action || !action.config) return;
+    
+    const config = action.config;
+    
+    switch(action.type) {
+        case 'delete':
+            if (config.notifyUser) document.getElementById('editNotifyUser').checked = true;
+            break;
+        case 'warn':
+            if (config.warnMessage) document.getElementById('editWarnMessage').value = config.warnMessage;
+            break;
+        case 'timeout':
+            if (config.duration) document.getElementById('editTimeoutDuration').value = config.duration;
+            break;
+        case 'kick':
+            if (config.reason) document.getElementById('editKickReason').value = config.reason;
+            break;
+        case 'ban':
+            if (config.reason) document.getElementById('editBanReason').value = config.reason;
+            break;
+    }
+},
+
+updateRuleset: async function(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    const rulesetId = document.getElementById('editRulesetId').value;
+    
+    const triggerType = formData.get('triggerType');
+    const triggerConfig = {};
+    
+    switch(triggerType) {
+        case 'spam':
+            triggerConfig.messageCount = parseInt(formData.get('messageCount'));
+            triggerConfig.timeWindow = parseInt(formData.get('timeWindow'));
+            break;
+        case 'links':
+            triggerConfig.blockDiscordInvites = formData.get('blockDiscordInvites') === 'on';
+            triggerConfig.blockAllUrls = formData.get('blockAllUrls') === 'on';
+            break;
+        case 'words':
+            triggerConfig.bannedWords = formData.get('bannedWords')?.split('\n').filter(w => w.trim());
+            triggerConfig.caseSensitive = formData.get('caseSensitive') === 'on';
+            break;
+        case 'mentions':
+            triggerConfig.maxMentions = parseInt(formData.get('maxMentions'));
+            break;
+        case 'caps':
+            triggerConfig.capsPercentage = parseInt(formData.get('capsPercentage'));
+            triggerConfig.minLength = parseInt(formData.get('minLength'));
+            break;
+        case 'attachments':
+            triggerConfig.maxAttachments = parseInt(formData.get('maxAttachments'));
+            break;
+    }
+    
+    const actionType = formData.get('actionType');
+    const actionConfig = {};
+    
+    switch(actionType) {
+        case 'delete':
+            actionConfig.notifyUser = formData.get('notifyUser') === 'on';
+            break;
+        case 'warn':
+            actionConfig.warnMessage = formData.get('warnMessage');
+            break;
+        case 'timeout':
+            actionConfig.duration = parseInt(formData.get('timeoutDuration'));
+            break;
+        case 'kick':
+            actionConfig.reason = formData.get('kickReason');
+            break;
+        case 'ban':
+            actionConfig.reason = formData.get('banReason');
+            break;
+    }
+    
+    const data = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        triggerType: triggerType,
+        triggerConfig: triggerConfig,
+        actionType: actionType,
+        actionConfig: actionConfig,
+        priority: formData.get('priority'),
+        excludedRoles: formData.get('excludedRoles')?.split(',').filter(r => r.trim()) || [],
+        excludedChannels: formData.get('excludedChannels')?.split(',').filter(c => c.trim()) || [],
+        whitelistedDomains: formData.get('whitelistedDomains')?.split(',').map(d => d.trim()) || []
+    };
+    
+    try {
+        const response = await fetch(`/commands/ruleset/edit/${rulesetId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Ruleset updated successfully!');
+            this.closeEditRulesetModal();
+            this.loadRulesets();
+        } else {
+            alert('Error: ' + (result.error || 'Failed to update ruleset'));
+        }
+    } catch (error) {
+        console.error('Error updating ruleset:', error);
+        alert('Failed to update ruleset: ' + error.message);
+    }
+},
         
         toggleRuleset: async function(rulesetId) {
             try {
