@@ -765,8 +765,10 @@ this.app.get('/commands', this.requireAuth.bind(this), async (req, res) => {
 });
 
 // Command Settings Route
-app.get('/commands/settings', async (req, res) => {
+this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res) => {
     try {
+        const fs = require('fs');
+        
         // Load command settings from file
         let commandSettings = {};
         if (fs.existsSync('command-settings.json')) {
@@ -791,7 +793,8 @@ app.get('/commands/settings', async (req, res) => {
                 id: g.id,
                 name: g.name,
                 icon: g.iconURL()
-            }))
+            })),
+            page: 'commands'
         });
     } catch (error) {
         console.error('Error loading command settings:', error);
@@ -800,8 +803,9 @@ app.get('/commands/settings', async (req, res) => {
 });
 
 // Save Command Settings Route
-app.post('/commands/settings', express.json(), async (req, res) => {
+this.app.post('/commands/settings', this.requireAuth.bind(this), express.json(), async (req, res) => {
     try {
+        const fs = require('fs');
         const { command, settings } = req.body;
 
         // Load existing settings
@@ -819,6 +823,14 @@ app.post('/commands/settings', express.json(), async (req, res) => {
                 ...commandSettings[command],
                 ...settings
             };
+            
+            // Merge messages if they exist
+            if (settings.messages && commandSettings[command].messages) {
+                commandSettings[command].messages = {
+                    ...commandSettings[command].messages,
+                    ...settings.messages
+                };
+            }
         }
 
         // Save to file
@@ -830,6 +842,8 @@ app.post('/commands/settings', express.json(), async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to save settings' });
     }
 });
+
+
 
 // Toggle built-in command
 this.app.post('/commands/toggle-builtin/:name', this.requireAdmin.bind(this), async (req, res) => {
