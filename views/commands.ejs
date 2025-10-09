@@ -713,43 +713,43 @@
     </div>
 
     <!-- Sticky Message Modal -->
-    <div id="stickyModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 style="color: #fff; margin: 0;">📌 Create Sticky Message</h2>
-                <span class="close" onclick="closeStickyModal()">&times;</span>
-            </div>
-            <form onsubmit="saveStickyMessage(event)">
-                <div class="form-group">
-                    <label>Channel *</label>
-                    <select name="channelId" required>
-                        <option value="">Select Channel...</option>
-                        <!-- Channels will be populated by JS -->
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>Message *</label>
-                    <textarea name="message" rows="6" required placeholder="This message will stay at the bottom of the channel..."></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label>Repost Threshold</label>
-                    <input type="number" name="threshold" value="10" min="1" max="50">
-                    <small>Repost after this many messages</small>
-                </div>
-                
-                <div class="form-group">
-                    <label><input type="checkbox" name="enabled" checked> Enable immediately</label>
-                </div>
-                
-                <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                    <button type="button" onclick="closeStickyModal()" class="btn btn-secondary">Cancel</button>
-                    <button type="submit" class="btn btn-primary">💾 Create Sticky</button>
-                </div>
-            </form>
+<div id="stickyModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 style="color: #fff; margin: 0;">📌 Create Sticky Message</h2>
+            <span class="close" onclick="closeStickyModal()">&times;</span>
         </div>
+        <form id="stickyMessageForm">
+            <div class="form-group">
+                <label>Channel *</label>
+                <select name="channelId" id="stickyChannelId" required>
+                    <option value="">Select Channel...</option>
+                    <!-- Channels will be populated by JS -->
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Message *</label>
+                <textarea name="message" id="stickyMessage" rows="6" required placeholder="This message will stay at the bottom of the channel..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Repost Threshold</label>
+                <input type="number" name="threshold" id="stickyThreshold" value="10" min="1" max="50">
+                <small>Repost after this many messages</small>
+            </div>
+            
+            <div class="form-group">
+                <label><input type="checkbox" name="enabled" id="stickyEnabled" checked> Enable immediately</label>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button type="button" onclick="closeStickyModal()" class="btn btn-secondary">Cancel</button>
+                <button type="button" onclick="submitStickyForm()" class="btn btn-primary">💾 Create Sticky</button>
+            </div>
+        </form>
     </div>
+</div>
 
     <!-- Ruleset Modal -->
     <div id="rulesetModal" class="modal">
@@ -1484,39 +1484,71 @@
             }
         }
 
-        async function saveStickyMessage(event) {
-            event.preventDefault();
-            
-            const form = event.target;
-            const formData = new FormData(form);
-            
-            const data = {
-                channelId: formData.get('channelId'),
-                message: formData.get('message'),
-                threshold: formData.get('threshold'),
-                enabled: formData.get('enabled') === 'on'
-            };
-            
-            try {
-                const response = await fetch('/commands/sticky/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    closeStickyModal();
-                    location.reload();
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                console.error('Error saving sticky message:', error);
-                alert('Failed to save sticky message');
-            }
+        async function submitStickyForm() {
+    console.log('🟢 submitStickyForm called');
+    
+    const form = document.getElementById('stickyMessageForm');
+    const formData = new FormData(form);
+    
+    const data = {
+        channelId: formData.get('channelId'),
+        message: formData.get('message'),
+        threshold: parseInt(formData.get('threshold')) || 10,
+        enabled: formData.get('enabled') === 'on'
+    };
+    
+    console.log('📝 Form data collected:', data);
+    
+    if (!data.channelId) {
+        console.error('❌ No channel selected');
+        alert('Please select a channel');
+        return;
+    }
+    
+    if (!data.message || data.message.trim() === '') {
+        console.error('❌ No message provided');
+        alert('Please enter a message');
+        return;
+    }
+    
+    console.log('🚀 Sending request to /commands/sticky/create');
+    
+    try {
+        const response = await fetch('/commands/sticky/create', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        console.log('📡 Response status:', response.status);
+        console.log('📡 Response ok:', response.ok);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ HTTP error:', response.status, errorText);
+            alert(`Error: Server returned ${response.status}`);
+            return;
         }
+        
+        const result = await response.json();
+        console.log('📦 Response data:', result);
+        
+        if (result.success) {
+            alert('✅ Sticky message created successfully!');
+            closeStickyModal();
+            setTimeout(() => location.reload(), 500);
+        } else {
+            console.error('❌ Server returned error:', result.error);
+            alert('❌ Error: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('💥 Fetch error:', error);
+        alert('💥 Failed to save sticky message: ' + error.message);
+    }
+}
 
         // Load role names from IDs
         function loadRoleNames() {
