@@ -65,82 +65,8 @@
             .nav-links { gap: 0.25rem; }
             .nav-links a { padding: 0.45rem 0.55rem; font-size: 0.8rem; }
         }
-    </style>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="nav-brand">
-            <img src="<%= client.user.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
-            <div class="bot-info">
-                <h2>Drug Dealer Simulator | Eddie</h2>
-                <span class="bot-status">Online • Monitoring</span>
-            </div>
-        </div>
-        
-        <div class="nav-center">
-            <div class="nav-links">
-                <a href="/" class="<%= typeof page !== 'undefined' && page === 'dashboard' ? 'active' : '' %>">
-                    <span class="nav-icon">📊</span> <span>Dashboard</span>
-                </a>
-                <a href="/messages" class="<%= typeof page !== 'undefined' && page === 'messages' ? 'active' : '' %>">
-                    <span class="nav-icon">💬</span> <span>Messages</span>
-                </a>
-                <a href="/deleted" class="<%= typeof page !== 'undefined' && page === 'deleted' ? 'active' : '' %>">
-                    <span class="nav-icon">🗑️</span> <span>Deleted</span>
-                </a>
-                <a href="/members" class="<%= typeof page !== 'undefined' && page === 'members' ? 'active' : '' %>">
-                    <span class="nav-icon">👥</span> <span>Members</span>
-                </a>
-                <a href="/moderation" class="<%= typeof page !== 'undefined' && page === 'moderation' ? 'active' : '' %>">
-                    <span class="nav-icon">🔨</span> <span>Moderation</span>
-                </a>
-                <a href="/attachments" class="<%= typeof page !== 'undefined' && page === 'attachments' ? 'active' : '' %>">
-                    <span class="nav-icon">📎</span> <span>Attachments</span>
-                </a>
-                <a href="/voice" class="<%= typeof page !== 'undefined' && page === 'voice' ? 'active' : '' %>">
-                    <span class="nav-icon">🔊</span> <span>Voice</span>
-                </a>
-                <a href="/invites" class="<%= typeof page !== 'undefined' && page === 'invites' ? 'active' : '' %>">
-                    <span class="nav-icon">🎫</span> <span>Invites</span>
-                </a>
-                <a href="/commands" class="<%= typeof page !== 'undefined' && page === 'commands' ? 'active' : '' %>">
-                    <span class="nav-icon">⚙️</span> <span>Commands</span>
-                </a>
-                <a href="/analytics" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
-                    <span class="nav-icon">📈</span> <span>Analytics</span>
-                </a>
-                <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
-                <span class="nav-icon">🎫</span> <span>Appeals</span>
-                </a>
-            </div>
-        </div>
 
-        <div class="nav-user">
-            <% if (user) { %>
-                <div class="user-profile">
-                    <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
-                    <div class="user-details">
-                        <span class="user-name"><%= user.username %></span>
-                        <span class="user-badge admin">Admin</span>
-                    </div>
-                </div>
-            <% } else { %>
-                <div class="user-profile">
-                    <div class="user-avatar-placeholder">👤</div>
-                    <div class="user-details">
-                        <span class="user-name">Admin</span>
-                        <span class="user-badge password">Password Auth</span>
-                    </div>
-                </div>
-            <% } %>
-            
-            <a href="/logout" class="logout-btn" title="Logout">
-                <span class="nav-icon">🚪</span>
-            </a>
-        </div>
-    </nav>
-
-    /* Invites Page Styles */
+        /* Invites Page Styles */
         .container {
             max-width: 1400px;
             margin: 2rem auto;
@@ -321,7 +247,81 @@
             text-align: center;
             padding: 2rem;
         }
-    
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <img src="<%= client.user.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
+            <div class="bot-info">
+                <h2>Drug Dealer Simulator | Eddie</h2>
+                <span class="bot-status">Online • Monitoring</span>
+            </div>
+        </div>
+        
+        <div class="nav-center">
+            <div class="nav-links">
+                <a href="/" class="<%= typeof page !== 'undefined' && page === 'dashboard' ? 'active' : '' %>">
+                    <span class="nav-icon">📊</span> <span>Dashboard</span>
+                </a>
+                <a href="/messages" class="<%= typeof page !== 'undefined' && page === 'messages' ? 'active' : '' %>">
+                    <span class="nav-icon">💬</span> <span>Messages</span>
+                </a>
+                <a href="/deleted" class="<%= typeof page !== 'undefined' && page === 'deleted' ? 'active' : '' %>">
+                    <span class="nav-icon">🗑️</span> <span>Deleted</span>
+                </a>
+                <a href="/members" class="<%= typeof page !== 'undefined' && page === 'members' ? 'active' : '' %>">
+                    <span class="nav-icon">👥</span> <span>Members</span>
+                </a>
+                <a href="/moderation" class="<%= typeof page !== 'undefined' && page === 'moderation' ? 'active' : '' %>">
+                    <span class="nav-icon">🔨</span> <span>Moderation</span>
+                </a>
+                <a href="/attachments" class="<%= typeof page !== 'undefined' && page === 'attachments' ? 'active' : '' %>">
+                    <span class="nav-icon">📎</span> <span>Attachments</span>
+                </a>
+                <a href="/voice" class="<%= typeof page !== 'undefined' && page === 'voice' ? 'active' : '' %>">
+                    <span class="nav-icon">🔊</span> <span>Voice</span>
+                </a>
+                <a href="/invites" class="<%= typeof page !== 'undefined' && page === 'invites' ? 'active' : '' %>">
+                    <span class="nav-icon">🎫</span> <span>Invites</span>
+                </a>
+                <a href="/commands" class="<%= typeof page !== 'undefined' && page === 'commands' ? 'active' : '' %>">
+                    <span class="nav-icon">⚙️</span> <span>Commands</span>
+                </a>
+                <a href="/analytics" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
+                    <span class="nav-icon">📈</span> <span>Analytics</span>
+                </a>
+                <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
+                    <span class="nav-icon">🎫</span> <span>Appeals</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-user">
+            <% if (user) { %>
+                <div class="user-profile">
+                    <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
+                    <div class="user-details">
+                        <span class="user-name"><%= user.username %></span>
+                        <span class="user-badge admin">Admin</span>
+                    </div>
+                </div>
+            <% } else { %>
+                <div class="user-profile">
+                    <div class="user-avatar-placeholder">👤</div>
+                    <div class="user-details">
+                        <span class="user-name">Admin</span>
+                        <span class="user-badge password">Password Auth</span>
+                    </div>
+                </div>
+            <% } %>
+            
+            <a href="/logout" class="logout-btn" title="Logout">
+                <span class="nav-icon">🚪</span>
+            </a>
+        </div>
+    </nav>
+
     <div class="container">
         <h1>🎫 Invite Tracking</h1>
         
