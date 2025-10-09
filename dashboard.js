@@ -601,20 +601,26 @@ this.app.post('/commands/server-settings', this.requireAuth.bind(this), express.
                 
                 // Filter by action type if not 'all'
                 if (action !== 'all') {
-                    filter.action = action.toUpperCase();
+                    filter.actionType = action;  // Changed from 'action' to 'actionType'
                 }
                 
-                const activities = await this.mongoLogger.db.collection('voiceActivity')
+                const activities = await this.mongoLogger.db.collection('voice')  // Changed from 'voiceActivity' to 'voice'
                     .find(filter)
                     .sort({ timestamp: -1 })
                     .limit(100)
                     .toArray();
                 
+                // Map the data to match what the template expects
+                const mappedActivities = activities.map(a => ({
+                    ...a,
+                    action: a.actionType  // Add 'action' field for template compatibility
+                }));
+                
                 res.render('voice', {
                     page: 'voice',
                     client: this.client,
                     user: req.user,
-                    activities: activities,
+                    activities: mappedActivities,
                     action: action
                 });
             } catch (error) {
