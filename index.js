@@ -668,6 +668,8 @@ client.once('ready', async () => {
 
 // Message Create Event
 client.on('messageCreate', async message => {
+    // Ignore bot messages - ADD THIS LINE
+    if (message.author.bot) return;
     // Command handler - MUST BE FIRST
     if (!message.author.bot && message.guild) {
         await commandHandler.handleCommand(message);

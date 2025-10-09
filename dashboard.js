@@ -736,26 +736,28 @@ this.app.post('/commands/toggle/:id', this.requireAdmin.bind(this), async (req, 
         // ============================================
         
         this.app.post('/execute', this.requireAdmin.bind(this), async (req, res) => {
-            try {
-                const { channelId, command } = req.body;
-                
-                if (!channelId || !command) {
-                    return res.json({ success: false, error: 'Missing channel or command' });
-                }
-                
-                const channel = await this.client.channels.fetch(channelId).catch(() => null);
-                
-                if (!channel || !channel.isTextBased()) {
-                    return res.json({ success: false, error: 'Invalid channel' });
-                }
-                
-                await channel.send(command);
-                res.json({ success: true, message: `Command executed in #${channel.name}` });
-            } catch (error) {
-                console.error('Execute command error:', error);
-                res.json({ success: false, error: error.message });
-            }
-        });
+    try {
+        const { channelId, command } = req.body;
+        
+        if (!channelId || !command) {
+            return res.json({ success: false, error: 'Missing channel or command' });
+        }
+        
+        const channel = await this.client.channels.fetch(channelId).catch(() => null);
+        
+        if (!channel || !channel.isTextBased()) {
+            return res.json({ success: false, error: 'Invalid channel' });
+        }
+        
+        // Send the command directly to the channel
+        await channel.send(command);
+        
+        res.json({ success: true, message: `Command executed in #${channel.name}` });
+    } catch (error) {
+        console.error('Execute command error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
 
         this.app.post('/commands/create', this.requireAdmin.bind(this), async (req, res) => {
             try {
