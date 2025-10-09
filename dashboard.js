@@ -1820,6 +1820,23 @@ this.app.get('/api/commands/:id', async (req, res) => {
         res.json({ success: false, error: error.message });
     }
 });
+// Add this route in your dashboard.js setupRoutes() method
+this.app.get('/api/automod/rulesets/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const ruleset = await this.mongoLogger.db.collection('automodRulesets')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        if (!ruleset) {
+            return res.json({ success: false, error: 'Ruleset not found' });
+        }
+        
+        res.json({ success: true, ruleset });
+    } catch (error) {
+        console.error('Get ruleset error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
 // Update command
 this.app.post('/commands/edit/:id', this.requireAdmin.bind(this), async (req, res) => {
     try {

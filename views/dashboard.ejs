@@ -234,5 +234,129 @@
             <a href="/messages" class="btn btn-primary">View All Messages →</a>
         </div>
     </div>
+    <script>
+// ============================================
+// AUTOMOD RULESET FUNCTIONS
+// ============================================
+
+async function editRuleset(rulesetId) {
+    try {
+        const response = await fetch(`/api/automod/rulesets/${rulesetId}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            alert('Failed to load ruleset');
+            return;
+        }
+        
+        const ruleset = data.ruleset;
+        
+        // Populate the edit form
+        document.getElementById('edit-ruleset-id').value = rulesetId;
+        document.getElementById('edit-ruleset-name').value = ruleset.name;
+        document.getElementById('edit-ruleset-description').value = ruleset.description || '';
+        document.getElementById('edit-ruleset-priority').value = ruleset.priority || 'medium';
+        document.getElementById('edit-trigger-type').value = ruleset.trigger.type;
+        document.getElementById('edit-action-type').value = ruleset.action.type;
+        
+        // Show the modal
+        document.getElementById('editRulesetModal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading ruleset:', error);
+        alert('Failed to load ruleset');
+    }
+}
+
+async function saveRulesetEdit() {
+    try {
+        const rulesetId = document.getElementById('edit-ruleset-id').value;
+        
+        const data = {
+            name: document.getElementById('edit-ruleset-name').value,
+            description: document.getElementById('edit-ruleset-description').value,
+            priority: document.getElementById('edit-ruleset-priority').value,
+            triggerType: document.getElementById('edit-trigger-type').value,
+            actionType: document.getElementById('edit-action-type').value,
+            triggerConfig: {}, // Add your config fields here
+            actionConfig: {}   // Add your config fields here
+        };
+        
+        const response = await fetch(`/commands/ruleset/edit/${rulesetId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Ruleset updated successfully!');
+            closeEditRulesetModal();
+            location.reload();
+        } else {
+            alert('Failed to update ruleset');
+        }
+    } catch (error) {
+        console.error('Error saving ruleset:', error);
+        alert('Failed to save ruleset');
+    }
+}
+
+async function deleteRuleset(rulesetId) {
+    if (!confirm('Are you sure you want to delete this ruleset?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/commands/ruleset/${rulesetId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Ruleset deleted successfully!');
+            location.reload();
+        } else {
+            alert('Failed to delete ruleset');
+        }
+    } catch (error) {
+        console.error('Error deleting ruleset:', error);
+        alert('Failed to delete ruleset');
+    }
+}
+
+async function toggleRuleset(rulesetId) {
+    try {
+        const response = await fetch(`/commands/ruleset/toggle/${rulesetId}`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update the button text/style
+            location.reload();
+        } else {
+            alert('Failed to toggle ruleset');
+        }
+    } catch (error) {
+        console.error('Error toggling ruleset:', error);
+        alert('Failed to toggle ruleset');
+    }
+}
+
+function closeEditRulesetModal() {
+    document.getElementById('editRulesetModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('editRulesetModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
 </body>
 </html>
