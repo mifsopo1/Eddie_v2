@@ -757,10 +757,27 @@ this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
             console.log('🔍 Commands Map size:', this.client.commandHandler.commands.size);
             
             for (const [name, cmd] of this.client.commandHandler.commands) {
+                // Normalize category names
+                let category = 'general';
+                if (cmd.category) {
+                    category = cmd.category.toLowerCase();
+                }
+                
+                // Map common variations to standard categories
+                const categoryMap = {
+                    'utilities': 'utility',
+                    'information': 'info',
+                    'mod': 'moderation',
+                    'moderate': 'moderation',
+                    'entertainment': 'fun'
+                };
+                
+                category = categoryMap[category] || category;
+                
                 builtInCommands.push({
                     name: name,
                     description: cmd.description || 'No description',
-                    category: cmd.category || 'general',
+                    category: category,
                     enabled: cmd.enabled !== false,
                     trigger: name,
                     triggerType: 'command',
@@ -773,6 +790,13 @@ this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
         }
 
         console.log('🔍 Built-in commands:', builtInCommands.length);
+        
+        // Log categories for debugging
+        const categories = {};
+        builtInCommands.forEach(cmd => {
+            categories[cmd.category] = (categories[cmd.category] || 0) + 1;
+        });
+        console.log('📊 Categories:', categories);
 
         // Combine both arrays
         const allCommands = [...customCommands, ...builtInCommands];
