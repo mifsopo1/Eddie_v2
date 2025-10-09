@@ -307,18 +307,28 @@
         </div>
 
         <div class="nav-user">
-            <div class="user-profile">
-                <div class="user-avatar-placeholder">👤</div>
-                <div class="user-details">
-                    <span class="user-name">Admin</span>
-                    <span class="user-badge password">Password Auth</span>
-                </div>
+    <% if (user) { %>
+        <div class="user-profile">
+            <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
+            <div class="user-details">
+                <span class="user-name"><%= user.username %></span>
+                <span class="user-badge admin">Admin</span>
             </div>
-            
-            <a href="/logout" class="logout-btn" title="Logout">
-                <span class="nav-icon">🚪</span>
-            </a>
         </div>
+    <% } else { %>
+        <div class="user-profile">
+            <div class="user-avatar-placeholder">👤</div>
+            <div class="user-details">
+                <span class="user-name">Admin</span>
+                <span class="user-badge password">Password Auth</span>
+            </div>
+        </div>
+    <% } %>
+    
+    <a href="/logout" class="logout-btn" title="Logout">
+        <span class="nav-icon">🚪</span>
+    </a>
+</div>
     </nav>
     
     <div class="container">
