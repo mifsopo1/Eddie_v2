@@ -218,17 +218,17 @@
         
         <!-- Tab Navigation -->
         <div class="tab-navigation">
-            <button class="tab-nav-btn active" onclick="switchMainTab('commands')">💬 Commands</button>
-            <button class="tab-nav-btn" onclick="switchMainTab('sticky')">📌 Sticky Messages</button>
-            <button class="tab-nav-btn" onclick="switchMainTab('rulesets')">📋 Rulesets</button>
-            <button class="tab-nav-btn" onclick="switchMainTab('bulk')">🔨 Bulk Actions</button>
-            <button class="tab-nav-btn" onclick="switchMainTab('protection')">🛡️ Protection</button>
+            <button class="tab-nav-btn active" onclick="window.commandsApp.switchMainTab('commands', event)">💬 Commands</button>
+            <button class="tab-nav-btn" onclick="window.commandsApp.switchMainTab('sticky', event)">📌 Sticky Messages</button>
+            <button class="tab-nav-btn" onclick="window.commandsApp.switchMainTab('rulesets', event)">📋 Rulesets</button>
+            <button class="tab-nav-btn" onclick="window.commandsApp.switchMainTab('bulk', event)">🔨 Bulk Actions</button>
+            <button class="tab-nav-btn" onclick="window.commandsApp.switchMainTab('protection', event)">🛡️ Protection</button>
         </div>
         
         <!-- Commands Tab -->
         <div id="tab-commands" class="tab-content active">
             <div style="display: flex; gap: 0.75rem; margin-bottom: 2rem; flex-wrap: wrap;">
-                <button onclick="toggleCreateForm()" class="btn btn-primary">➕ Create Command</button>
+                <button onclick="window.commandsApp.toggleCreateForm()" class="btn btn-primary">➕ Create Command</button>
                 <a href="/commands/settings" class="btn btn-secondary" style="text-decoration: none;">⚙️ Command Settings</a>
                 <a href="/commands/all" class="btn btn-secondary" style="text-decoration: none;">📋 View All Commands</a>
             </div>
@@ -264,7 +264,7 @@
                             <div class="form-group">
                                 <label>Required Roles</label>
                                 <div class="role-selector">
-                                    <div class="role-tags" id="requiredRoleTags" onclick="toggleRoleDropdown('required')">
+                                    <div class="role-tags" id="requiredRoleTags" onclick="window.commandsApp.toggleRoleDropdown('required')">
                                         <span style="color: rgba(255,255,255,0.5);">Click to select roles...</span>
                                     </div>
                                     <div class="role-dropdown" id="requiredRoleDropdown"></div>
@@ -275,7 +275,7 @@
                             <div class="form-group">
                                 <label>Exempt Roles</label>
                                 <div class="role-selector">
-                                    <div class="role-tags" id="exemptRoleTags" onclick="toggleRoleDropdown('exempt')">
+                                    <div class="role-tags" id="exemptRoleTags" onclick="window.commandsApp.toggleRoleDropdown('exempt')">
                                         <span style="color: rgba(255,255,255,0.5);">Click to select roles...</span>
                                     </div>
                                     <div class="role-dropdown" id="exemptRoleDropdown"></div>
@@ -316,7 +316,7 @@
                     </div>
                     
                     <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                        <button type="button" onclick="toggleCreateForm()" class="btn btn-secondary">Cancel</button>
+                        <button type="button" onclick="window.commandsApp.toggleCreateForm()" class="btn btn-secondary">Cancel</button>
                         <button type="submit" class="btn btn-primary">💾 Create Command</button>
                     </div>
                 </form>
@@ -327,12 +327,12 @@
                 <h2 class="section-title">📋 Command List</h2>
                 
                 <div class="tabs">
-                    <button class="tab active" onclick="filterCommands('all')">All</button>
-                    <button class="tab" onclick="filterCommands('general')">General</button>
-                    <button class="tab" onclick="filterCommands('fun')">Fun</button>
-                    <button class="tab" onclick="filterCommands('moderation')">Moderation</button>
-                    <button class="tab" onclick="filterCommands('info')">Info</button>
-                    <button class="tab" onclick="filterCommands('utility')">Utility</button>
+                    <button class="tab active" onclick="window.commandsApp.filterCommands('all', event)">All</button>
+                    <button class="tab" onclick="window.commandsApp.filterCommands('general', event)">General</button>
+                    <button class="tab" onclick="window.commandsApp.filterCommands('fun', event)">Fun</button>
+                    <button class="tab" onclick="window.commandsApp.filterCommands('moderation', event)">Moderation</button>
+                    <button class="tab" onclick="window.commandsApp.filterCommands('info', event)">Info</button>
+                    <button class="tab" onclick="window.commandsApp.filterCommands('utility', event)">Utility</button>
                 </div>
 
                 <div class="commands-table">
@@ -354,9 +354,9 @@
                                     </div>
                                     <div class="command-actions">
                                         <% if (cmd.type !== 'builtin') { %>
-                                            <button class="btn-icon" onclick="editCommand('<%= cmd._id %>')" title="Edit">✏️</button>
+                                            <button class="btn-icon" onclick="window.commandsApp.editCommand('<%= cmd._id %>')" title="Edit">✏️</button>
                                         <% } %>
-                                        <button class="btn-icon toggle" onclick="toggleCommand('<%= cmd._id %>', '<%= cmd.type %>')" title="Toggle">
+                                        <button class="btn-icon toggle" onclick="window.commandsApp.toggleCommand('<%= cmd._id %>', '<%= cmd.type %>')" title="Toggle">
                                             <%= cmd.enabled ? '⏸️' : '▶️' %>
                                         </button>
                                         <% if (cmd.type !== 'builtin') { %>
@@ -420,169 +420,42 @@
                 </div>
             </div>
         </div>
+
         <!-- Sticky Messages Tab -->
-<div id="tab-sticky" class="tab-content">
-    <div class="sticky-section">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <div>
-                <h2 style="color: #fff; margin: 0;">📌 Sticky Messages</h2>
-                <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Pin important messages that auto-repost when pushed up</p>
+        <div id="tab-sticky" class="tab-content">
+            <div class="sticky-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <div>
+                        <h2 style="color: #fff; margin: 0;">📌 Sticky Messages</h2>
+                        <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Pin important messages that auto-repost when pushed up</p>
+                    </div>
+                    <button onclick="window.commandsApp.openStickyModal()" class="btn btn-primary">➕ Create Sticky</button>
+                </div>
+
+                <div id="stickyMessagesList">
+                    <div style="text-align: center; padding: 3rem;">
+                        <div style="font-size: 1.2rem; color: rgba(255,255,255,0.5);">Loading sticky messages...</div>
+                    </div>
+                </div>
             </div>
-            <button onclick="openStickyModal()" class="btn btn-primary">➕ Create Sticky</button>
         </div>
 
-        <div id="stickyMessagesList">
-            <div style="text-align: center; padding: 3rem;">
-                <div style="font-size: 1.2rem; color: rgba(255,255,255,0.5);">Loading sticky messages...</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-        <!-- Rulesets Tab (AutoMod Style) -->
+        <!-- Rulesets Tab -->
         <div id="tab-rulesets" class="tab-content">
             <div class="ruleset-section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                     <div>
                         <h2 style="color: #fff; margin: 0;">🛡️ AutoMod Rulesets</h2>
-                        <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Automatic moderation rules based on message content and user behavior</p>
+                        <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Automatic moderation rules - Connect to database to manage</p>
                     </div>
-                    <button onclick="openRulesetModal()" class="btn btn-primary">➕ Create Ruleset</button>
+                    <button onclick="window.commandsApp.openRulesetModal()" class="btn btn-primary">➕ Create Ruleset</button>
                 </div>
 
-                <!-- Example Ruleset: Spam Detection -->
-                <div class="ruleset-card">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                        <div style="flex: 1;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-                                <h3 style="color: #fff; margin: 0;">Anti-Spam</h3>
-                                <span class="badge badge-enabled">Enabled</span>
-                                <span class="badge" style="background: rgba(250,166,26,0.2); color: #faa61a;">High Priority</span>
-                            </div>
-                            <p style="color: rgba(255,255,255,0.6); margin: 0; font-size: 0.9rem;">Detects and punishes rapid message spam</p>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn-icon" title="Edit" data-action="edit-ruleset" data-id="spam">✏️</button>
-                            <button class="btn-icon toggle" title="Toggle">⏸️</button>
-                            <button class="btn-icon delete" title="Delete">🗑️</button>
-                        </div>
-                    </div>
-                    
-                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 0.75rem;">
-                            <div>
-                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">TRIGGER</strong>
-                                <span style="color: #fff; font-size: 0.9rem;">5+ messages in 3 seconds</span>
-                            </div>
-                            <div>
-                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">ACTION</strong>
-                                <span style="color: #ed4245; font-size: 0.9rem;">Timeout 5m + Delete</span>
-                            </div>
-                        </div>
-                        <div>
-                            <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">EXCLUDED ROLES</strong>
-                            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem;">
-                                <span class="role-badge exempt">Staff</span>
-                                <span class="role-badge exempt">Moderator</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
-                        <span>🎯 Triggered: 23 times</span>
-                        <span>⏰ Last: 2h ago</span>
-                    </div>
-                </div>
-
-                <!-- Example Ruleset: Link Filter -->
-                <div class="ruleset-card">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                        <div style="flex: 1;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-                                <h3 style="color: #fff; margin: 0;">Link Blocker</h3>
-                                <span class="badge badge-enabled">Enabled</span>
-                                <span class="badge" style="background: rgba(237,66,69,0.2); color: #ed4245;">Medium Priority</span>
-                            </div>
-                            <p style="color: rgba(255,255,255,0.6); margin: 0; font-size: 0.9rem;">Blocks unauthorized links and invites</p>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn-icon" title="Edit">✏️</button>
-                            <button class="btn-icon toggle" title="Toggle">⏸️</button>
-                            <button class="btn-icon delete" title="Delete">🗑️</button>
-                        </div>
-                    </div>
-                    
-                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 0.75rem;">
-                            <div>
-                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">TRIGGER</strong>
-                                <span style="color: #fff; font-size: 0.9rem;">Contains discord.gg/ or http://</span>
-                            </div>
-                            <div>
-                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">ACTION</strong>
-                                <span style="color: #ed4245; font-size: 0.9rem;">Delete + Warn</span>
-                            </div>
-                        </div>
-                        <div style="margin-bottom: 0.75rem;">
-                            <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">WHITELISTED DOMAINS</strong>
-                            <span style="color: rgba(255,255,255,0.8); font-size: 0.85rem;">youtube.com, twitter.com, imgur.com</span>
-                        </div>
-                        <div>
-                            <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">EXCLUDED CHANNELS</strong>
-                            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem;">
-                                <span class="badge" style="background: rgba(67,181,129,0.2); color: #43b581;">#media</span>
-                                <span class="badge" style="background: rgba(67,181,129,0.2); color: #43b581;">#links</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
-                        <span>🎯 Triggered: 156 times</span>
-                        <span>⏰ Last: 15m ago</span>
-                    </div>
-                </div>
-
-                <!-- Example Ruleset: Banned Words -->
-                <div class="ruleset-card">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                        <div style="flex: 1;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-                                <h3 style="color: #fff; margin: 0;">Word Filter</h3>
-                                <span class="badge badge-disabled">Disabled</span>
-                                <span class="badge" style="background: rgba(67,181,129,0.2); color: #43b581;">Low Priority</span>
-                            </div>
-                            <p style="color: rgba(255,255,255,0.6); margin: 0; font-size: 0.9rem;">Filters inappropriate language</p>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn-icon" title="Edit">✏️</button>
-                            <button class="btn-icon toggle" title="Toggle">▶️</button>
-                            <button class="btn-icon delete" title="Delete">🗑️</button>
-                        </div>
-                    </div>
-                    
-                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; margin-bottom: 1rem; opacity: 0.6;">
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
-                            <div>
-                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">TRIGGER</strong>
-                                <span style="color: #fff; font-size: 0.9rem;">Contains 12 banned words</span>
-                            </div>
-                            <div>
-                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">ACTION</strong>
-                                <span style="color: #ed4245; font-size: 0.9rem;">Delete + Timeout 10m</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
-                        <span>🎯 Triggered: 0 times</span>
-                        <span>⏰ Currently disabled</span>
-                    </div>
-                </div>
-
-                <div style="text-align: center; margin-top: 2rem; padding: 2rem; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">🛡️</div>
-                    <div style="color: rgba(255,255,255,0.8); font-weight: 600; margin-bottom: 0.5rem;">AutoMod Protection Active</div>
-                    <div style="color: rgba(255,255,255,0.5); font-size: 0.9rem;">3 rulesets monitoring your server</div>
+                <div style="text-align: center; padding: 3rem; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🛡️</div>
+                    <div style="color: rgba(255,255,255,0.8); font-weight: 600; margin-bottom: 0.5rem;">AutoMod System</div>
+                    <div style="color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-bottom: 1.5rem;">Create rulesets to automatically moderate your server</div>
+                    <button onclick="window.commandsApp.openRulesetModal()" class="btn btn-primary">Get Started</button>
                 </div>
             </div>
         </div>
@@ -597,8 +470,8 @@
                     <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
                         <h3 style="color: #fff; margin-bottom: 1rem;">🔀 Enable/Disable All</h3>
                         <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn btn-success" onclick="bulkToggleCommands(true)">Enable All</button>
-                            <button class="btn btn-secondary" onclick="bulkToggleCommands(false)">Disable All</button>
+                            <button class="btn btn-success" onclick="window.commandsApp.bulkToggleCommands(true)">Enable All</button>
+                            <button class="btn btn-secondary" onclick="window.commandsApp.bulkToggleCommands(false)">Disable All</button>
                         </div>
                     </div>
 
@@ -611,12 +484,12 @@
                             <option value="moderation">Moderation</option>
                             <option value="info">Info</option>
                         </select>
-                        <button class="btn btn-primary" onclick="bulkCategoryAction()">Apply to Category</button>
+                        <button class="btn btn-primary" onclick="window.commandsApp.bulkCategoryAction()">Apply to Category</button>
                     </div>
 
                     <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
                         <h3 style="color: #fff; margin-bottom: 1rem;">🗑️ Cleanup</h3>
-                        <button class="btn btn-danger" onclick="if(confirm('Delete all disabled commands?')) bulkDelete()">Delete Disabled Commands</button>
+                        <button class="btn btn-danger" onclick="if(confirm('Delete all disabled commands?')) window.commandsApp.bulkDelete()">Delete Disabled Commands</button>
                     </div>
                 </div>
 
@@ -694,90 +567,91 @@
     </div>
 
     <!-- Sticky Message Modal -->
-<div id="stickyModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 style="color: #fff; margin: 0;">📌 Create Sticky Message</h2>
-            <span class="close" onclick="closeStickyModal()">&times;</span>
+    <div id="stickyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 style="color: #fff; margin: 0;">📌 Create Sticky Message</h2>
+                <span class="close" onclick="window.commandsApp.closeStickyModal()">&times;</span>
+            </div>
+            <form id="stickyMessageForm">
+                <div class="form-group">
+                    <label>Channel *</label>
+                    <select name="channelId" id="stickyChannelId" required>
+                        <option value="">Select Channel...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Message *</label>
+                    <textarea name="message" id="stickyMessage" rows="6" required placeholder="This message will stay at the bottom of the channel..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Repost Threshold</label>
+                    <input type="number" name="threshold" id="stickyThreshold" value="10" min="1" max="50">
+                    <small>Repost after this many messages</small>
+                </div>
+                
+                <div class="form-group">
+                    <label><input type="checkbox" name="enabled" id="stickyEnabled" checked> Enable immediately</label>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button type="button" onclick="window.commandsApp.closeStickyModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="button" onclick="window.commandsApp.submitStickyForm()" class="btn btn-primary">💾 Create Sticky</button>
+                </div>
+            </form>
         </div>
-        <form id="stickyMessageForm">
-            <div class="form-group">
-                <label>Channel *</label>
-                <select name="channelId" id="stickyChannelId" required>
-                    <option value="">Select Channel...</option>
-                    <!-- Channels will be populated by JS -->
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>Message *</label>
-                <textarea name="message" id="stickyMessage" rows="6" required placeholder="This message will stay at the bottom of the channel..."></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label>Repost Threshold</label>
-                <input type="number" name="threshold" id="stickyThreshold" value="10" min="1" max="50">
-                <small>Repost after this many messages</small>
-            </div>
-            
-            <div class="form-group">
-                <label><input type="checkbox" name="enabled" id="stickyEnabled" checked> Enable immediately</label>
-            </div>
-            
-            <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                <button type="button" onclick="closeStickyModal()" class="btn btn-secondary">Cancel</button>
-                <button type="button" onclick="submitStickyForm()" class="btn btn-primary">💾 Create Sticky</button>
-            </div>
-        </form>
     </div>
-</div>
-<!-- Edit Sticky Message Modal -->
-<div id="editStickyModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 style="color: #fff; margin: 0;">✏️ Edit Sticky Message</h2>
-            <span class="close" onclick="closeEditStickyModal()">&times;</span>
+
+    <!-- Edit Sticky Message Modal -->
+    <div id="editStickyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 style="color: #fff; margin: 0;">✏️ Edit Sticky Message</h2>
+                <span class="close" onclick="window.commandsApp.closeEditStickyModal()">&times;</span>
+            </div>
+            <form id="editStickyMessageForm">
+                <input type="hidden" id="editStickyId" name="stickyId">
+                
+                <div class="form-group">
+                    <label>Channel *</label>
+                    <select name="channelId" id="editStickyChannelId" required>
+                        <option value="">Select Channel...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Message *</label>
+                    <textarea name="message" id="editStickyMessage" rows="6" required placeholder="This message will stay at the bottom of the channel..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Repost Threshold</label>
+                    <input type="number" name="threshold" id="editStickyThreshold" value="10" min="1" max="50">
+                    <small>Repost after this many messages</small>
+                </div>
+                
+                <div class="form-group">
+                    <label><input type="checkbox" name="enabled" id="editStickyEnabled"> Enable</label>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button type="button" onclick="window.commandsApp.closeEditStickyModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="button" onclick="window.commandsApp.submitEditStickyForm()" class="btn btn-primary">💾 Save Changes</button>
+                </div>
+            </form>
         </div>
-        <form id="editStickyMessageForm">
-            <input type="hidden" id="editStickyId" name="stickyId">
-            
-            <div class="form-group">
-                <label>Channel *</label>
-                <select name="channelId" id="editStickyChannelId" required>
-                    <option value="">Select Channel...</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>Message *</label>
-                <textarea name="message" id="editStickyMessage" rows="6" required placeholder="This message will stay at the bottom of the channel..."></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label>Repost Threshold</label>
-                <input type="number" name="threshold" id="editStickyThreshold" value="10" min="1" max="50">
-                <small>Repost after this many messages</small>
-            </div>
-            
-            <div class="form-group">
-                <label><input type="checkbox" name="enabled" id="editStickyEnabled"> Enable</label>
-            </div>
-            
-            <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                <button type="button" onclick="closeEditStickyModal()" class="btn btn-secondary">Cancel</button>
-                <button type="button" onclick="submitEditStickyForm()" class="btn btn-primary">💾 Save Changes</button>
-            </div>
-        </form>
     </div>
-</div>
+
     <!-- Ruleset Modal -->
     <div id="rulesetModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
                 <h2 style="color: #fff; margin: 0;">🛡️ Create AutoMod Ruleset</h2>
-                <span class="close" onclick="closeRulesetModal()">&times;</span>
+                <span class="close" onclick="window.commandsApp.closeRulesetModal()">&times;</span>
             </div>
-            <form onsubmit="saveRuleset(event)">
+            <form onsubmit="window.commandsApp.saveRuleset(event)">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Ruleset Name *</label>
@@ -803,7 +677,7 @@
                     
                     <div class="form-group">
                         <label>Trigger Type *</label>
-                        <select name="triggerType" id="rulesetTriggerType" onchange="updateRulesetTriggerFields()" required>
+                        <select name="triggerType" id="rulesetTriggerType" onchange="window.commandsApp.updateRulesetTriggerFields()" required>
                             <option value="">Select trigger type...</option>
                             <option value="spam">💬 Spam Detection (rapid messages)</option>
                             <option value="links">🔗 Link Filter (URLs & invites)</option>
@@ -824,7 +698,7 @@
                     
                     <div class="form-group">
                         <label>Action Type *</label>
-                        <select name="actionType" id="rulesetActionType" onchange="updateRulesetActionFields()" required>
+                        <select name="actionType" id="rulesetActionType" onchange="window.commandsApp.updateRulesetActionFields()" required>
                             <option value="">Select action...</option>
                             <option value="delete">🗑️ Delete Message</option>
                             <option value="warn">⚠️ Warn User</option>
@@ -856,7 +730,7 @@
                 </div>
                 
                 <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                    <button type="button" onclick="closeRulesetModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="button" onclick="window.commandsApp.closeRulesetModal()" class="btn btn-secondary">Cancel</button>
                     <button type="submit" class="btn btn-primary">💾 Create Ruleset</button>
                 </div>
             </form>
@@ -868,7 +742,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 style="color: #fff; margin: 0;">✏️ Edit Command</h2>
-                <span class="close" onclick="closeEditModal()">&times;</span>
+                <span class="close" onclick="window.commandsApp.closeEditModal()">&times;</span>
             </div>
             <form method="POST" action="/commands/update" id="editCommandForm">
                 <input type="hidden" name="commandId" id="editCommandId">
@@ -917,1093 +791,843 @@
                 </div>
 
                 <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                    <button type="button" onclick="closeEditModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="button" onclick="window.commandsApp.closeEditModal()" class="btn btn-secondary">Cancel</button>
                     <button type="submit" class="btn btn-primary">💾 Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
+
     <script>
-        // Global roles data
-        const rolesData = <%- JSON.stringify(roles || []) %>;
-        const selectedRequiredRoles = new Set();
-        const selectedExemptRoles = new Set();
-
-        // Initialize role dropdowns
-        function initializeRoleDropdowns() {
-            const requiredDropdown = document.getElementById('requiredRoleDropdown');
-            const exemptDropdown = document.getElementById('exemptRoleDropdown');
+        // ============================================
+        // COMMANDS APP - ALL FUNCTIONS IN ONE NAMESPACE
+        // ============================================
+        (function() {
+            'use strict';
             
-            rolesData.forEach(role => {
-                const requiredOption = createRoleOption(role, 'required');
-                const exemptOption = createRoleOption(role, 'exempt');
-                requiredDropdown.appendChild(requiredOption);
-                exemptDropdown.appendChild(exemptOption);
-            });
-        }
-
-        function createRoleOption(role, type) {
-            const option = document.createElement('div');
-            option.className = 'role-option';
-            option.textContent = role.name;
-            option.onclick = () => toggleRole(role.id, role.name, type);
-            return option;
-        }
-
-        function toggleRoleDropdown(type) {
-            const dropdown = document.getElementById(`${type}RoleDropdown`);
-            dropdown.classList.toggle('active');
-            
-            // Close other dropdown
-            const otherType = type === 'required' ? 'exempt' : 'required';
-            document.getElementById(`${otherType}RoleDropdown`).classList.remove('active');
-        }
-
-        function toggleRole(roleId, roleName, type) {
-            const selectedSet = type === 'required' ? selectedRequiredRoles : selectedExemptRoles;
-            
-            if (selectedSet.has(roleId)) {
-                selectedSet.delete(roleId);
-            } else {
-                selectedSet.add(roleId);
-            }
-            
-            updateRoleTags(type);
-            updateRoleInput(type);
-        }
-
-        function updateRoleTags(type) {
-            const tagsContainer = document.getElementById(`${type}RoleTags`);
-            const selectedSet = type === 'required' ? selectedRequiredRoles : selectedExemptRoles;
-            
-            if (selectedSet.size === 0) {
-                tagsContainer.innerHTML = '<span style="color: rgba(255,255,255,0.5);">Click to select roles...</span>';
-                return;
-            }
-            
-            tagsContainer.innerHTML = '';
-            selectedSet.forEach(roleId => {
-                const role = rolesData.find(r => r.id === roleId);
-                if (role) {
-                    const tag = document.createElement('div');
-                    tag.className = 'role-tag';
-                    tag.innerHTML = `
-                        ${role.name}
-                        <span class="role-tag-remove" onclick="event.stopPropagation(); removeRole('${roleId}', '${type}')">×</span>
-                    `;
-                    tagsContainer.appendChild(tag);
-                }
-            });
-        }
-
-        function removeRole(roleId, type) {
-            const selectedSet = type === 'required' ? selectedRequiredRoles : selectedExemptRoles;
-            selectedSet.delete(roleId);
-            updateRoleTags(type);
-            updateRoleInput(type);
-        }
-
-        function updateRoleInput(type) {
-            const selectedSet = type === 'required' ? selectedRequiredRoles : selectedExemptRoles;
-            const input = document.getElementById(`${type}RolesInput`);
-            input.value = Array.from(selectedSet).join(',');
-        }
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!event.target.closest('.role-selector')) {
-                document.querySelectorAll('.role-dropdown').forEach(dropdown => {
-                    dropdown.classList.remove('active');
-                });
-            }
-        });
-
-        // Tab switching
-function switchMainTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    document.querySelectorAll('.tab-nav-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    document.getElementById(`tab-${tabName}`).classList.add('active');
-    event.target.classList.add('active');
-    
-    // Load data when switching to specific tabs
-    if (tabName === 'sticky') {
-        loadStickyMessages();
-    }
-}
-
-        // Command filtering
-        function filterCommands(category) {
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            const cards = document.querySelectorAll('.command-card');
-            cards.forEach(card => {
-                if (category === 'all' || card.dataset.category === category) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        }
-
-        // Toggle create form
-        function toggleCreateForm() {
-            const section = document.getElementById('createCommandSection');
-            section.style.display = section.style.display === 'none' ? 'block' : 'none';
-        }
-
-        // Toggle command enabled/disabled
-        async function toggleCommand(commandId, type) {
-            try {
-                const response = await fetch(`/commands/toggle/${commandId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type })
-                });
+            // Global app object
+            const CommandsApp = {
+                rolesData: <%- JSON.stringify(roles || []) %>,
+                selectedRequiredRoles: new Set(),
+                selectedExemptRoles: new Set(),
                 
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Failed to toggle command');
-                }
-            } catch (error) {
-                console.error('Error toggling command:', error);
-                alert('Error toggling command');
-            }
-        }
-
-        // Edit command modal
-        function editCommand(commandId) {
-            // Fetch command data and populate modal
-            fetch(`/commands/get/${commandId}`)
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById('editCommandId').value = data._id;
-                    document.getElementById('editName').value = data.name;
-                    document.getElementById('editCategory').value = data.category || 'general';
-                    document.getElementById('editTrigger').value = Array.isArray(data.trigger) ? data.trigger.join(', ') : data.trigger;
-                    document.getElementById('editResponse').value = data.response || '';
-                    document.getElementById('editResponseType').value = data.responseType || 'text';
-                    document.getElementById('editEnabled').checked = data.enabled;
-                    
-                    document.getElementById('editModal').style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error loading command:', error);
-                    alert('Failed to load command data');
-                });
-        }
-
-        function closeEditModal() {
-            document.getElementById('editModal').style.display = 'none';
-        }
-
-        // Modal close on outside click
-        window.onclick = function(event) {
-            const modal = document.getElementById('editModal');
-            if (event.target === modal) {
-                closeEditModal();
-            }
-        }
-
-        // Bulk actions
-        async function bulkToggleCommands(enable) {
-            if (!confirm(`Are you sure you want to ${enable ? 'enable' : 'disable'} all commands?`)) return;
-            
-            try {
-                const response = await fetch('/commands/bulk/toggle', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enable })
-                });
+                // Initialize app
+                init: function() {
+                    console.log('✅ Commands App initialized');
+                    this.initializeRoleDropdowns();
+                    this.loadRoleNames();
+                    this.setupEventListeners();
+                },
                 
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Failed to update commands');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error updating commands');
-            }
-        }
-
-        function bulkCategoryAction() {
-            const category = document.getElementById('bulkCategory').value;
-            if (!category) {
-                alert('Please select a category');
-                return;
-            }
-            alert(`Bulk action for ${category} category - feature coming soon!`);
-        }
-
-        async function bulkDelete() {
-            try {
-                const response = await fetch('/commands/bulk/delete-disabled', {
-                    method: 'POST'
-                });
-                
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Failed to delete commands');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error deleting commands');
-            }
-        }
-
-        // Copy functionality
-        function copyRuleset(button) {
-            const content = button.parentElement.querySelector('pre').textContent;
-            navigator.clipboard.writeText(content).then(() => {
-                const originalText = button.textContent;
-                button.textContent = '✅ Copied!';
-                setTimeout(() => {
-                    button.textContent = originalText;
-                }, 2000);
-            });
-        }
-
-        // Modal functions for sticky and rulesets
-        async function openStickyModal() {
-            document.getElementById('stickyModal').style.display = 'block';
-            await loadChannelsForSticky();
-        }
-
-        function closeStickyModal() {
-            document.getElementById('stickyModal').style.display = 'none';
-        }
-
-        async function loadChannelsForSticky() {
-            try {
-                const response = await fetch('/api/channels');
-                const data = await response.json();
-                
-                if (data.success && data.channels) {
-                    const select = document.querySelector('#stickyModal select[name="channelId"]');
-                    select.innerHTML = '<option value="">Select Channel...</option>';
-                    
-                    data.channels.forEach(channel => {
-                        const option = document.createElement('option');
-                        option.value = channel.id;
-                        option.textContent = `#${channel.name}`;
-                        select.appendChild(option);
+                // Setup event listeners
+                setupEventListeners: function() {
+                    // Close dropdowns when clicking outside
+                    document.addEventListener('click', (event) => {
+                        if (!event.target.closest('.role-selector')) {
+                            document.querySelectorAll('.role-dropdown').forEach(dropdown => {
+                                dropdown.classList.remove('active');
+                            });
+                        }
                     });
-                }
-            } catch (error) {
-                console.error('Error loading channels:', error);
-            }
-        }
-
-        async function loadStickyMessages() {
-            try {
-                const response = await fetch('/commands/sticky/list');
-                const data = await response.json();
-                
-                const container = document.getElementById('stickyMessagesList');
-                
-                if (data.success && data.stickyMessages && data.stickyMessages.length > 0) {
-                    container.innerHTML = '';
                     
-                    data.stickyMessages.forEach(sticky => {
-                        const card = document.createElement('div');
-                        card.className = 'sticky-card';
-                        card.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                                <div>
-                                    <span class="sticky-indicator">${sticky.enabled ? '🔥 Active' : '⏸️ Disabled'}</span>
-                                    <h3 style="color: #fff; margin: 0.5rem 0;">#${sticky.channelName || 'Unknown Channel'}</h3>
-                                </div>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <button class="btn-icon toggle" onclick="toggleSticky('${sticky._id}')" title="Toggle">
-                                        ${sticky.enabled ? '⏸️' : '▶️'}
-                                    </button>
-                                    <button class="btn-icon delete" onclick="deleteSticky('${sticky._id}')" title="Delete">🗑️</button>
-                                </div>
-                            </div>
-                            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">${sticky.message.length > 100 ? sticky.message.substring(0, 100) + '...' : sticky.message}</p>
-                            <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
-                                <span>📍 Channel: #${sticky.channelName || sticky.channelId}</span>
-                                <span>💬 Threshold: ${sticky.threshold} messages</span>
-                                <span>🔄 Reposts: ${sticky.repostCount || 0}</span>
-                            </div>
-                        `;
-                        container.appendChild(card);
-                    });
-                } else {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">📌</div>
-                            <div class="empty-state-text">No sticky messages yet</div>
-                            <div class="empty-state-subtext">Create sticky messages to keep important info visible</div>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('Error loading sticky messages:', error);
-                document.getElementById('stickyMessagesList').innerHTML = `
-                    <div style="text-align: center; padding: 2rem; color: #ed4245;">
-                        <strong>Error loading sticky messages</strong><br>
-                        <small>${error.message}</small>
-                    </div>
-                `;
-            }
-        }
-
-        async function toggleSticky(stickyId) {
-            try {
-                const response = await fetch(`/commands/sticky/toggle/${stickyId}`, {
-                    method: 'POST'
-                });
+                    // Close modals when clicking outside
+                    window.onclick = (event) => {
+                        if (event.target.classList.contains('modal')) {
+                            event.target.style.display = 'none';
+                        }
+                    };
+                },
                 
-                const result = await response.json();
-                if (result.success) {
-                    loadStickyMessages();
-                } else {
-                    alert('Failed to toggle sticky message');
-                }
-            } catch (error) {
-                console.error('Error toggling sticky:', error);
-                alert('Error toggling sticky message');
-            }
-        }
-
-        async function deleteSticky(stickyId) {
-            if (!confirm('Are you sure you want to delete this sticky message?')) return;
-            
-            try {
-                const response = await fetch(`/commands/sticky/${stickyId}`, {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    loadStickyMessages();
-                } else {
-                    alert('Failed to delete sticky message');
-                }
-            } catch (error) {
-                console.error('Error deleting sticky:', error);
-                alert('Error deleting sticky message');
-            }
-        }
-        // Edit sticky message
-async function editSticky(stickyId) {
-    console.log('✏️ Edit sticky called:', stickyId);
-    try {
-        const response = await fetch(`/commands/sticky/get/${stickyId}`);
-        const data = await response.json();
-        
-        console.log('Got sticky data:', data);
-        
-        if (data.success && data.sticky) {
-            const sticky = data.sticky;
-            
-            // Populate form
-            document.getElementById('editStickyId').value = sticky._id;
-            document.getElementById('editStickyMessage').value = sticky.message;
-            document.getElementById('editStickyThreshold').value = sticky.threshold;
-            document.getElementById('editStickyEnabled').checked = sticky.enabled;
-            
-            // Load channels and select the current one
-            const channelsResponse = await fetch('/api/channels');
-            const channelsData = await channelsResponse.json();
-            
-            if (channelsData.success && channelsData.channels) {
-                const select = document.getElementById('editStickyChannelId');
-                select.innerHTML = '<option value="">Select Channel...</option>';
-                
-                channelsData.channels.forEach(channel => {
-                    const option = document.createElement('option');
-                    option.value = channel.id;
-                    option.textContent = `#${channel.name}`;
-                    if (channel.id === sticky.channelId) {
-                        option.selected = true;
+                // Role selector functions
+                initializeRoleDropdowns: function() {
+                    const requiredDropdown = document.getElementById('requiredRoleDropdown');
+                    const exemptDropdown = document.getElementById('exemptRoleDropdown');
+                    
+                    if (requiredDropdown && exemptDropdown) {
+                        this.rolesData.forEach(role => {
+                            const requiredOption = this.createRoleOption(role, 'required');
+                            const exemptOption = this.createRoleOption(role, 'exempt');
+                            requiredDropdown.appendChild(requiredOption);
+                            exemptDropdown.appendChild(exemptOption);
+                        });
                     }
-                    select.appendChild(option);
-                });
-            }
-            
-            document.getElementById('editStickyModal').style.display = 'block';
-        } else {
-            alert('Failed to load sticky message: ' + (data.error || 'Unknown error'));
-        }
-    } catch (error) {
-        console.error('Error loading sticky for edit:', error);
-        alert('Failed to load sticky message: ' + error.message);
-    }
-}
-
-function closeEditStickyModal() {
-    document.getElementById('editStickyModal').style.display = 'none';
-}
-
-async function submitEditStickyForm() {
-    console.log('💾 Submitting edit form');
-    
-    const form = document.getElementById('editStickyMessageForm');
-    const formData = new FormData(form);
-    
-    const data = {
-        channelId: formData.get('channelId'),
-        message: formData.get('message'),
-        threshold: parseInt(formData.get('threshold')) || 10,
-        enabled: formData.get('enabled') === 'on'
-    };
-    
-    console.log('Edit data:', data);
-    
-    if (!data.channelId || !data.message) {
-        alert('Please fill in all required fields');
-        return;
-    }
-    
-    try {
-        const stickyId = document.getElementById('editStickyId').value;
-        const response = await fetch(`/commands/sticky/edit/${stickyId}`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-        
-        const result = await response.json();
-        console.log('Edit result:', result);
-        
-        if (result.success) {
-            alert('✅ Sticky message updated!');
-            closeEditStickyModal();
-            loadStickyMessages();
-        } else {
-            alert('❌ Error: ' + (result.error || 'Unknown error'));
-        }
-    } catch (error) {
-        console.error('Error updating sticky:', error);
-        alert('Failed to update sticky message: ' + error.message);
-    }
-}
-
-        function openRulesetModal() {
-            document.getElementById('rulesetModal').style.display = 'block';
-            updateRulesetTriggerFields();
-            updateRulesetActionFields();
-        }
-
-        function closeRulesetModal() {
-            document.getElementById('rulesetModal').style.display = 'none';
-        }
-
-        function updateRulesetTriggerFields() {
-            const triggerType = document.getElementById('rulesetTriggerType').value;
-            const container = document.getElementById('triggerConfigFields');
-            
-            let html = '';
-            
-            switch(triggerType) {
-                case 'spam':
-                    html = `
-                        <div class="form-group">
-                            <label>Message Count</label>
-                            <input type="number" name="messageCount" value="5" min="2" max="20">
-                            <small>Number of messages</small>
-                        </div>
-                        <div class="form-group">
-                            <label>Time Window (seconds)</label>
-                            <input type="number" name="timeWindow" value="3" min="1" max="60">
-                            <small>Within this time period</small>
-                        </div>
-                    `;
-                    break;
+                },
+                
+                createRoleOption: function(role, type) {
+                    const option = document.createElement('div');
+                    option.className = 'role-option';
+                    option.textContent = role.name;
+                    option.onclick = () => this.toggleRole(role.id, role.name, type);
+                    return option;
+                },
+                
+                toggleRoleDropdown: function(type) {
+                    const dropdown = document.getElementById(`${type}RoleDropdown`);
+                    if (dropdown) {
+                        dropdown.classList.toggle('active');
+                        
+                        const otherType = type === 'required' ? 'exempt' : 'required';
+                        const otherDropdown = document.getElementById(`${otherType}RoleDropdown`);
+                        if (otherDropdown) {
+                            otherDropdown.classList.remove('active');
+                        }
+                    }
+                },
+                
+                toggleRole: function(roleId, roleName, type) {
+                    const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
                     
-                case 'links':
-                    html = `
-                        <div class="form-group">
-                            <label><input type="checkbox" name="blockDiscordInvites" checked> Block Discord Invites</label>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" name="blockAllUrls"> Block All URLs</label>
-                        </div>
-                        <div class="form-group">
-                            <label>Whitelisted Domains (comma-separated)</label>
-                            <input type="text" name="whitelistedDomains" placeholder="youtube.com, twitter.com">
-                            <small>These domains will be allowed</small>
-                        </div>
-                    `;
-                    break;
+                    if (selectedSet.has(roleId)) {
+                        selectedSet.delete(roleId);
+                    } else {
+                        selectedSet.add(roleId);
+                    }
                     
-                case 'words':
-                    html = `
-                        <div class="form-group">
-                            <label>Banned Words (one per line)</label>
-                            <textarea name="bannedWords" rows="5" placeholder="word1&#10;word2&#10;word3"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" name="caseSensitive"> Case Sensitive</label>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" name="wildcard" checked> Use Wildcard Matching</label>
-                            <small>*word* matches anywhere in message</small>
-                        </div>
-                    `;
-                    break;
+                    this.updateRoleTags(type);
+                    this.updateRoleInput(type);
+                },
+                
+                updateRoleTags: function(type) {
+                    const tagsContainer = document.getElementById(`${type}RoleTags`);
+                    const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
                     
-                case 'mentions':
-                    html = `
-                        <div class="form-group">
-                            <label>Max Mentions</label>
-                            <input type="number" name="maxMentions" value="5" min="1" max="20">
-                            <small>Maximum user/role mentions per message</small>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" name="includeBotMentions"> Include Bot Mentions</label>
-                        </div>
-                    `;
-                    break;
+                    if (!tagsContainer) return;
                     
-                case 'caps':
-                    html = `
-                        <div class="form-group">
-                            <label>Caps Percentage</label>
-                            <input type="number" name="capsPercentage" value="70" min="50" max="100">
-                            <small>% of message in CAPS</small>
-                        </div>
-                        <div class="form-group">
-                            <label>Minimum Length</label>
-                            <input type="number" name="minLength" value="10" min="5" max="50">
-                            <small>Minimum message length to check</small>
-                        </div>
-                    `;
-                    break;
+                    if (selectedSet.size === 0) {
+                        tagsContainer.innerHTML = '<span style="color: rgba(255,255,255,0.5);">Click to select roles...</span>';
+                        return;
+                    }
                     
-                case 'attachments':
-                    html = `
-                        <div class="form-group">
-                            <label>Max Attachments</label>
-                            <input type="number" name="maxAttachments" value="3" min="1" max="10">
-                            <small>Maximum attachments per message</small>
-                        </div>
-                        <div class="form-group">
-                            <label>Blocked File Types (comma-separated)</label>
-                            <input type="text" name="blockedTypes" placeholder=".exe, .bat, .cmd">
-                        </div>
-                    `;
-                    break;
+                    tagsContainer.innerHTML = '';
+                    selectedSet.forEach(roleId => {
+                        const role = this.rolesData.find(r => r.id === roleId);
+                        if (role) {
+                            const tag = document.createElement('div');
+                            tag.className = 'role-tag';
+                            tag.innerHTML = `
+                                ${role.name}
+                                <span class="role-tag-remove" onclick="event.stopPropagation(); window.commandsApp.removeRole('${roleId}', '${type}')">×</span>
+                            `;tagsContainer.appendChild(tag);
+                        }
+                    });
+                },
+                
+                removeRole: function(roleId, type) {
+                    const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
+                    selectedSet.delete(roleId);
+                    this.updateRoleTags(type);
+                    this.updateRoleInput(type);
+                },
+                
+                updateRoleInput: function(type) {
+                    const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
+                    const input = document.getElementById(`${type}RolesInput`);
+                    if (input) {
+                        input.value = Array.from(selectedSet).join(',');
+                    }
+                },
+                
+                loadRoleNames: function() {
+                    document.querySelectorAll('.role-badge[data-role-id]').forEach(badge => {
+                        const roleId = badge.dataset.roleId;
+                        const role = this.rolesData.find(r => r.id === roleId);
+                        if (role) {
+                            const icon = badge.classList.contains('exempt') ? '✅' : '🔒';
+                            badge.textContent = `${icon} ${role.name}`;
+                        }
+                    });
+                },
+                
+                // Tab switching
+                switchMainTab: function(tabName, event) {
+                    document.querySelectorAll('.tab-content').forEach(tab => {
+                        tab.classList.remove('active');
+                    });
+                    document.querySelectorAll('.tab-nav-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
                     
-                default:
-                    html = '<p style="color: rgba(255,255,255,0.6);">Select a trigger type</p>';
-            }
-            
-            container.innerHTML = html;
-        }
-
-        function updateRulesetActionFields() {
-            const actionType = document.getElementById('rulesetActionType').value;
-            const container = document.getElementById('actionConfigFields');
-            
-            let html = '';
-            
-            switch(actionType) {
-                case 'delete':
-                    html = `
-                        <div class="form-group">
-                            <label><input type="checkbox" name="notifyUser" checked> Notify User</label>
-                            <small>Send a DM explaining why message was deleted</small>
-                        </div>
-                        <div class="form-group">
-                            <label>Custom Message</label>
-                            <textarea name="customMessage" rows="2" placeholder="Your message violated our rules..."></textarea>
-                        </div>
-                    `;
-                    break;
+                    const targetTab = document.getElementById(`tab-${tabName}`);
+                    if (targetTab) {
+                        targetTab.classList.add('active');
+                    }
                     
-                case 'warn':
-                    html = `
-                        <div class="form-group">
-                            <label>Warning Message</label>
-                            <textarea name="warnMessage" rows="3" placeholder="You have been warned for..."></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" name="deleteMessage" checked> Also Delete Message</label>
-                        </div>
-                    `;
-                    break;
+                    if (event && event.target) {
+                        event.target.classList.add('active');
+                    }
                     
-                case 'timeout':
-                    html = `
-                        <div class="form-group">
-                            <label>Timeout Duration</label>
-                            <select name="timeoutDuration">
-                                <option value="60">1 minute</option>
-                                <option value="300" selected>5 minutes</option>
-                                <option value="600">10 minutes</option>
-                                <option value="1800">30 minutes</option>
-                                <option value="3600">1 hour</option>
-                                <option value="86400">24 hours</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" name="deleteMessage" checked> Delete Message</label>
-                        </div>
-                        <div class="form-group">
-                            <label>Reason (shown to user)</label>
-                            <textarea name="timeoutReason" rows="2" placeholder="You have been timed out for..."></textarea>
-                        </div>
-                    `;
-                    break;
+                    // Load data when switching to specific tabs
+                    if (tabName === 'sticky') {
+                        this.loadStickyMessages();
+                    }
+                },
+                
+                // Command filtering
+                filterCommands: function(category, event) {
+                    document.querySelectorAll('.tab').forEach(tab => {
+                        tab.classList.remove('active');
+                    });
+                    if (event && event.target) {
+                        event.target.classList.add('active');
+                    }
                     
-                case 'kick':
-                    html = `
-                        <div class="form-group">
-                            <label>Kick Reason</label>
-                            <textarea name="kickReason" rows="2" placeholder="Kicked for violating rules"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" name="notifyBeforeKick" checked> DM User Before Kick</label>
-                        </div>
-                    `;
-                    break;
+                    const cards = document.querySelectorAll('.command-card');
+                    cards.forEach(card => {
+                        if (category === 'all' || card.dataset.category === category) {
+                            card.style.display = 'block';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                },
+                
+                // Toggle create form
+                toggleCreateForm: function() {
+                    const section = document.getElementById('createCommandSection');
+                    if (section) {
+                        section.style.display = section.style.display === 'none' ? 'block' : 'none';
+                    }
+                },
+                
+                // Toggle command enabled/disabled
+                toggleCommand: async function(commandId, type) {
+                    try {
+                        const response = await fetch(`/commands/toggle/${commandId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type })
+                        });
+                        
+                        if (response.ok) {
+                            location.reload();
+                        } else {
+                            alert('Failed to toggle command');
+                        }
+                    } catch (error) {
+                        console.error('Error toggling command:', error);
+                        alert('Error toggling command');
+                    }
+                },
+                
+                // Edit command modal
+                editCommand: function(commandId) {
+                    fetch(`/api/commands/${commandId}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success && data.command) {
+                                const cmd = data.command;
+                                document.getElementById('editCommandId').value = cmd._id;
+                                document.getElementById('editName').value = cmd.name;
+                                document.getElementById('editCategory').value = cmd.category || 'general';
+                                document.getElementById('editTrigger').value = Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger;
+                                document.getElementById('editResponse').value = cmd.response || '';
+                                document.getElementById('editResponseType').value = cmd.responseType || 'text';
+                                document.getElementById('editEnabled').checked = cmd.enabled;
+                                
+                                document.getElementById('editModal').style.display = 'block';
+                            } else {
+                                alert('Failed to load command data');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error loading command:', error);
+                            alert('Failed to load command data');
+                        });
+                },
+                
+                closeEditModal: function() {
+                    const modal = document.getElementById('editModal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                },
+                
+                // Bulk actions
+                bulkToggleCommands: async function(enable) {
+                    if (!confirm(`Are you sure you want to ${enable ? 'enable' : 'disable'} all commands?`)) return;
                     
-                case 'ban':
-                    html = `
-                        <div class="form-group">
-                            <label>Ban Reason</label>
-                            <textarea name="banReason" rows="2" placeholder="Banned for violating rules"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Delete Message History</label>
-                            <select name="deleteMessageDays">
-                                <option value="0">Don't delete any</option>
-                                <option value="1" selected>Previous 24 hours</option>
-                                <option value="7">Previous 7 days</option>
-                            </select>
-                        </div>
-                    `;
-                    break;
+                    try {
+                        const response = await fetch('/commands/bulk/toggle', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ enable })
+                        });
+                        
+                        if (response.ok) {
+                            location.reload();
+                        } else {
+                            alert('Failed to update commands');
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        alert('Error updating commands');
+                    }
+                },
+                
+                bulkCategoryAction: function() {
+                    const category = document.getElementById('bulkCategory').value;
+                    if (!category) {
+                        alert('Please select a category');
+                        return;
+                    }
+                    alert(`Bulk action for ${category} category - feature coming soon!`);
+                },
+                
+                bulkDelete: async function() {
+                    try {
+                        const response = await fetch('/commands/bulk/delete-disabled', {
+                            method: 'POST'
+                        });
+                        
+                        if (response.ok) {
+                            location.reload();
+                        } else {
+                            alert('Failed to delete commands');
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        alert('Error deleting commands');
+                    }
+                },
+                
+                // Sticky Messages
+                openStickyModal: async function() {
+                    document.getElementById('stickyModal').style.display = 'block';
+                    await this.loadChannelsForSticky();
+                },
+                
+                closeStickyModal: function() {
+                    document.getElementById('stickyModal').style.display = 'none';
+                },
+                
+                loadChannelsForSticky: async function() {
+                    try {
+                        const response = await fetch('/api/channels');
+                        const data = await response.json();
+                        
+                        if (data.success && data.channels) {
+                            const select = document.getElementById('stickyChannelId');
+                            if (select) {
+                                select.innerHTML = '<option value="">Select Channel...</option>';
+                                
+                                data.channels.forEach(channel => {
+                                    const option = document.createElement('option');
+                                    option.value = channel.id;
+                                    option.textContent = `#${channel.name}`;
+                                    select.appendChild(option);
+                                });
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error loading channels:', error);
+                    }
+                },
+                
+                submitStickyForm: async function() {
+                    const form = document.getElementById('stickyMessageForm');
+                    const formData = new FormData(form);
                     
-                default:
-                    html = '<p style="color: rgba(255,255,255,0.6);">Select an action type</p>';
-            }
-            
-            container.innerHTML = html;
-        }
-
-        async function saveRuleset(event) {
-            event.preventDefault();
-            
-            const form = event.target;
-            const formData = new FormData(form);
-            
-            // Build trigger config based on type
-            const triggerType = formData.get('triggerType');
-            const triggerConfig = {};
-            
-            switch(triggerType) {
-                case 'spam':
-                    triggerConfig.messageCount = parseInt(formData.get('messageCount'));
-                    triggerConfig.timeWindow = parseInt(formData.get('timeWindow'));
-                    break;
-                case 'links':
-                    triggerConfig.blockDiscordInvites = formData.get('blockDiscordInvites') === 'on';
-                    triggerConfig.blockAllUrls = formData.get('blockAllUrls') === 'on';
-                    break;
-                case 'words':
-                    triggerConfig.bannedWords = formData.get('bannedWords').split('\n').filter(w => w.trim());
-                    triggerConfig.caseSensitive = formData.get('caseSensitive') === 'on';
-                    triggerConfig.wildcard = formData.get('wildcard') === 'on';
-                    break;
-                case 'mentions':
-                    triggerConfig.maxMentions = parseInt(formData.get('maxMentions'));
-                    triggerConfig.includeBotMentions = formData.get('includeBotMentions') === 'on';
-                    break;
-                case 'caps':
-                    triggerConfig.capsPercentage = parseInt(formData.get('capsPercentage'));
-                    triggerConfig.minLength = parseInt(formData.get('minLength'));
-                    break;
-                case 'attachments':
-                    triggerConfig.maxAttachments = parseInt(formData.get('maxAttachments'));
-                    triggerConfig.blockedTypes = formData.get('blockedTypes')?.split(',').map(t => t.trim());
-                    break;
-            }
-            
-            // Build action config
-            const actionType = formData.get('actionType');
-            const actionConfig = {};
-            
-            switch(actionType) {
-                case 'delete':
-                    actionConfig.notifyUser = formData.get('notifyUser') === 'on';
-                    actionConfig.customMessage = formData.get('customMessage');
-                    break;
-                case 'warn':
-                    actionConfig.warnMessage = formData.get('warnMessage');
-                    actionConfig.deleteMessage = formData.get('deleteMessage') === 'on';
-                    break;
-                case 'timeout':
-                    actionConfig.duration = parseInt(formData.get('timeoutDuration'));
-                    actionConfig.deleteMessage = formData.get('deleteMessage') === 'on';
-                    actionConfig.reason = formData.get('timeoutReason');
-                    break;
-                case 'kick':
-                    actionConfig.reason = formData.get('kickReason');
-                    actionConfig.notifyBeforeKick = formData.get('notifyBeforeKick') === 'on';
-                    break;
-                case 'ban':
-                    actionConfig.reason = formData.get('banReason');
-                    actionConfig.deleteMessageDays = parseInt(formData.get('deleteMessageDays'));
-                    break;
-            }
-            
-            const data = {
-                name: formData.get('name'),
-                description: formData.get('description'),
-                triggerType: triggerType,
-                triggerConfig: triggerConfig,
-                actionType: actionType,
-                actionConfig: actionConfig,
-                priority: formData.get('priority'),
-                excludedRoles: formData.get('excludedRoles')?.split(',').filter(r => r.trim()) || [],
-                excludedChannels: formData.get('excludedChannels')?.split(',').filter(c => c.trim()) || [],
-                whitelistedDomains: formData.get('whitelistedDomains')?.split(',').map(d => d.trim()) || []
+                    const data = {
+                        channelId: formData.get('channelId'),
+                        message: formData.get('message'),
+                        threshold: parseInt(formData.get('threshold')) || 10,
+                        enabled: formData.get('enabled') === 'on'
+                    };
+                    
+                    if (!data.channelId) {
+                        alert('Please select a channel');
+                        return;
+                    }
+                    
+                    if (!data.message || data.message.trim() === '') {
+                        alert('Please enter a message');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/commands/sticky/create', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            alert('✅ Sticky message created successfully!');
+                            this.closeStickyModal();
+                            this.loadStickyMessages();
+                        } else {
+                            alert('❌ Error: ' + (result.error || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('Error creating sticky:', error);
+                        alert('Failed to save sticky message: ' + error.message);
+                    }
+                },
+                
+                loadStickyMessages: async function() {
+                    try {
+                        const response = await fetch('/commands/sticky/list');
+                        const data = await response.json();
+                        
+                        const container = document.getElementById('stickyMessagesList');
+                        if (!container) return;
+                        
+                        if (data.success && data.stickyMessages && data.stickyMessages.length > 0) {
+                            container.innerHTML = '';
+                            
+                            data.stickyMessages.forEach(sticky => {
+                                const card = document.createElement('div');
+                                card.className = 'sticky-card';
+                                card.innerHTML = `
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                                        <div>
+                                            <span class="sticky-indicator">${sticky.enabled ? '🔥 Active' : '⏸️ Disabled'}</span>
+                                            <h3 style="color: #fff; margin: 0.5rem 0;">#${sticky.channelName || 'Unknown Channel'}</h3>
+                                        </div>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <button class="btn-icon" onclick="window.commandsApp.editSticky('${sticky._id}')" title="Edit">✏️</button>
+                                            <button class="btn-icon toggle" onclick="window.commandsApp.toggleSticky('${sticky._id}')" title="Toggle">
+                                                ${sticky.enabled ? '⏸️' : '▶️'}
+                                            </button>
+                                            <button class="btn-icon delete" onclick="window.commandsApp.deleteSticky('${sticky._id}')" title="Delete">🗑️</button>
+                                        </div>
+                                    </div>
+                                    <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">${sticky.message.length > 100 ? sticky.message.substring(0, 100) + '...' : sticky.message}</p>
+                                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                                        <span>📍 Channel: #${sticky.channelName || sticky.channelId}</span>
+                                        <span>💬 Threshold: ${sticky.threshold} messages</span>
+                                        <span>🔄 Reposts: ${sticky.repostCount || 0}</span>
+                                    </div>
+                                `;
+                                container.appendChild(card);
+                            });
+                        } else {
+                            container.innerHTML = `
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">📌</div>
+                                    <div class="empty-state-text">No sticky messages yet</div>
+                                    <div class="empty-state-subtext">Create sticky messages to keep important info visible</div>
+                                </div>
+                            `;
+                        }
+                    } catch (error) {
+                        console.error('Error loading sticky messages:', error);
+                        const container = document.getElementById('stickyMessagesList');
+                        if (container) {
+                            container.innerHTML = `
+                                <div style="text-align: center; padding: 2rem; color: #ed4245;">
+                                    <strong>Error loading sticky messages</strong><br>
+                                    <small>${error.message}</small>
+                                </div>
+                            `;
+                        }
+                    }
+                },
+                
+                toggleSticky: async function(stickyId) {
+                    try {
+                        const response = await fetch(`/commands/sticky/toggle/${stickyId}`, {
+                            method: 'POST'
+                        });
+                        
+                        const result = await response.json();
+                        if (result.success) {
+                            this.loadStickyMessages();
+                        } else {
+                            alert('Failed to toggle sticky message');
+                        }
+                    } catch (error) {
+                        console.error('Error toggling sticky:', error);
+                        alert('Error toggling sticky message');
+                    }
+                },
+                
+                deleteSticky: async function(stickyId) {
+                    if (!confirm('Are you sure you want to delete this sticky message?')) return;
+                    
+                    try {
+                        const response = await fetch(`/commands/sticky/${stickyId}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        const result = await response.json();
+                        if (result.success) {
+                            this.loadStickyMessages();
+                        } else {
+                            alert('Failed to delete sticky message');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting sticky:', error);
+                        alert('Error deleting sticky message');
+                    }
+                },
+                
+                editSticky: async function(stickyId) {
+                    try {
+                        const response = await fetch(`/commands/sticky/get/${stickyId}`);
+                        const data = await response.json();
+                        
+                        if (data.success && data.sticky) {
+                            const sticky = data.sticky;
+                            
+                            document.getElementById('editStickyId').value = sticky._id;
+                            document.getElementById('editStickyMessage').value = sticky.message;
+                            document.getElementById('editStickyThreshold').value = sticky.threshold;
+                            document.getElementById('editStickyEnabled').checked = sticky.enabled;
+                            
+                            // Load channels
+                            const channelsResponse = await fetch('/api/channels');
+                            const channelsData = await channelsResponse.json();
+                            
+                            if (channelsData.success && channelsData.channels) {
+                                const select = document.getElementById('editStickyChannelId');
+                                select.innerHTML = '<option value="">Select Channel...</option>';
+                                
+                                channelsData.channels.forEach(channel => {
+                                    const option = document.createElement('option');
+                                    option.value = channel.id;
+                                    option.textContent = `#${channel.name}`;
+                                    if (channel.id === sticky.channelId) {
+                                        option.selected = true;
+                                    }
+                                    select.appendChild(option);
+                                });
+                            }
+                            
+                            document.getElementById('editStickyModal').style.display = 'block';
+                        } else {
+                            alert('Failed to load sticky message');
+                        }
+                    } catch (error) {
+                        console.error('Error loading sticky for edit:', error);
+                        alert('Failed to load sticky message');
+                    }
+                },
+                
+                closeEditStickyModal: function() {
+                    document.getElementById('editStickyModal').style.display = 'none';
+                },
+                
+                submitEditStickyForm: async function() {
+                    const form = document.getElementById('editStickyMessageForm');
+                    const formData = new FormData(form);
+                    
+                    const data = {
+                        channelId: formData.get('channelId'),
+                        message: formData.get('message'),
+                        threshold: parseInt(formData.get('threshold')) || 10,
+                        enabled: formData.get('enabled') === 'on'
+                    };
+                    
+                    if (!data.channelId || !data.message) {
+                        alert('Please fill in all required fields');
+                        return;
+                    }
+                    
+                    try {
+                        const stickyId = document.getElementById('editStickyId').value;
+                        const response = await fetch(`/commands/sticky/edit/${stickyId}`, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            alert('✅ Sticky message updated!');
+                            this.closeEditStickyModal();
+                            this.loadStickyMessages();
+                        } else {
+                            alert('❌ Error: ' + (result.error || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('Error updating sticky:', error);
+                        alert('Failed to update sticky message');
+                    }
+                },
+                
+                // Rulesets
+                openRulesetModal: function() {
+                    document.getElementById('rulesetModal').style.display = 'block';
+                    this.updateRulesetTriggerFields();
+                    this.updateRulesetActionFields();
+                },
+                
+                closeRulesetModal: function() {
+                    document.getElementById('rulesetModal').style.display = 'none';
+                },
+                
+                updateRulesetTriggerFields: function() {
+                    const triggerType = document.getElementById('rulesetTriggerType')?.value;
+                    const container = document.getElementById('triggerConfigFields');
+                    
+                    if (!container) return;
+                    
+                    let html = '';
+                    
+                    switch(triggerType) {
+                        case 'spam':
+                            html = `
+                                <div class="form-group">
+                                    <label>Message Count</label>
+                                    <input type="number" name="messageCount" value="5" min="2" max="20">
+                                    <small>Number of messages</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Time Window (seconds)</label>
+                                    <input type="number" name="timeWindow" value="3" min="1" max="60">
+                                    <small>Within this time period</small>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'links':
+                            html = `
+                                <div class="form-group">
+                                    <label><input type="checkbox" name="blockDiscordInvites" checked> Block Discord Invites</label>
+                                </div>
+                                <div class="form-group">
+                                    <label><input type="checkbox" name="blockAllUrls"> Block All URLs</label>
+                                </div>
+                                <div class="form-group">
+                                    <label>Whitelisted Domains (comma-separated)</label>
+                                    <input type="text" name="whitelistedDomains" placeholder="youtube.com, twitter.com">
+                                    <small>These domains will be allowed</small>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'words':
+                            html = `
+                                <div class="form-group">
+                                    <label>Banned Words (one per line)</label>
+                                    <textarea name="bannedWords" rows="5" placeholder="word1&#10;word2&#10;word3"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label><input type="checkbox" name="caseSensitive"> Case Sensitive</label>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'mentions':
+                            html = `
+                                <div class="form-group">
+                                    <label>Max Mentions</label>
+                                    <input type="number" name="maxMentions" value="5" min="1" max="20">
+                                    <small>Maximum user/role mentions per message</small>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'caps':
+                            html = `
+                                <div class="form-group">
+                                    <label>Caps Percentage</label>
+                                    <input type="number" name="capsPercentage" value="70" min="50" max="100">
+                                    <small>% of message in CAPS</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Minimum Length</label>
+                                    <input type="number" name="minLength" value="10" min="5" max="50">
+                                    <small>Minimum message length to check</small>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'attachments':
+                            html = `
+                                <div class="form-group">
+                                    <label>Max Attachments</label>
+                                    <input type="number" name="maxAttachments" value="3" min="1" max="10">
+                                    <small>Maximum attachments per message</small>
+                                </div>
+                            `;
+                            break;
+                            
+                        default:
+                            html = '<p style="color: rgba(255,255,255,0.6);">Select a trigger type</p>';
+                    }
+                    
+                    container.innerHTML = html;
+                },
+                
+                updateRulesetActionFields: function() {
+                    const actionType = document.getElementById('rulesetActionType')?.value;
+                    const container = document.getElementById('actionConfigFields');
+                    
+                    if (!container) return;
+                    
+                    let html = '';
+                    
+                    switch(actionType) {
+                        case 'delete':
+                            html = `
+                                <div class="form-group">
+                                    <label><input type="checkbox" name="notifyUser" checked> Notify User</label>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'warn':
+                            html = `
+                                <div class="form-group">
+                                    <label>Warning Message</label>
+                                    <textarea name="warnMessage" rows="3" placeholder="You have been warned for..."></textarea>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'timeout':
+                            html = `
+                                <div class="form-group">
+                                    <label>Timeout Duration</label>
+                                    <select name="timeoutDuration">
+                                        <option value="60">1 minute</option>
+                                        <option value="300" selected>5 minutes</option>
+                                        <option value="600">10 minutes</option>
+                                        <option value="1800">30 minutes</option>
+                                        <option value="3600">1 hour</option>
+                                    </select>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'kick':
+                            html = `
+                                <div class="form-group">
+                                    <label>Kick Reason</label>
+                                    <textarea name="kickReason" rows="2" placeholder="Kicked for violating rules"></textarea>
+                                </div>
+                            `;
+                            break;
+                            
+                        case 'ban':
+                            html = `
+                                <div class="form-group">
+                                    <label>Ban Reason</label>
+                                    <textarea name="banReason" rows="2" placeholder="Banned for violating rules"></textarea>
+                                </div>
+                            `;
+                            break;
+                            
+                        default:
+                            html = '<p style="color: rgba(255,255,255,0.6);">Select an action type</p>';
+                    }
+                    
+                    container.innerHTML = html;
+                },
+                
+                saveRuleset: async function(event) {
+                    event.preventDefault();
+                    
+                    const form = event.target;
+                    const formData = new FormData(form);
+                    
+                    const triggerType = formData.get('triggerType');
+                    const triggerConfig = {};
+                    
+                    switch(triggerType) {
+                        case 'spam':
+                            triggerConfig.messageCount = parseInt(formData.get('messageCount'));
+                            triggerConfig.timeWindow = parseInt(formData.get('timeWindow'));
+                            break;
+                        case 'links':
+                            triggerConfig.blockDiscordInvites = formData.get('blockDiscordInvites') === 'on';
+                            triggerConfig.blockAllUrls = formData.get('blockAllUrls') === 'on';
+                            break;
+                        case 'words':
+                            triggerConfig.bannedWords = formData.get('bannedWords')?.split('\n').filter(w => w.trim());
+                            triggerConfig.caseSensitive = formData.get('caseSensitive') === 'on';
+                            break;
+                        case 'mentions':
+                            triggerConfig.maxMentions = parseInt(formData.get('maxMentions'));
+                            break;
+                        case 'caps':
+                            triggerConfig.capsPercentage = parseInt(formData.get('capsPercentage'));
+                            triggerConfig.minLength = parseInt(formData.get('minLength'));
+                            break;
+                        case 'attachments':
+                            triggerConfig.maxAttachments = parseInt(formData.get('maxAttachments'));
+                            break;
+                    }
+                    
+                    const actionType = formData.get('actionType');
+                    const actionConfig = {};
+                    
+                    switch(actionType) {
+                        case 'delete':
+                            actionConfig.notifyUser = formData.get('notifyUser') === 'on';
+                            break;
+                        case 'warn':
+                            actionConfig.warnMessage = formData.get('warnMessage');
+                            break;
+                        case 'timeout':
+                            actionConfig.duration = parseInt(formData.get('timeoutDuration'));
+                            break;
+                        case 'kick':
+                            actionConfig.reason = formData.get('kickReason');
+                            break;
+                        case 'ban':
+                            actionConfig.reason = formData.get('banReason');
+                            break;
+                    }
+                    
+                    const data = {
+                        name: formData.get('name'),
+                        description: formData.get('description'),
+                        triggerType: triggerType,
+                        triggerConfig: triggerConfig,
+                        actionType: actionType,
+                        actionConfig: actionConfig,
+                        priority: formData.get('priority'),
+                        excludedRoles: formData.get('excludedRoles')?.split(',').filter(r => r.trim()) || [],
+                        excludedChannels: formData.get('excludedChannels')?.split(',').filter(c => c.trim()) || [],
+                        whitelistedDomains: formData.get('whitelistedDomains')?.split(',').map(d => d.trim()) || []
+                    };
+                    
+                    try {
+                        const response = await fetch('/commands/ruleset/create', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            alert('✅ Ruleset created successfully!');
+                            this.closeRulesetModal();
+                            location.reload();
+                        } else {
+                            alert('Error: ' + result.error);
+                        }
+                    } catch (error) {
+                        console.error('Error saving ruleset:', error);
+                        alert('Failed to save ruleset');
+                    }
+                }
             };
             
-            try {
-                const response = await fetch('/commands/ruleset/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    closeRulesetModal();
-                    location.reload();
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                console.error('Error saving ruleset:', error);
-                alert('Failed to save ruleset');
+            // Initialize when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => CommandsApp.init());
+            } else {
+                CommandsApp.init();
             }
-        }
-
-        async function submitStickyForm() {
-    console.log('🟢 submitStickyForm called');
-    
-    const form = document.getElementById('stickyMessageForm');
-    const formData = new FormData(form);
-    
-    const data = {
-        channelId: formData.get('channelId'),
-        message: formData.get('message'),
-        threshold: parseInt(formData.get('threshold')) || 10,
-        enabled: formData.get('enabled') === 'on'
-    };
-    
-    console.log('📝 Form data collected:', data);
-    
-    if (!data.channelId) {
-        console.error('❌ No channel selected');
-        alert('Please select a channel');
-        return;
-    }
-    
-    if (!data.message || data.message.trim() === '') {
-        console.error('❌ No message provided');
-        alert('Please enter a message');
-        return;
-    }
-    
-    console.log('🚀 Sending request to /commands/sticky/create');
-    
-    try {
-        const response = await fetch('/commands/sticky/create', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-        
-        console.log('📡 Response status:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ HTTP error:', response.status, errorText);
-            alert(`Error: Server returned ${response.status}`);
-            return;
-        }
-        
-        const result = await response.json();
-        console.log('📦 Response data:', result);
-        
-        if (result.success) {
-            alert('✅ Sticky message created successfully!');
-            closeStickyModal();
-            loadStickyMessages(); // Reload the list
-        } else {
-            console.error('❌ Server returned error:', result.error);
-            alert('❌ Error: ' + (result.error || 'Unknown error'));
-        }
-    } catch (error) {
-        console.error('💥 Fetch error:', error);
-        alert('💥 Failed to save sticky message: ' + error.message);
-    }
-}
-
-async function loadStickyMessages() {
-    try {
-        const response = await fetch('/commands/sticky/list');
-        const data = await response.json();
-        
-        const container = document.getElementById('stickyMessagesList');
-        
-        if (data.success && data.stickyMessages && data.stickyMessages.length > 0) {
-            container.innerHTML = '';
             
-            data.stickyMessages.forEach(sticky => {
-                const card = document.createElement('div');
-                card.className = 'sticky-card';
-                card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                        <div>
-                            <span class="sticky-indicator">${sticky.enabled ? '🔥 Active' : '⏸️ Disabled'}</span>
-                            <h3 style="color: #fff; margin: 0.5rem 0;">#${sticky.channelName || 'Unknown Channel'}</h3>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn-icon" onclick="editSticky('${sticky._id}')" title="Edit">✏️</button>
-                            <button class="btn-icon toggle" onclick="toggleSticky('${sticky._id}')" title="Toggle">
-                                ${sticky.enabled ? '⏸️' : '▶️'}
-                            </button>
-                            <button class="btn-icon delete" onclick="deleteSticky('${sticky._id}')" title="Delete">🗑️</button>
-                        </div>
-                    </div>
-                    <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">${sticky.message.length > 100 ? sticky.message.substring(0, 100) + '...' : sticky.message}</p>
-                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
-                        <span>📍 Channel: #${sticky.channelName || sticky.channelId}</span>
-                        <span>💬 Threshold: ${sticky.threshold} messages</span>
-                        <span>🔄 Reposts: ${sticky.repostCount || 0}</span>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-        } else {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">📌</div>
-                    <div class="empty-state-text">No sticky messages yet</div>
-                    <div class="empty-state-subtext">Create sticky messages to keep important info visible</div>
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Error loading sticky messages:', error);
-    }
-}
-
-async function toggleSticky(stickyId) {
-    try {
-        const response = await fetch(`/commands/sticky/toggle/${stickyId}`, {
-            method: 'POST'
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-            loadStickyMessages();
-        }
-    } catch (error) {
-        console.error('Error toggling sticky:', error);
-    }
-}
-
-async function deleteSticky(stickyId) {
-    if (!confirm('Are you sure you want to delete this sticky message?')) return;
-    
-    try {
-        const response = await fetch(`/commands/sticky/${stickyId}`, {
-            method: 'DELETE'
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-            loadStickyMessages();
-        }
-    } catch (error) {
-        console.error('Error deleting sticky:', error);
-    }
-}
-
-        // Load role names from IDs
-        function loadRoleNames() {
-            document.querySelectorAll('.role-badge[data-role-id]').forEach(badge => {
-                const roleId = badge.dataset.roleId;
-                const role = rolesData.find(r => r.id === roleId);
-                if (role) {
-                    const icon = badge.classList.contains('exempt') ? '✅' : '🔒';
-                    badge.textContent = `${icon} ${role.name}`;
-                }
-            });
-        }
-
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeRoleDropdowns();
-            loadRoleNames();
-        });
-        async function editRuleset(rulesetId) {
-    try {
-        const response = await fetch(`/api/automod/rulesets/${rulesetId}`);
-        const data = await response.json();
-        
-        if (!data.success) {
-            alert('Failed to load ruleset');
-            return;
-        }
-        
-        const ruleset = data.ruleset;
-        
-        // Populate the edit form
-        document.getElementById('edit-ruleset-id').value = rulesetId;
-        document.getElementById('edit-ruleset-name').value = ruleset.name;
-        document.getElementById('edit-ruleset-description').value = ruleset.description || '';
-        document.getElementById('edit-ruleset-priority').value = ruleset.priority || 'medium';
-        document.getElementById('edit-trigger-type').value = ruleset.trigger.type;
-        document.getElementById('edit-action-type').value = ruleset.action.type;
-        
-        // Show the modal
-        document.getElementById('editRulesetModal').style.display = 'block';
-    } catch (error) {
-        console.error('Error loading ruleset:', error);
-        alert('Failed to load ruleset');
-    }
-}
-
-async function saveRulesetEdit() {
-    try {
-        const rulesetId = document.getElementById('edit-ruleset-id').value;
-        
-        const data = {
-            name: document.getElementById('edit-ruleset-name').value,
-            description: document.getElementById('edit-ruleset-description').value,
-            priority: document.getElementById('edit-ruleset-priority').value,
-            triggerType: document.getElementById('edit-trigger-type').value,
-            actionType: document.getElementById('edit-action-type').value,
-            triggerConfig: {},
-            actionConfig: {}
-        };
-        
-        const response = await fetch(`/commands/ruleset/edit/${rulesetId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert('Ruleset updated successfully!');
-            closeEditRulesetModal();
-            location.reload();
-        } else {
-            alert('Failed to update ruleset');
-        }
-    } catch (error) {
-        console.error('Error saving ruleset:', error);
-        alert('Failed to save ruleset');
-    }
-}
-
-async function deleteRuleset(rulesetId) {
-    if (!confirm('Are you sure you want to delete this ruleset?')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/commands/ruleset/${rulesetId}`, {
-            method: 'DELETE'
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert('Ruleset deleted successfully!');
-            location.reload();
-        } else {
-            alert('Failed to delete ruleset');
-        }
-    } catch (error) {
-        console.error('Error deleting ruleset:', error);
-        alert('Failed to delete ruleset');
-    }
-}
-
-async function toggleRuleset(rulesetId) {
-    try {
-        const response = await fetch(`/commands/ruleset/toggle/${rulesetId}`, {
-            method: 'POST'
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            location.reload();
-        } else {
-            alert('Failed to toggle ruleset');
-        }
-    } catch (error) {
-        console.error('Error toggling ruleset:', error);
-        alert('Failed to toggle ruleset');
-    }
-}
-
-function closeEditRulesetModal() {
-    const modal = document.getElementById('editRulesetModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const modal = document.getElementById('editRulesetModal');
-    if (modal && event.target === modal) {
-        modal.style.display = 'none';
-    }
-}
-// Add event delegation for ruleset buttons
-document.addEventListener('click', function(event) {
-    const button = event.target.closest('[data-action]');
-    if (!button) return;
-    
-    const action = button.dataset.action;
-    const id = button.dataset.id;
-    
-    switch(action) {
-        case 'edit-ruleset':
-            editRuleset(id);
-            break;
-        case 'toggle-ruleset':
-            toggleRuleset(id);
-            break;
-        case 'delete-ruleset':
-            deleteRuleset(id);
-            break;
-    }
-});
+            // Expose to window for onclick handlers
+            window.commandsApp = CommandsApp;
+            
+        })();
     </script>
-</body>
-</html>
 </body>
 </html>
