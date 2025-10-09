@@ -66,6 +66,109 @@
             .nav-links a { padding: 0.45rem 0.55rem; font-size: 0.8rem; }
         }
 
+        /* Filter Controls */
+        .filter-controls {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .filter-box label {
+            display: block;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+        }
+
+        .filter-inputs {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-inputs select {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.6rem 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-inputs select:hover {
+            background: rgba(0, 0, 0, 0.4);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .filter-inputs select:focus {
+            outline: none;
+            border-color: rgba(88, 101, 242, 0.5);
+            box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.1);
+        }
+
+        .btn-clear {
+            padding: 0.6rem 1.5rem;
+            background: rgba(237, 66, 69, 0.2);
+            border: 1px solid rgba(237, 66, 69, 0.3);
+            border-radius: 8px;
+            color: #ed4245;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn-clear:hover {
+            background: rgba(237, 66, 69, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .filter-status {
+            margin-top: 1rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-tag {
+            background: rgba(88, 101, 242, 0.2);
+            color: #5865f2;
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 768px) {
+            .filter-controls {
+                padding: 1rem;
+            }
+
+            .filter-inputs {
+                flex-direction: column;
+            }
+
+            .filter-inputs select {
+                min-width: 100%;
+            }
+
+            .btn-clear {
+                width: 100%;
+            }
+        }
+
         /* Highlight style for targeted message */
         .message-item.highlight {
             animation: highlight-pulse 2s ease-in-out;
@@ -154,6 +257,48 @@
     <div class="container">
         <h1>💬 All Messages</h1>
         
+        <div class="filter-controls">
+            <div class="filter-box">
+                <label>Filter messages:</label>
+                <div class="filter-inputs">
+                    <select id="channelFilter" onchange="applyFilters()">
+                        <option value="">All Channels</option>
+                        <% if (typeof channels !== 'undefined' && channels) { %>
+                            <% channels.forEach(channel => { %>
+                                <option value="<%= channel.id %>" <%= selectedChannel === channel.id ? 'selected' : '' %>>
+                                    #<%= channel.name %>
+                                </option>
+                            <% }); %>
+                        <% } %>
+                    </select>
+                    
+                    <select id="userFilter" onchange="applyFilters()">
+                        <option value="">All Users</option>
+                        <% if (typeof users !== 'undefined' && users) { %>
+                            <% users.forEach(user => { %>
+                                <option value="<%= user.id %>" <%= selectedUser === user.id ? 'selected' : '' %>>
+                                    <%= user.username %>
+                                </option>
+                            <% }); %>
+                        <% } %>
+                    </select>
+                    
+                    <button onclick="clearFilters()" class="btn-clear">Clear Filters</button>
+                </div>
+            </div>
+            <% if (selectedChannel || selectedUser) { %>
+                <p class="filter-status">
+                    Filtering: 
+                    <% if (selectedChannel) { %>
+                        <span class="filter-tag">Channel: #<%= channelName || selectedChannel %></span>
+                    <% } %>
+                    <% if (selectedUser) { %>
+                        <span class="filter-tag">User: <%= userName || selectedUser %></span>
+                    <% } %>
+                </p>
+            <% } %>
+        </div>
+        
         <div class="messages-container">
             <% if (messages && messages.length > 0) { %>
                 <% messages.forEach(msg => { %>
@@ -209,6 +354,22 @@
     </div>
 
     <script>
+        // Filter functions
+        function applyFilters() {
+            const channelId = document.getElementById('channelFilter').value;
+            const userId = document.getElementById('userFilter').value;
+            
+            let url = '/messages?page=1';
+            if (channelId) url += `&channel=${channelId}`;
+            if (userId) url += `&user=${userId}`;
+            
+            window.location.href = url;
+        }
+
+        function clearFilters() {
+            window.location.href = '/messages?page=1';
+        }
+
         // Auto-scroll and highlight message if coming from attachments page
         document.addEventListener('DOMContentLoaded', function() {
             const hash = window.location.hash;

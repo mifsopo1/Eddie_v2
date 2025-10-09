@@ -363,59 +363,124 @@ this.app.post('/commands/server-settings', this.requireAuth.bind(this), express.
     }
 });
 
-        // ============================================
-        // MESSAGES PAGE
-        // ============================================
-        
-        this.app.get('/messages', this.requireAuth.bind(this), async (req, res) => {
-            try {
-                const page = parseInt(req.query.page) || 1;
-                const limit = 100;
-                const skip = (page - 1) * limit;
-                
-                const messages = await this.mongoLogger.db.collection('messages')
-                    .find({})
-                    .sort({ timestamp: -1 })
-                    .skip(skip)
-                    .limit(limit)
-                    .toArray();
-                
-                const totalMessages = await this.mongoLogger.db.collection('messages').countDocuments();
-                const totalPages = Math.ceil(totalMessages / limit);
-                
-                res.render('messages', {
-                    messages,
-                    currentPage: page,
-                    totalPages,
-                    client: this.client,
-                    page: 'messages'
-                });
-            } catch (error) {
-                console.error('Messages page error:', error);
-                res.status(500).send('Error loading messages');
-            }
-        });
+// ============================================
+// MESSAGES PAGE
+// ============================================
 
-        // ============================================
-        // DELETED MESSAGES PAGE
-        // ============================================
+this.app.get('/messages', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        let page = parseInt(req.query.page) || 1;
+        const limit = 100;
         
-        this.app.get('/deleted', this.requireAuth.bind(this), async (req, res) => {
-            try {
-                const hours = parseInt(req.query.hours) || 24;
-                const messages = await this.mongoLogger.getDeletedMessages(hours);
-                
-                res.render('deleted', {
-                    messages,
-                    hours,
-                    client: this.client,
-                    page: 'deleted'
+        // Get filter parameters
+        const selectedChannel = req.query.channel || '';
+        const selectedUser = req.query.user || '';
+        const targetMessageId = req.query.message || ''; // For jumping to specific message
+        
+        // Build query with filters
+        let query = {};
+        if (selectedChannel) query.channelId = selectedChannel;
+        if (selectedUser) query.userId = selectedUser;
+        
+        // If targeting a specific message, find which page it's on
+        if (targetMessageId && selectedChannel) {
+            const messagesBeforeTarget = await this.mongoLogger.db.collection('messages')
+                .countDocuments({
+                    ...query,
+                    timestamp: { 
+                        $gt: (await this.mongoLogger.db.collection('messages')
+                            .findOne({ messageId: targetMessageId }))?.timestamp 
+                    }
                 });
-            } catch (error) {
-                console.error('Deleted messages error:', error);
-                res.status(500).send('Error loading deleted messages');
+            
+            if (messagesBeforeTarget !== null) {
+                page = Math.floor(messagesBeforeTarget / limit) + 1;
             }
+        }
+        
+        const skip = (page - 1) * limit;
+        
+        // Fetch messages with filters
+        const messages = await this.mongoLogger.db.collection('messages')
+            .find(query)
+            .sort({ timestamp: -1 })
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+        
+        const totalMessages = await this.mongoLogger.db.collection('messages').countDocuments(query);
+        const totalPages = Math.ceil(totalMessages / limit);
+        
+        // Get all unique channels for dropdown
+        const channels = await this.mongoLogger.db.collection('messages')
+            .aggregate([
+                { $group: { _id: '$channelId', name: { $first: '$channelName' } } },
+                { $project: { id: '$_id', name: 1, _id: 0 } },
+                { $sort: { name: 1 } }
+            ])
+            .toArray();
+        
+        // Get all unique users for dropdown
+        const users = await this.mongoLogger.db.collection('messages')
+            .aggregate([
+                { $group: { _id: '$userId', username: { $first: '$userName' } } },
+                { $project: { id: '$_id', username: 1, _id: 0 } },
+                { $sort: { username: 1 } }
+            ])
+            .toArray();
+        
+        // Get names for display tags
+        let channelName = '';
+        let userName = '';
+        if (selectedChannel) {
+            const channel = channels.find(c => c.id === selectedChannel);
+            channelName = channel ? channel.name : selectedChannel;
+        }
+        if (selectedUser) {
+            const user = users.find(u => u.id === selectedUser);
+            userName = user ? user.username : selectedUser;
+        }
+        
+        res.render('messages', {
+            messages,
+            currentPage: page,
+            totalPages,
+            channels,
+            users,
+            selectedChannel,
+            selectedUser,
+            channelName,
+            userName,
+            client: this.client,
+            page: 'messages',
+            user: req.user
         });
+    } catch (error) {
+        console.error('Messages page error:', error);
+        res.status(500).send('Error loading messages');
+    }
+});
+
+// ============================================
+// DELETED MESSAGES PAGE
+// ============================================
+
+this.app.get('/deleted', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        const hours = parseInt(req.query.hours) || 24;
+        const messages = await this.mongoLogger.getDeletedMessages(hours);
+        
+        res.render('deleted', {
+            messages,
+            hours,
+            client: this.client,
+            page: 'deleted'
+        });
+    } catch (error) {
+        console.error('Deleted messages error:', error);
+        res.status(500).send('Error loading deleted messages');
+    }
+});
 
         // ============================================
         // USER PROFILE PAGE
