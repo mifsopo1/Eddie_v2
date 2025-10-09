@@ -441,24 +441,25 @@
         </div>
 
         <!-- Rulesets Tab -->
-        <div id="tab-rulesets" class="tab-content">
-            <div class="ruleset-section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                    <div>
-                        <h2 style="color: #fff; margin: 0;">🛡️ AutoMod Rulesets</h2>
-                        <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Automatic moderation rules - Connect to database to manage</p>
-                    </div>
-                    <button onclick="window.commandsApp.openRulesetModal()" class="btn btn-primary">➕ Create Ruleset</button>
-                </div>
+        <!-- Rulesets Tab -->
+<div id="tab-rulesets" class="tab-content">
+    <div class="ruleset-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <div>
+                <h2 style="color: #fff; margin: 0;">🛡️ AutoMod Rulesets</h2>
+                <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Automatic moderation rules based on message content and user behavior</p>
+            </div>
+            <button onclick="window.commandsApp.openRulesetModal()" class="btn btn-primary">➕ Create Ruleset</button>
+        </div>
 
-                <div style="text-align: center; padding: 3rem; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🛡️</div>
-                    <div style="color: rgba(255,255,255,0.8); font-weight: 600; margin-bottom: 0.5rem;">AutoMod System</div>
-                    <div style="color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-bottom: 1.5rem;">Create rulesets to automatically moderate your server</div>
-                    <button onclick="window.commandsApp.openRulesetModal()" class="btn btn-primary">Get Started</button>
-                </div>
+        <!-- Dynamic rulesets container -->
+        <div id="rulesetsListContainer">
+            <div style="text-align: center; padding: 3rem;">
+                <div style="font-size: 1.2rem; color: rgba(255,255,255,0.5);">Loading rulesets...</div>
             </div>
         </div>
+    </div>
+</div>
 
         <!-- Bulk Actions Tab -->
         <div id="tab-bulk" class="tab-content">
@@ -940,27 +941,29 @@
                 
                 // Tab switching
                 switchMainTab: function(tabName, event) {
-                    document.querySelectorAll('.tab-content').forEach(tab => {
-                        tab.classList.remove('active');
-                    });
-                    document.querySelectorAll('.tab-nav-btn').forEach(btn => {
-                        btn.classList.remove('active');
-                    });
-                    
-                    const targetTab = document.getElementById(`tab-${tabName}`);
-                    if (targetTab) {
-                        targetTab.classList.add('active');
-                    }
-                    
-                    if (event && event.target) {
-                        event.target.classList.add('active');
-                    }
-                    
-                    // Load data when switching to specific tabs
-                    if (tabName === 'sticky') {
-                        this.loadStickyMessages();
-                    }
-                },
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-nav-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    const targetTab = document.getElementById(`tab-${tabName}`);
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
+    
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+    
+    // Load data when switching to specific tabs
+    if (tabName === 'sticky') {
+        this.loadStickyMessages();
+    } else if (tabName === 'rulesets') {  // ADD THIS
+        this.loadRulesets();
+    }
+},
                 
                 // Command filtering
                 filterCommands: function(category, event) {
@@ -1606,7 +1609,7 @@
                         if (result.success) {
                             alert('✅ Ruleset created successfully!');
                             this.closeRulesetModal();
-                            location.reload();
+                            this.loadRulesets();
                         } else {
                             alert('Error: ' + result.error);
                         }
@@ -1616,6 +1619,171 @@
                     }
                 }
             };
+            // Add this inside the CommandsApp object, after the saveRuleset function
+
+loadRulesets: async function() {
+    try {
+        const response = await fetch('/commands/ruleset/list');
+        const data = await response.json();
+        
+        const container = document.getElementById('rulesetsListContainer');
+        if (!container) return;
+        
+        if (data.success && data.rulesets && data.rulesets.length > 0) {
+            container.innerHTML = '';
+            
+            data.rulesets.forEach(ruleset => {
+                const card = document.createElement('div');
+                card.className = 'ruleset-card';
+                
+                const priorityColors = {
+                    high: { bg: 'rgba(237,66,69,0.2)', color: '#ed4245', icon: '🔴' },
+                    medium: { bg: 'rgba(250,166,26,0.2)', color: '#faa61a', icon: '🟡' },
+                    low: { bg: 'rgba(67,181,129,0.2)', color: '#43b581', icon: '🟢' }
+                };
+                
+                const priority = priorityColors[ruleset.priority] || priorityColors.medium;
+                
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                <h3 style="color: #fff; margin: 0;">${ruleset.name}</h3>
+                                <span class="badge ${ruleset.enabled ? 'badge-enabled' : 'badge-disabled'}">
+                                    ${ruleset.enabled ? 'Enabled' : 'Disabled'}
+                                </span>
+                                <span class="badge" style="background: ${priority.bg}; color: ${priority.color};">
+                                    ${priority.icon} ${ruleset.priority.charAt(0).toUpperCase() + ruleset.priority.slice(1)} Priority
+                                </span>
+                            </div>
+                            <p style="color: rgba(255,255,255,0.6); margin: 0; font-size: 0.9rem;">
+                                ${ruleset.description || 'No description'}
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-icon" onclick="window.commandsApp.editRuleset('${ruleset._id}')" title="Edit">✏️</button>
+                            <button class="btn-icon toggle" onclick="window.commandsApp.toggleRuleset('${ruleset._id}')" title="Toggle">
+                                ${ruleset.enabled ? '⏸️' : '▶️'}
+                            </button>
+                            <button class="btn-icon delete" onclick="window.commandsApp.deleteRuleset('${ruleset._id}')" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 0.75rem;">
+                            <div>
+                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">TRIGGER</strong>
+                                <span style="color: #fff; font-size: 0.9rem;">${this.getTriggerDescription(ruleset.trigger)}</span>
+                            </div>
+                            <div>
+                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">ACTION</strong>
+                                <span style="color: #ed4245; font-size: 0.9rem;">${this.getActionDescription(ruleset.action)}</span>
+                            </div>
+                        </div>
+                        
+                        ${ruleset.exclusions && (ruleset.exclusions.roles?.length > 0 || ruleset.exclusions.channels?.length > 0) ? `
+                            <div>
+                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">EXCLUSIONS</strong>
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem;">
+                                    ${ruleset.exclusions.roles?.map(roleId => 
+                                        `<span class="role-badge exempt">Role: ${roleId}</span>`
+                                    ).join('') || ''}
+                                    ${ruleset.exclusions.channels?.map(channelId => 
+                                        `<span class="badge" style="background: rgba(67,181,129,0.2); color: #43b581;">#${channelId}</span>`
+                                    ).join('') || ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                        <span>🎯 Triggered: ${ruleset.stats?.triggered || 0} times</span>
+                        <span>⏰ ${ruleset.stats?.lastTriggered ? 
+                            'Last: ' + new Date(ruleset.stats.lastTriggered).toLocaleString() : 
+                            'Never triggered'}</span>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        } else {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 3rem; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🛡️</div>
+                    <div style="color: rgba(255,255,255,0.8); font-weight: 600; margin-bottom: 0.5rem;">No AutoMod Rulesets Yet</div>
+                    <div style="color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-bottom: 1.5rem;">Create rulesets to automatically moderate your server</div>
+                    <button onclick="window.commandsApp.openRulesetModal()" class="btn btn-primary">Create Your First Ruleset</button>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading rulesets:', error);
+        const container = document.getElementById('rulesetsListContainer');
+        if (container) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: #ed4245;">
+                    <strong>Error loading rulesets</strong><br>
+                    <small>${error.message}</small>
+                </div>
+            `;
+        }
+    }
+},
+
+getTriggerDescription: function(trigger) {
+    if (!trigger) return 'Unknown trigger';
+    
+    const descriptions = {
+        spam: `${trigger.config?.messageCount || 5} messages in ${trigger.config?.timeWindow || 3}s`,
+        links: 'Contains links or invites',
+        words: `Contains ${trigger.config?.bannedWords?.length || 0} banned words`,
+        mentions: `${trigger.config?.maxMentions || 5}+ mentions`,
+        caps: `${trigger.config?.capsPercentage || 70}% caps`,
+        attachments: `${trigger.config?.maxAttachments || 3}+ attachments`
+    };
+    
+    return descriptions[trigger.type] || trigger.type;
+},
+
+getActionDescription: function(action) {
+    if (!action) return 'Unknown action';
+    
+    const descriptions = {
+        delete: 'Delete message',
+        warn: 'Warn user',
+        timeout: `Timeout ${action.config?.duration ? Math.floor(action.config.duration / 60) + 'm' : '5m'}`,
+        kick: 'Kick user',
+        ban: 'Ban user'
+    };
+    
+    return descriptions[action.type] || action.type;
+},
+
+editRuleset: async function(rulesetId) {
+    alert('Edit ruleset feature coming soon!\n\nRuleset ID: ' + rulesetId);
+    // TODO: Implement edit functionality
+},
+
+toggleRuleset: async function(rulesetId) {
+    try {
+        const response = await fetch(`/commands/ruleset/toggle/${rulesetId}`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            this.loadRulesets();
+        } else {
+            alert('Failed to toggle ruleset');
+        }
+    } catch (error) {
+        console.error('Error toggling ruleset:', error);
+        alert('Error toggling ruleset');
+    }
+},
+
+deleteR
             
             // Initialize when DOM is ready
             if (document.readyState === 'loading') {
