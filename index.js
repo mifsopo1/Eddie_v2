@@ -671,9 +671,8 @@ client.once('ready', async () => {
             console.log(`✓ Startup notification sent to #${notifChannel.name}\n`);
         }
     }
-});
-
-// Status Rotation - Drug Dealer Simulator Theme
+    
+    // Status Rotation - Drug Dealer Simulator Theme (MOVED INSIDE ready event)
     const statuses = [
         { name: '👀 Watching the streets', type: ActivityType.Watching },
         { name: '🎮 Competing in the game', type: ActivityType.Competing },
@@ -698,8 +697,9 @@ client.once('ready', async () => {
     updateStatus(); // Set initial status
     setInterval(updateStatus, 15000); // Rotate every 15 seconds
     console.log('🔄 Status rotation started');
+}); // ← This closes the ready event
 
-// Message Create Event
+// Message Create Event (continues below)
 client.on('messageCreate', async message => {
     // Ignore bot messages - FIRST
     if (message.author.bot) return;
