@@ -113,33 +113,68 @@
             box-shadow: 0 4px 20px rgba(88, 101, 242, 0.2);
         }
 
-        .rank-badge {
-            width: 40px;
-            height: 40px;
+        .rank-avatar {
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
-            background: rgba(88, 101, 242, 0.2);
-            color: #5865f2;
+            flex-shrink: 0;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .rank-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .rank-1 .rank-avatar {
+            border: 3px solid #ffd700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+
+        .rank-2 .rank-avatar {
+            border: 3px solid #c0c0c0;
+            box-shadow: 0 0 15px rgba(192, 192, 192, 0.5);
+        }
+
+        .rank-3 .rank-avatar {
+            border: 3px solid #cd7f32;
+            box-shadow: 0 0 15px rgba(205, 127, 50, 0.5);
+        }
+
+        .rank-avatar::after {
+            content: attr(data-rank);
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            width: 24px;
+            height: 24px;
+            background: rgba(88, 101, 242, 0.9);
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 0.75rem;
             font-weight: 700;
-            font-size: 0.9rem;
-            flex-shrink: 0;
+            color: #fff;
+            border: 2px solid rgba(20, 23, 28, 1);
         }
 
-        .rank-1 .rank-badge {
-            background: rgba(255, 215, 0, 0.2);
-            color: #ffd700;
+        .rank-1 .rank-avatar::after {
+            background: #ffd700;
+            color: #000;
         }
 
-        .rank-2 .rank-badge {
-            background: rgba(192, 192, 192, 0.2);
-            color: #c0c0c0;
+        .rank-2 .rank-avatar::after {
+            background: #c0c0c0;
+            color: #000;
         }
 
-        .rank-3 .rank-badge {
-            background: rgba(205, 127, 50, 0.2);
-            color: #cd7f32;
+        .rank-3 .rank-avatar::after {
+            background: #cd7f32;
+            color: #fff;
         }
 
         .leaderboard-info {
@@ -153,11 +188,22 @@
             margin-bottom: 0.5rem;
         }
 
+        .leaderboard-name a {
+            color: #fff;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .leaderboard-name a:hover {
+            color: #5865f2;
+        }
+
         .leaderboard-stats {
             color: rgba(255, 255, 255, 0.6);
             font-size: 0.85rem;
             display: flex;
             gap: 1rem;
+            flex-wrap: wrap;
         }
 
         .leaderboard-stats code {
@@ -165,6 +211,15 @@
             color: #5865f2;
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .leaderboard-stats code:hover {
+            background: rgba(88, 101, 242, 0.3);
+            transform: translateY(-1px);
         }
 
         .leaderboard-bar {
@@ -242,10 +297,37 @@
             border-radius: 4px;
         }
 
+        .invite-details a code {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .invite-details a code:hover {
+            background: rgba(88, 101, 242, 0.3);
+            transform: translateY(-1px);
+        }
+
         .text-muted {
             color: rgba(255, 255, 255, 0.5);
             text-align: center;
             padding: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .leaderboard-stats {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .rank-avatar {
+                width: 45px;
+                height: 45px;
+            }
+
+            .leaderboard-name {
+                font-size: 1rem;
+            }
         }
     </style>
 </head>
@@ -332,11 +414,17 @@
                 <% if (inviteStats && inviteStats.length > 0) { %>
                     <% inviteStats.forEach((stat, index) => { %>
                         <div class="leaderboard-item rank-<%= index + 1 %>">
-                            <div class="rank-badge">#<%= index + 1 %></div>
+                            <div class="rank-avatar" data-rank="<%= index + 1 %>">
+                                <img src="<%= stat.inviterAvatar || 'https://cdn.discordapp.com/embed/avatars/0.png' %>" 
+                                     alt="<%= stat.inviter %>"
+                                     onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                            </div>
                             <div class="leaderboard-info">
-                                <div class="leaderboard-name"><%= stat.inviter %></div>
+                                <div class="leaderboard-name">
+                                    <a href="/user/<%= stat.inviterId %>"><%= stat.inviter %></a>
+                                </div>
                                 <div class="leaderboard-stats">
-                                    <span>Code: <code><%= stat._id %></code></span>
+                                    <span>Code: <a href="/invites?code=<%= stat._id %>"><code><%= stat._id %></code></a></span>
                                     <span>Total Invites: <strong><%= stat.uses || stat.totalInvites %></strong></span>
                                 </div>
                             </div>
@@ -368,7 +456,7 @@
                             <div class="invite-details">
                                 <% if (invite.inviteData) { %>
                                     <p><strong>🎫 Invited by:</strong> <%= invite.inviteData.inviter %></p>
-                                    <p><strong>🎟️ Code:</strong> <code><%= invite.inviteData.code %></code></p>
+                                    <p><strong>🎟️ Code:</strong> <a href="/invites?code=<%= invite.inviteData.code %>"><code><%= invite.inviteData.code %></code></a></p>
                                     <p><strong>📊 Total uses:</strong> <%= invite.inviteData.uses %><%= invite.inviteData.maxUses ? `/${invite.inviteData.maxUses}` : '' %></p>
                                 <% } else { %>
                                     <p class="text-muted">No invite data available</p>

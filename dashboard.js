@@ -703,29 +703,89 @@ this.app.get('/deleted', this.requireAuth.bind(this), async (req, res) => {
         // INVITES PAGE
         // ============================================
         
-        this.app.get('/invites', this.requireAuth.bind(this), async (req, res) => {
+        // ============================================
+// INVITES PAGE
+// ============================================
+
+this.app.get('/invites', this.requireAuth.bind(this), async (req, res) => {
     console.log('🎫 INVITES ROUTE HIT!');
     console.log('🔐 Authenticated:', req.isAuthenticated());
     console.log('🔐 Password auth:', req.session?.passwordAuth);
     console.log('👤 User:', req.user);
     
     try {
-                const inviteStats = await this.getInviteLeaderboard();
-                const recentInvites = await this.getRecentInvites(50);
-                
-                res.render('invites', {
-                    client: this.client,
-                    user: req.user,
-                    inviteStats: inviteStats,
-                    recentInvites: recentInvites,
-                    page: 'invites'
-                });
-            } catch (error) {
-                console.error('Invites page error:', error);
-                req.flash('error', 'Error loading invites');
-                res.redirect('/');
+        const selectedCode = req.query.code || ''; // NEW: Get code filter
+        
+        // Get invite leaderboard with additional data
+        let inviteStats = await this.mongoLogger.db.collection('members')
+            .aggregate([
+                {
+                    $match: {
+                        eventType: 'join',
+                        'inviteData.code': { $exists: true }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$inviteData.code',
+                        inviter: { $first: '$inviteData.inviter' },
+                        inviterId: { $first: '$inviteData.inviterId' }, // NEW: Get inviter ID
+                        uses: { $sum: 1 }
+                    }
+                },
+                {
+                    $sort: { uses: -1 }
+                },
+                {
+                    $limit: 20
+                }
+            ]).toArray();
+        
+        // NEW: Fetch avatars for top inviters
+        for (let stat of inviteStats) {
+            try {
+                if (stat.inviterId) {
+                    const user = await this.client.users.fetch(stat.inviterId).catch(() => null);
+                    if (user) {
+                        stat.inviterAvatar = user.displayAvatarURL();
+                    }
+                }
+            } catch (e) {
+                console.log('Could not fetch user avatar:', e.message);
             }
+        }
+        
+        // Get recent invites (filtered by code if provided)
+        let inviteQuery = { 
+            eventType: 'join',
+            'inviteData.code': { $exists: true }
+        };
+        
+        // NEW: Filter by specific code if requested
+        if (selectedCode) {
+            inviteQuery['inviteData.code'] = selectedCode;
+        }
+        
+        const recentInvites = await this.mongoLogger.db.collection('members')
+            .find(inviteQuery)
+            .sort({ timestamp: -1 })
+            .limit(50)
+            .toArray();
+        
+        res.render('invites', {
+            client: this.client,
+            user: req.user,
+            inviteStats: inviteStats,
+            recentInvites: recentInvites,
+            selectedCode: selectedCode, // NEW: Pass to template
+            page: 'invites'
         });
+    } catch (error) {
+        console.error('Invites page error:', error);
+        req.flash('error', 'Error loading invites');
+        res.redirect('/');
+    }
+});
 
         // ============================================
         // ANALYTICS PAGE
