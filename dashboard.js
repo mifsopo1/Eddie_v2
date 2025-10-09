@@ -744,18 +744,45 @@ this.app.get('/commands/all', this.requireAuth.bind(this), async (req, res) => {
 // ============================================
 // COMMANDS PAGE (main page showing custom commands)
 // ============================================
-this.app.get('/commands', this.requireAuth.bind(this), async (req, res) => {
+this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
     try {
         // Get custom commands from MongoDB
-        const customCommands = await this.mongoLogger.db.collection('customCommands')
+        const customCommands = await this.mongoLogger.db
+            .collection('customCommands')
             .find({})
-            .sort({ category: 1, name: 1 })
+            .sort({ createdAt: -1 })
             .toArray();
-        
-        res.render('commands', {
+
+        // Get built-in commands from the command handler
+        const builtInCommands = [];
+        if (this.client.commandHandler && this.client.commandHandler.commands) {
+            this.client.commandHandler.commands.forEach((cmd, name) => {
+                builtInCommands.push({
+                    name: name,
+                    description: cmd.description || 'No description',
+                    category: cmd.category || 'general',
+                    enabled: cmd.enabled !== false,
+                    trigger: name,
+                    triggerType: 'command',
+                    responseType: 'builtin',
+                    uses: 0,
+                    type: 'builtin',
+                    _id: `builtin_${name}` // Fake ID for built-in commands
+                });
+            });
+        }
+
+        // Combine both arrays
+        const allCommands = [...customCommands, ...builtInCommands];
+
+        res.render('commands', { 
+            commands: allCommands,
             client: this.client,
-            commands: customCommands,
-            page: 'commands'
+            user: req.user,
+            messages: {
+                success: req.flash('success'),
+                error: req.flash('error')
+            }
         });
     } catch (error) {
         console.error('Commands page error:', error);
