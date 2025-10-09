@@ -1271,34 +1271,79 @@ this.app.delete('/commands/sticky/:id', this.requireAdmin.bind(this), async (req
 });
 
 // ============================================
-// RULESETS ROUTES
+// AUTOMOD RULESETS ROUTES (YAGPDB-style)
 // ============================================
 
 this.app.post('/commands/ruleset/create', this.requireAdmin.bind(this), async (req, res) => {
     try {
-        const { name, description, rules, commandTrigger } = req.body;
+        const { 
+            name, 
+            description, 
+            triggerType,
+            triggerConfig,
+            actionType,
+            actionConfig,
+            priority,
+            excludedRoles,
+            excludedChannels,
+            whitelistedDomains
+        } = req.body;
         
-        if (!name || !rules || rules.length === 0) {
-            return res.json({ success: false, error: 'Name and rules are required' });
+        if (!name || !triggerType || !actionType) {
+            return res.json({ success: false, error: 'Name, trigger type, and action type are required' });
         }
-        
-        // Parse rules if it's a string
-        let rulesList = Array.isArray(rules) ? rules : JSON.parse(rules);
         
         const ruleset = {
             name: name,
             description: description || '',
-            rules: rulesList,
-            commandTrigger: commandTrigger || name.toLowerCase().replace(/\s+/g, ''),
             enabled: true,
+            priority: priority || 'medium', // high, medium, low
+            
+            // Trigger configuration
+            trigger: {
+                type: triggerType, // spam, links, words, mentions, caps, attachments
+                config: triggerConfig || {}
+                // Examples:
+                // spam: { messageCount: 5, timeWindow: 3 }
+                // links: { blockDiscordInvites: true, blockUrls: true }
+                // words: { bannedWords: ['word1', 'word2'], caseSensitive: false }
+                // mentions: { maxMentions: 5 }
+                // caps: { percentage: 70, minLength: 10 }
+            },
+            
+            // Action configuration
+            action: {
+                type: actionType, // delete, warn, timeout, kick, ban
+                config: actionConfig || {}
+                // Examples:
+                // timeout: { duration: 300 } (seconds)
+                // warn: { message: 'Custom warning message' }
+                // delete: { notifyUser: true }
+            },
+            
+            // Exclusions
+            exclusions: {
+                roles: excludedRoles || [],
+                channels: excludedChannels || []
+            },
+            
+            // Whitelist (for link filters)
+            whitelist: whitelistedDomains || [],
+            
+            // Stats
+            stats: {
+                triggered: 0,
+                lastTriggered: null
+            },
+            
             createdAt: new Date(),
             createdBy: req.user?.username || 'Admin',
-            uses: 0
+            updatedAt: new Date()
         };
         
-        const result = await this.mongoLogger.db.collection('rulesets').insertOne(ruleset);
+        const result = await this.mongoLogger.db.collection('automodRulesets').insertOne(ruleset);
         
-        req.flash('success', 'Ruleset created!');
+        req.flash('success', 'AutoMod ruleset created!');
         res.json({ success: true, id: result.insertedId });
     } catch (error) {
         console.error('Create ruleset error:', error);
@@ -1308,9 +1353,9 @@ this.app.post('/commands/ruleset/create', this.requireAdmin.bind(this), async (r
 
 this.app.get('/commands/ruleset/list', this.requireAdmin.bind(this), async (req, res) => {
     try {
-        const rulesets = await this.mongoLogger.db.collection('rulesets')
+        const rulesets = await this.mongoLogger.db.collection('automodRulesets')
             .find({})
-            .sort({ createdAt: -1 })
+            .sort({ priority: -1, createdAt: -1 })
             .toArray();
         
         res.json({ success: true, rulesets });
@@ -1323,19 +1368,40 @@ this.app.get('/commands/ruleset/list', this.requireAdmin.bind(this), async (req,
 this.app.post('/commands/ruleset/edit/:id', this.requireAdmin.bind(this), async (req, res) => {
     try {
         const { ObjectId } = require('mongodb');
-        const { name, description, rules, commandTrigger } = req.body;
+        const { 
+            name, 
+            description, 
+            triggerType,
+            triggerConfig,
+            actionType,
+            actionConfig,
+            priority,
+            excludedRoles,
+            excludedChannels,
+            whitelistedDomains
+        } = req.body;
         
-        let rulesList = Array.isArray(rules) ? rules : JSON.parse(rules);
-        
-        await this.mongoLogger.db.collection('rulesets')
+        await this.mongoLogger.db.collection('automodRulesets')
             .updateOne(
                 { _id: new ObjectId(req.params.id) },
                 { 
                     $set: { 
                         name,
                         description,
-                        rules: rulesList,
-                        commandTrigger,
+                        priority,
+                        trigger: {
+                            type: triggerType,
+                            config: triggerConfig
+                        },
+                        action: {
+                            type: actionType,
+                            config: actionConfig
+                        },
+                        exclusions: {
+                            roles: excludedRoles || [],
+                            channels: excludedChannels || []
+                        },
+                        whitelist: whitelistedDomains || [],
                         updatedAt: new Date()
                     } 
                 }
@@ -1349,15 +1415,55 @@ this.app.post('/commands/ruleset/edit/:id', this.requireAdmin.bind(this), async 
     }
 });
 
+this.app.post('/commands/ruleset/toggle/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const ruleset = await this.mongoLogger.db.collection('automodRulesets')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        await this.mongoLogger.db.collection('automodRulesets')
+            .updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: { enabled: !ruleset.enabled } }
+            );
+        
+        res.json({ success: true, enabled: !ruleset.enabled });
+    } catch (error) {
+        console.error('Toggle ruleset error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
 this.app.delete('/commands/ruleset/:id', this.requireAdmin.bind(this), async (req, res) => {
     try {
         const { ObjectId } = require('mongodb');
-        await this.mongoLogger.db.collection('rulesets')
+        await this.mongoLogger.db.collection('automodRulesets')
             .deleteOne({ _id: new ObjectId(req.params.id) });
         
         res.json({ success: true });
     } catch (error) {
         console.error('Delete ruleset error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Increment ruleset trigger count (called by the bot when a rule triggers)
+this.app.post('/commands/ruleset/trigger/:id', async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        
+        await this.mongoLogger.db.collection('automodRulesets')
+            .updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { 
+                    $inc: { 'stats.triggered': 1 },
+                    $set: { 'stats.lastTriggered': new Date() }
+                }
+            );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Trigger ruleset error:', error);
         res.json({ success: false, error: error.message });
     }
 });

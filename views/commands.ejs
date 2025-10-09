@@ -458,44 +458,150 @@
             </div>
         </div>
 
-        <!-- Rulesets Tab -->
+        <!-- Rulesets Tab (AutoMod Style) -->
         <div id="tab-rulesets" class="tab-content">
             <div class="ruleset-section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                     <div>
-                        <h2 style="color: #fff; margin: 0;">📋 Server Rulesets</h2>
-                        <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Manage your server rules and display them with commands</p>
+                        <h2 style="color: #fff; margin: 0;">🛡️ AutoMod Rulesets</h2>
+                        <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Automatic moderation rules based on message content and user behavior</p>
                     </div>
                     <button onclick="openRulesetModal()" class="btn btn-primary">➕ Create Ruleset</button>
                 </div>
 
+                <!-- Example Ruleset: Spam Detection -->
                 <div class="ruleset-card">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                        <div>
-                            <h3 style="color: #fff; margin: 0;">General Server Rules</h3>
-                            <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Basic conduct rules for all members</p>
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                <h3 style="color: #fff; margin: 0;">Anti-Spam</h3>
+                                <span class="badge badge-enabled">Enabled</span>
+                                <span class="badge" style="background: rgba(250,166,26,0.2); color: #faa61a;">High Priority</span>
+                            </div>
+                            <p style="color: rgba(255,255,255,0.6); margin: 0; font-size: 0.9rem;">Detects and punishes rapid message spam</p>
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn-icon" title="Edit">✏️</button>
+                            <button class="btn-icon" title="Edit" onclick="editRuleset('spam')">✏️</button>
+                            <button class="btn-icon toggle" title="Toggle">⏸️</button>
                             <button class="btn-icon delete" title="Delete">🗑️</button>
                         </div>
                     </div>
-                    <ul class="rule-list">
-                        <li class="rule-item">1. Be respectful to all members</li>
-                        <li class="rule-item">2. No spam or advertising</li>
-                        <li class="rule-item">3. Keep content appropriate</li>
-                        <li class="rule-item">4. Follow Discord TOS</li>
-                    </ul>
-                    <div class="copyable-content">
-                        <button class="copy-btn" onclick="copyRuleset(this)">📋 Copy</button>
-                        <pre>!rules</pre>
+                    
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 0.75rem;">
+                            <div>
+                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">TRIGGER</strong>
+                                <span style="color: #fff; font-size: 0.9rem;">5+ messages in 3 seconds</span>
+                            </div>
+                            <div>
+                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">ACTION</strong>
+                                <span style="color: #ed4245; font-size: 0.9rem;">Timeout 5m + Delete</span>
+                            </div>
+                        </div>
+                        <div>
+                            <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">EXCLUDED ROLES</strong>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem;">
+                                <span class="role-badge exempt">Staff</span>
+                                <span class="role-badge exempt">Moderator</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                        <span>🎯 Triggered: 23 times</span>
+                        <span>⏰ Last: 2h ago</span>
                     </div>
                 </div>
 
-                <div class="empty-state" style="margin-top: 2rem;">
-                    <div class="empty-state-icon">📋</div>
-                    <div class="empty-state-text">No more rulesets</div>
-                    <div class="empty-state-subtext">Create organized rulesets for your community</div>
+                <!-- Example Ruleset: Link Filter -->
+                <div class="ruleset-card">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                <h3 style="color: #fff; margin: 0;">Link Blocker</h3>
+                                <span class="badge badge-enabled">Enabled</span>
+                                <span class="badge" style="background: rgba(237,66,69,0.2); color: #ed4245;">Medium Priority</span>
+                            </div>
+                            <p style="color: rgba(255,255,255,0.6); margin: 0; font-size: 0.9rem;">Blocks unauthorized links and invites</p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-icon" title="Edit">✏️</button>
+                            <button class="btn-icon toggle" title="Toggle">⏸️</button>
+                            <button class="btn-icon delete" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 0.75rem;">
+                            <div>
+                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">TRIGGER</strong>
+                                <span style="color: #fff; font-size: 0.9rem;">Contains discord.gg/ or http://</span>
+                            </div>
+                            <div>
+                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">ACTION</strong>
+                                <span style="color: #ed4245; font-size: 0.9rem;">Delete + Warn</span>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">WHITELISTED DOMAINS</strong>
+                            <span style="color: rgba(255,255,255,0.8); font-size: 0.85rem;">youtube.com, twitter.com, imgur.com</span>
+                        </div>
+                        <div>
+                            <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">EXCLUDED CHANNELS</strong>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem;">
+                                <span class="badge" style="background: rgba(67,181,129,0.2); color: #43b581;">#media</span>
+                                <span class="badge" style="background: rgba(67,181,129,0.2); color: #43b581;">#links</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                        <span>🎯 Triggered: 156 times</span>
+                        <span>⏰ Last: 15m ago</span>
+                    </div>
+                </div>
+
+                <!-- Example Ruleset: Banned Words -->
+                <div class="ruleset-card">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                <h3 style="color: #fff; margin: 0;">Word Filter</h3>
+                                <span class="badge badge-disabled">Disabled</span>
+                                <span class="badge" style="background: rgba(67,181,129,0.2); color: #43b581;">Low Priority</span>
+                            </div>
+                            <p style="color: rgba(255,255,255,0.6); margin: 0; font-size: 0.9rem;">Filters inappropriate language</p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-icon" title="Edit">✏️</button>
+                            <button class="btn-icon toggle" title="Toggle">▶️</button>
+                            <button class="btn-icon delete" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; margin-bottom: 1rem; opacity: 0.6;">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                            <div>
+                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">TRIGGER</strong>
+                                <span style="color: #fff; font-size: 0.9rem;">Contains 12 banned words</span>
+                            </div>
+                            <div>
+                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">ACTION</strong>
+                                <span style="color: #ed4245; font-size: 0.9rem;">Delete + Timeout 10m</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                        <span>🎯 Triggered: 0 times</span>
+                        <span>⏰ Currently disabled</span>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 2rem; padding: 2rem; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">🛡️</div>
+                    <div style="color: rgba(255,255,255,0.8); font-weight: 600; margin-bottom: 0.5rem;">AutoMod Protection Active</div>
+                    <div style="color: rgba(255,255,255,0.5); font-size: 0.9rem;">3 rulesets monitoring your server</div>
                 </div>
             </div>
         </div>
