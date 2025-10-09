@@ -644,16 +644,11 @@ this.app.post('/commands/server-settings', this.requireAuth.bind(this), express.
                 
                 res.render('invites', {
                     client: this.client,
+                    user: req.user,
                     inviteStats: inviteStats,
                     recentInvites: recentInvites,
                     page: 'invites'
                 });
-            } catch (error) {
-                console.error('Invites page error:', error);
-                req.flash('error', 'Error loading invites');
-                res.redirect('/');
-            }
-        });
 
         // ============================================
         // ANALYTICS PAGE
