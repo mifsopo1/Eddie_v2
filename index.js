@@ -703,13 +703,345 @@ client.once('ready', async () => {
     setInterval(updateStatus, 15000);
     console.log('🔄 Status rotation started');
 });
+// ============================================
+// AUTOMOD RULESET CHECKER
+// ============================================
+async function checkAutoModRules(message) {
+    if (!mongoLogger || !mongoLogger.connected) return;
+    if (message.author.bot) return;
+    
+    try {
+        // Get all enabled rulesets
+        const rulesets = await mongoLogger.db.collection('automodRulesets')
+            .find({ enabled: true })
+            .sort({ priority: -1 }) // High priority first
+            .toArray();
+        
+        if (!rulesets || rulesets.length === 0) return;
+        
+        for (const ruleset of rulesets) {
+            // Check exclusions
+            if (ruleset.exclusions) {
+                // Check excluded roles
+                if (ruleset.exclusions.roles && ruleset.exclusions.roles.length > 0) {
+                    const hasExcludedRole = message.member.roles.cache.some(role => 
+                        ruleset.exclusions.roles.includes(role.id)
+                    );
+                    if (hasExcludedRole) continue;
+                }
+                
+                // Check excluded channels
+                if (ruleset.exclusions.channels && ruleset.exclusions.channels.includes(message.channel.id)) {
+                    continue;
+                }
+            }
+            
+            // Check if rule is triggered
+            const triggered = await checkRuleTrigger(message, ruleset.trigger, ruleset.whitelist);
+            
+            if (triggered) {
+                console.log(`🛡️ AutoMod: Ruleset "${ruleset.name}" triggered by ${message.author.tag}`);
+                
+                // Execute action
+                await executeRuleAction(message, ruleset.action, ruleset.name);
+                
+                // Update stats
+                await mongoLogger.db.collection('automodRulesets').updateOne(
+                    { _id: ruleset._id },
+                    { 
+                        $inc: { 'stats.triggered': 1 },
+                        $set: { 'stats.lastTriggered': new Date() }
+                    }
+                );
+                
+                // Only trigger one rule per message (highest priority wins)
+                break;
+            }
+        }
+    } catch (error) {
+        console.error('Error checking AutoMod rules:', error);
+    }
+}
 
+async function checkRuleTrigger(message, trigger, whitelist) {
+    if (!trigger || !trigger.type) return false;
+    
+    const content = message.content;
+    const config = trigger.config || {};
+    
+    switch (trigger.type) {
+        case 'spam':
+            // Use existing spam detection logic
+            // For now, just check message length as simple spam detection
+            return content.length > 500;
+            
+        case 'links':
+            // Check for Discord invites
+            if (config.blockDiscordInvites && /discord\.gg\/|discord\.com\/invite\//i.test(content)) {
+                return true;
+            }
+            
+            // Check for URLs
+            if (config.blockAllUrls) {
+                const urlRegex = /https?:\/\/[^\s]+/gi;
+                const urls = content.match(urlRegex);
+                
+                if (urls) {
+                    // Check whitelist
+                    if (whitelist && whitelist.length > 0) {
+                        const hasWhitelistedUrl = urls.some(url => {
+                            return whitelist.some(domain => url.includes(domain));
+                        });
+                        return !hasWhitelistedUrl; // Trigger only if NO whitelisted URLs
+                    }
+                    return true;
+                }
+            }
+            return false;
+            
+        case 'words':
+            const bannedWords = config.bannedWords || [];
+            if (bannedWords.length === 0) return false;
+            
+            const messageText = config.caseSensitive ? content : content.toLowerCase();
+            
+            return bannedWords.some(word => {
+                const checkWord = config.caseSensitive ? word : word.toLowerCase();
+                return messageText.includes(checkWord);
+            });
+            
+        case 'mentions':
+            const maxMentions = config.maxMentions || 5;
+            const mentionCount = (message.mentions.users.size + message.mentions.roles.size);
+            return mentionCount > maxMentions;
+            
+        case 'caps':
+            const minLength = config.minLength || 10;
+            if (content.length < minLength) return false;
+            
+            const capsCount = (content.match(/[A-Z]/g) || []).length;
+            const percentage = (capsCount / content.length) * 100;
+            return percentage >= (config.capsPercentage || 70);
+            
+        case 'attachments':
+            const maxAttachments = config.maxAttachments || 3;
+            return message.attachments.size > maxAttachments;
+            
+        default:
+            return false;
+    }
+}
+
+async function executeRuleAction(message, action, rulesetName) {
+    if (!action || !action.type) return;
+    
+    const config = action.config || {};
+    const member = message.member;
+    
+    try {
+        switch (action.type) {
+            case 'delete':
+                await message.delete();
+                console.log(`🗑️ Deleted message from ${message.author.tag}`);
+                
+                if (config.notifyUser) {
+                    try {
+                        await message.author.send({
+                            embeds: [new EmbedBuilder()
+                                .setColor('#ed4245')
+                                .setTitle('⚠️ Message Deleted by AutoMod')
+                                .setDescription(`Your message was automatically deleted.`)
+                                .addFields(
+                                    { name: 'Rule', value: rulesetName, inline: true },
+                                    { name: 'Channel', value: `<#${message.channel.id}>`, inline: true }
+                                )
+                                .setTimestamp()
+                            ]
+                        });
+                    } catch (e) {
+                        console.log('Could not DM user about deletion');
+                    }
+                }
+                break;
+                
+            case 'warn':
+                await message.delete();
+                
+                // Log warning to MongoDB
+                if (mongoLogger) {
+                    await mongoLogger.logModerationAction({
+                        type: 'warn',
+                        targetUserId: message.author.id,
+                        targetUserName: message.author.tag,
+                        targetUserAvatar: message.author.displayAvatarURL(),
+                        moderatorId: client.user.id,
+                        moderatorName: 'AutoMod',
+                        reason: `AutoMod: ${rulesetName}`,
+                        guildId: message.guild.id,
+                        guildName: message.guild.name
+                    });
+                }
+                
+                // DM user
+                try {
+                    await message.author.send({
+                        embeds: [new EmbedBuilder()
+                            .setColor('#faa61a')
+                            .setTitle('⚠️ Warning from AutoMod')
+                            .setDescription(config.warnMessage || `You have been warned for violating server rules.`)
+                            .addFields(
+                                { name: 'Rule', value: rulesetName, inline: true },
+                                { name: 'Server', value: message.guild.name, inline: true }
+                            )
+                            .setTimestamp()
+                        ]
+                    });
+                    console.log(`⚠️ Warned ${message.author.tag}`);
+                } catch (e) {
+                    console.log('Could not DM user warning');
+                }
+                
+                // Log to moderation channel
+                if (logChannels.moderation) {
+                    const embed = new EmbedBuilder()
+                        .setColor('#faa61a')
+                        .setTitle('⚠️ AutoMod Warning')
+                        .addFields(
+                            { name: 'User', value: `<@${message.author.id}>\n${message.author.tag}`, inline: true },
+                            { name: 'Rule', value: rulesetName, inline: true },
+                            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true }
+                        )
+                        .setTimestamp();
+                    
+                    await logChannels.moderation.send({ embeds: [embed] });
+                }
+                break;
+                
+            case 'timeout':
+                const duration = (config.duration || 300) * 1000; // Convert to milliseconds
+                await member.timeout(duration, `AutoMod: ${rulesetName}`);
+                await message.delete();
+                console.log(`⏰ Timed out ${message.author.tag} for ${config.duration || 300}s`);
+                
+                // DM user
+                try {
+                    await message.author.send({
+                        embeds: [new EmbedBuilder()
+                            .setColor('#ed4245')
+                            .setTitle('⏰ You have been timed out')
+                            .setDescription(config.reason || `You have been timed out by AutoMod.`)
+                            .addFields(
+                                { name: 'Duration', value: `${Math.floor((config.duration || 300) / 60)} minutes`, inline: true },
+                                { name: 'Rule', value: rulesetName, inline: true }
+                            )
+                            .setTimestamp()
+                        ]
+                    });
+                } catch (e) {
+                    console.log('Could not DM user about timeout');
+                }
+                
+                // Log to moderation channel
+                if (logChannels.moderation) {
+                    const embed = new EmbedBuilder()
+                        .setColor('#ed4245')
+                        .setTitle('⏰ AutoMod Timeout')
+                        .addFields(
+                            { name: 'User', value: `<@${message.author.id}>\n${message.author.tag}`, inline: true },
+                            { name: 'Duration', value: `${Math.floor((config.duration || 300) / 60)}m`, inline: true },
+                            { name: 'Rule', value: rulesetName, inline: true }
+                        )
+                        .setTimestamp();
+                    
+                    await logChannels.moderation.send({ embeds: [embed] });
+                }
+                break;
+                
+            case 'kick':
+                await message.delete();
+                
+                // DM before kick
+                try {
+                    await message.author.send({
+                        embeds: [new EmbedBuilder()
+                            .setColor('#ed4245')
+                            .setTitle('👢 You have been kicked')
+                            .setDescription(config.reason || `You have been kicked by AutoMod.`)
+                            .addFields({ name: 'Rule', value: rulesetName })
+                            .setTimestamp()
+                        ]
+                    });
+                } catch (e) {
+                    console.log('Could not DM user about kick');
+                }
+                
+                await member.kick(`AutoMod: ${rulesetName}`);
+                console.log(`👢 Kicked ${message.author.tag}`);
+                
+                // Log to moderation channel
+                if (logChannels.moderation) {
+                    const embed = new EmbedBuilder()
+                        .setColor('#ed4245')
+                        .setTitle('👢 AutoMod Kick')
+                        .addFields(
+                            { name: 'User', value: `${message.author.tag} (${message.author.id})`, inline: true },
+                            { name: 'Rule', value: rulesetName, inline: true }
+                        )
+                        .setTimestamp();
+                    
+                    await logChannels.moderation.send({ embeds: [embed] });
+                }
+                break;
+                
+            case 'ban':
+                await message.delete();
+                
+                // DM before ban
+                try {
+                    await message.author.send({
+                        embeds: [new EmbedBuilder()
+                            .setColor('#8b0000')
+                            .setTitle('🔨 You have been banned')
+                            .setDescription(config.reason || `You have been banned by AutoMod.`)
+                            .addFields({ name: 'Rule', value: rulesetName })
+                            .setTimestamp()
+                        ]
+                    });
+                } catch (e) {
+                    console.log('Could not DM user about ban');
+                }
+                
+                await member.ban({ 
+                    reason: `AutoMod: ${rulesetName}`,
+                    deleteMessageDays: config.deleteMessageDays || 1
+                });
+                console.log(`🔨 Banned ${message.author.tag}`);
+                
+                // Log to moderation channel
+                if (logChannels.moderation) {
+                    const embed = new EmbedBuilder()
+                        .setColor('#8b0000')
+                        .setTitle('🔨 AutoMod Ban')
+                        .addFields(
+                            { name: 'User', value: `${message.author.tag} (${message.author.id})`, inline: true },
+                            { name: 'Rule', value: rulesetName, inline: true }
+                        )
+                        .setTimestamp();
+                    
+                    await logChannels.moderation.send({ embeds: [embed] });
+                }
+                break;
+        }
+    } catch (error) {
+        console.error(`Error executing AutoMod action ${action.type}:`, error);
+    }
+}
 // Message Create Event (continues below)
 client.on('messageCreate', async message => {
     // Ignore bot messages - FIRST
     if (message.author.bot) return;
     if (!message.guild) return;
-
+    await checkAutoModRules(message);
     // Command handler - handle custom commands
     await commandHandler.handleCommand(message);
 
