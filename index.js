@@ -592,6 +592,7 @@ client.once('ready', async () => {
             
             // Initialize CommandHandler AFTER mongoLogger is connected
             commandHandler = new CommandHandler(client, config, mongoLogger);
+            client.commandHandler = commandHandler;
             console.log('✅ Command handler initialized');
             
             // Start Dashboard
