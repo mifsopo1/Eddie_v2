@@ -853,9 +853,28 @@
         }
 
         function copyVariable(variable) {
-            navigator.clipboard.writeText(variable);
-            showAlert(`Copied ${variable} to clipboard!`);
-        }
+    // Create a temporary textarea element
+    const textarea = document.createElement('textarea');
+    textarea.value = variable;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    
+    // Select and copy the text
+    textarea.select();
+    textarea.setSelectionRange(0, 99999); // For mobile devices
+    
+    try {
+        document.execCommand('copy');
+        showAlert(`Copied ${variable} to clipboard!`, 'success');
+    } catch (err) {
+        console.error('Failed to copy:', err);
+        showAlert('Failed to copy to clipboard', 'error');
+    }
+    
+    // Remove the temporary element
+    document.body.removeChild(textarea);
+}
 
         function showVariablesModal() {
             document.getElementById('variablesModal').style.display = 'block';
