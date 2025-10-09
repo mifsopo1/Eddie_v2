@@ -1191,81 +1191,72 @@ this.app.post('/commands/toggle-builtin/:name', this.requireAdmin.bind(this), as
     }
 });
 
-        // ============================================
+ // ============================================
 // STICKY MESSAGES ROUTES
 // ============================================
 
 this.app.post('/commands/sticky/create', this.requireAdmin.bind(this), async (req, res) => {
     try {
+        console.log('📌 Creating sticky message:', req.body);
+        
         const { channelId, message, threshold, enabled } = req.body;
         
         if (!channelId || !message) {
+            console.log('❌ Missing channelId or message');
             return res.json({ success: false, error: 'Channel and message are required' });
+        }
+        
+        // Verify channel exists
+        const channel = await this.client.channels.fetch(channelId).catch(() => null);
+        if (!channel) {
+            console.log('❌ Channel not found:', channelId);
+            return res.json({ success: false, error: 'Channel not found' });
+        }
+        
+        if (!channel.isTextBased()) {
+            console.log('❌ Channel is not text-based');
+            return res.json({ success: false, error: 'Channel must be a text channel' });
         }
         
         const stickyMessage = {
             channelId: channelId,
+            channelName: channel.name,
             message: message,
             threshold: parseInt(threshold) || 10,
-            enabled: enabled === 'on' || enabled === true,
-            messageId: null,
+            enabled: enabled === true || enabled === 'on',
+            messageId: null, // Will be set when first posted
+            messageCount: 0, // Track messages since last repost
             repostCount: 0,
             createdAt: new Date(),
             createdBy: req.user?.username || 'Admin'
         };
         
+        console.log('💾 Saving to database:', stickyMessage);
+        
         const result = await this.mongoLogger.db.collection('stickyMessages').insertOne(stickyMessage);
         
+        console.log('✅ Sticky message created with ID:', result.insertedId);
+        
+        // Optionally send the initial sticky message
+        if (enabled) {
+            try {
+                const sentMessage = await channel.send(message);
+                console.log('📤 Initial sticky message sent:', sentMessage.id);
+                
+                // Update with the message ID
+                await this.mongoLogger.db.collection('stickyMessages').updateOne(
+                    { _id: result.insertedId },
+                    { $set: { messageId: sentMessage.id } }
+                );
+            } catch (sendError) {
+                console.error('Failed to send initial sticky message:', sendError);
+            }
+        }
+        
         req.flash('success', 'Sticky message created!');
-        res.json({ success: true, id: result.insertedId });
+        res.json({ success: true, id: result.insertedId.toString() });
     } catch (error) {
-        console.error('Create sticky message error:', error);
-        res.json({ success: false, error: error.message });
-    }
-});
-
-this.app.get('/commands/sticky/list', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const stickyMessages = await this.mongoLogger.db.collection('stickyMessages')
-            .find({})
-            .sort({ createdAt: -1 })
-            .toArray();
-        
-        res.json({ success: true, stickyMessages });
-    } catch (error) {
-        console.error('Get sticky messages error:', error);
-        res.json({ success: false, error: error.message });
-    }
-});
-
-this.app.post('/commands/sticky/toggle/:id', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const { ObjectId } = require('mongodb');
-        const sticky = await this.mongoLogger.db.collection('stickyMessages')
-            .findOne({ _id: new ObjectId(req.params.id) });
-        
-        await this.mongoLogger.db.collection('stickyMessages')
-            .updateOne(
-                { _id: new ObjectId(req.params.id) },
-                { $set: { enabled: !sticky.enabled } }
-            );
-        
-        res.json({ success: true, enabled: !sticky.enabled });
-    } catch (error) {
-        console.error('Toggle sticky error:', error);
-        res.json({ success: false, error: error.message });
-    }
-});
-
-this.app.delete('/commands/sticky/:id', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const { ObjectId } = require('mongodb');
-        await this.mongoLogger.db.collection('stickyMessages')
-            .deleteOne({ _id: new ObjectId(req.params.id) });
-        
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Delete sticky error:', error);
+        console.error('❌ Create sticky message error:', error);
         res.json({ success: false, error: error.message });
     }
 });
