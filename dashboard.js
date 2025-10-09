@@ -594,33 +594,34 @@ this.app.post('/commands/server-settings', this.requireAuth.bind(this), express.
         // ============================================
         
         this.app.get('/voice', async (req, res) => {
-    try {
-        const action = req.query.action || 'all'; // Get action from query or default to 'all'
-        
-        let filter = {};
-        
-        // Filter by action type if not 'all'
-        if (action !== 'all') {
-            filter.action = action.toUpperCase();
-        }
-        
-        const activities = await VoiceActivity.find(filter)
-            .sort({ timestamp: -1 })
-            .limit(100)
-            .lean();
-        
-        res.render('voice', {
-            page: 'voice',
-            client: client,
-            user: req.user,
-            activities: activities,
-            action: action // Pass action to the view
+            try {
+                const action = req.query.action || 'all';
+                
+                let filter = {};
+                
+                // Filter by action type if not 'all'
+                if (action !== 'all') {
+                    filter.action = action.toUpperCase();
+                }
+                
+                const activities = await this.mongoLogger.db.collection('voiceActivity')
+                    .find(filter)
+                    .sort({ timestamp: -1 })
+                    .limit(100)
+                    .toArray();
+                
+                res.render('voice', {
+                    page: 'voice',
+                    client: this.client,
+                    user: req.user,
+                    activities: activities,
+                    action: action
+                });
+            } catch (error) {
+                console.error('Error loading voice activity:', error);
+                res.status(500).send('Error loading voice activity');
+            }
         });
-    } catch (error) {
-        console.error('Error loading voice activity:', error);
-        res.status(500).send('Error loading voice activity');
-    }
-});
 
         // ============================================
         // INVITES PAGE
