@@ -649,6 +649,15 @@ this.app.post('/commands/server-settings', this.requireAuth.bind(this), express.
                     recentInvites: recentInvites,
                     page: 'invites'
                 });
+            } catch (error) {
+                console.error('Invites page error:', error);
+                req.flash('error', 'Error loading invites');
+                res.redirect('/');
+            }
+        });
+
+        // ============================================
+        // ANALYTICS PAGE
 
         // ============================================
         // ANALYTICS PAGE
@@ -1543,7 +1552,7 @@ this.app.post('/appeals/:id/approve', this.requireAdmin.bind(this), async (req, 
     }
 });
 
-// Deny Appeal
+
 // Deny Appeal
 this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res) => {
     try {
@@ -1605,7 +1614,7 @@ this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res
     }
 });
 
-   
+    } // Close setupRoutes() method
 
     // Helper method - OUTSIDE of setupRoutes()
     async getAppealsStats() {
