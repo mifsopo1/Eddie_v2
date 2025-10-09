@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom Commands - Discord Logger</title>
+    <title>Commands Manager - Discord Logger</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
         /* Inline Navbar Styles */
@@ -44,6 +44,70 @@
         .user-badge.password { background: rgba(250, 166, 26, 0.3); color: #faa61a; }
         .logout-btn { background: rgba(237, 66, 69, 0.2); color: var(--danger); padding: 0.5rem; border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; text-decoration: none; border: 1px solid rgba(237, 66, 69, 0.3); width: 36px; height: 36px; }
         .logout-btn:hover { background: rgba(237, 66, 69, 0.3); transform: scale(1.08); }
+
+        /* Enhanced Multi-Select Roles */
+        .role-selector { position: relative; width: 100%; }
+        .role-tags { min-height: 60px; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; display: flex; flex-wrap: wrap; gap: 0.5rem; cursor: pointer; transition: all 0.2s ease; }
+        .role-tags:hover { border-color: rgba(88,101,242,0.5); }
+        .role-tag { background: rgba(88,101,242,0.3); color: #5865f2; padding: 0.4rem 0.8rem; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+        .role-tag-remove { cursor: pointer; font-weight: bold; opacity: 0.7; transition: opacity 0.2s; }
+        .role-tag-remove:hover { opacity: 1; }
+        .role-dropdown { position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: rgba(20,23,28,0.98); border: 1px solid rgba(88,101,242,0.5); border-radius: 8px; margin-top: 0.5rem; display: none; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .role-dropdown.active { display: block; }
+        .role-option { padding: 0.75rem; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .role-option:hover { background: rgba(88,101,242,0.2); }
+
+        /* Tab Navigation */
+        .tab-navigation { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 2px solid rgba(255,255,255,0.1); overflow-x: auto; }
+        .tab-nav-btn { background: transparent; border: none; color: rgba(255,255,255,0.6); padding: 1rem 1.5rem; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.3s ease; font-weight: 600; white-space: nowrap; }
+        .tab-nav-btn:hover { color: #fff; border-bottom-color: rgba(88,101,242,0.5); }
+        .tab-nav-btn.active { color: #5865f2; border-bottom-color: #5865f2; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Copyable Content */
+        .copy-btn { position: absolute; top: 1rem; right: 1rem; background: rgba(88,101,242,0.2); color: #5865f2; border: 1px solid rgba(88,101,242,0.3); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; font-weight: 600; font-size: 0.85rem; }
+        .copy-btn:hover { background: rgba(88,101,242,0.3); transform: translateY(-1px); }
+        .copyable-content { background: rgba(0,0,0,0.4); padding: 1rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); margin-top: 1rem; font-family: 'Courier New', monospace; color: rgba(255,255,255,0.9); position: relative; }
+
+        /* Sections */
+        .sticky-section { background: linear-gradient(135deg, rgba(30,33,40,0.95) 0%, rgba(20,23,28,0.95) 100%); border: 1px solid rgba(250,166,26,0.3); border-radius: 12px; padding: 2rem; margin: 2rem 0; }
+        .sticky-card { background: rgba(0,0,0,0.3); border: 1px solid rgba(250,166,26,0.3); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; position: relative; }
+        .sticky-indicator { display: inline-block; background: rgba(250,166,26,0.2); color: #faa61a; padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+
+        .ruleset-section { background: linear-gradient(135deg, rgba(30,33,40,0.95) 0%, rgba(20,23,28,0.95) 100%); border: 1px solid rgba(237,66,69,0.3); border-radius: 12px; padding: 2rem; margin: 2rem 0; }
+        .ruleset-card { background: rgba(0,0,0,0.3); border: 1px solid rgba(237,66,69,0.3); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; position: relative; }
+        .rule-list { list-style: none; padding: 0; margin: 1rem 0; }
+        .rule-item { padding: 0.75rem; background: rgba(0,0,0,0.2); border-left: 3px solid #ed4245; margin-bottom: 0.5rem; border-radius: 4px; }
+
+        .bulk-actions { background: rgba(88,101,242,0.1); border: 1px solid rgba(88,101,242,0.3); border-radius: 12px; padding: 1.5rem; margin: 2rem 0; }
+        .channel-response-section { background: rgba(67,181,129,0.1); border: 1px solid rgba(67,181,129,0.3); border-radius: 8px; padding: 1.5rem; margin-top: 1rem; }
+        .response-channel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem; }
+
+        /* Command Cards */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+        .command-card { background: linear-gradient(135deg, rgba(30,33,40,0.95) 0%, rgba(20,23,28,0.95) 100%); border: 1px solid rgba(88,101,242,0.3); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; transition: all 0.3s ease; position: relative; }
+        .command-card:hover { border-color: rgba(88,101,242,0.6); box-shadow: 0 4px 20px rgba(88,101,242,0.25); transform: translateY(-2px); }
+        .command-card.disabled { opacity: 0.5; }
+        .command-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .command-actions { display: flex; gap: 0.5rem; }
+        .command-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 8px; }
+
+        .badge-general { background: rgba(88,101,242,0.2); color: #5865f2; }
+        .badge-fun { background: rgba(250,166,26,0.2); color: #faa61a; }
+        .badge-moderation { background: rgba(237,66,69,0.2); color: #ed4245; }
+        .badge-info { background: rgba(67,181,129,0.2); color: #43b581; }
+        .role-badge { background: rgba(237,66,69,0.2); color: #ed4245; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; }
+        .role-badge.exempt { background: rgba(67,181,129,0.2); color: #43b581; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
+        .modal-content { background: linear-gradient(135deg, rgba(30,33,40,0.98) 0%, rgba(20,23,28,0.98) 100%); margin: 3% auto; padding: 2rem; border: 1px solid rgba(88,101,242,0.3); border-radius: 12px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 1.5rem; margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .close { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; }
+        .close:hover { color: #fff; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+
         @media (max-width: 1400px) {
             .nav-links a span:not(.nav-icon) { display: none; }
             .nav-links a { padding: 0.5rem 0.6rem; }
@@ -64,51 +128,13 @@
             .nav-center::-webkit-scrollbar { display: none; }
             .nav-links { gap: 0.25rem; }
             .nav-links a { padding: 0.45rem 0.55rem; font-size: 0.8rem; }
-        }
-
-        /* Multi-select styling */
-        select[multiple] {
-            padding: 0.5rem;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: #fff;
-        }
-
-        select[multiple] option {
-            padding: 0.5rem;
-            margin: 0.25rem 0;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        select[multiple] option:hover {
-            background: rgba(88, 101, 242, 0.3);
-        }
-
-        select[multiple] option:checked {
-            background: rgba(88, 101, 242, 0.5);
-        }
-
-        .role-badge {
-            background: rgba(237, 66, 69, 0.2);
-            color: #ed4245;
-            padding: 0.25rem 0.6rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .role-badge.exempt {
-            background: rgba(67, 181, 129, 0.2);
-            color: #43b581;
+            .form-grid, .form-row { grid-template-columns: 1fr; }
+            .response-channel-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
+    <!-- Navbar -->
     <nav class="navbar">
         <div class="nav-brand">
             <img src="<%= client.user.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
@@ -151,7 +177,7 @@
                     <span class="nav-icon">📈</span> <span>Analytics</span>
                 </a>
                 <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
-                <span class="nav-icon">🎫</span> <span>Appeals</span>
+                    <span class="nav-icon">🎫</span> <span>Appeals</span>
                 </a>
             </div>
         </div>
@@ -181,978 +207,736 @@
         </div>
     </nav>
 
-    <!-- Header Section -->
+    <!-- Main Content -->
     <div class="container" style="margin-top: 2rem; max-width: 1400px; padding: 0 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
             <div>
-                <h1 style="color: #fff; margin-bottom: 0.5rem; font-size: 2rem;">
-                    🎮 Custom Commands Manager
-                </h1>
-                <p style="color: rgba(255,255,255,0.6); margin: 0;">
-                    Manage custom commands for your Discord server
-                </p>
-            </div>
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                <a href="/commands/settings" style="background: #5865F2; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; transition: all 0.2s ease; border: none;">
-                    <span style="font-size: 1.1rem;">⚙️</span> Command Settings
-                </a>
-                <button onclick="toggleCreateForm()" style="background: #43B581; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; transition: all 0.2s ease; border: none; cursor: pointer;">
-                    <span style="font-size: 1.1rem;">➕</span> Create New Command
-                </button>
+                <h1 style="color: #fff; margin-bottom: 0.5rem; font-size: 2rem;">🎮 Commands Manager</h1>
+                <p style="color: rgba(255,255,255,0.6); margin: 0;">Advanced command system with rulesets, sticky messages, and bulk actions</p>
             </div>
         </div>
-        <!-- Quick Execute Command -->
-        <div class="section">
-            <h2 class="section-title">⚡ Quick Execute</h2>
-            <form onsubmit="executeCommand(event)" class="quick-execute">
-                <div class="form-group">
-                    <label>Channel</label>
-                    <select id="channelSelect" required>
-                        <option value="">Select Channel...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Command</label>
-                    <input type="text" id="commandInput" placeholder="Enter command..." required>
-                </div>
-                <button type="submit" class="btn btn-primary" style="margin-top: 22px;">Execute</button>
-            </form>
-            <div id="executeResult"></div>
+        
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class="tab-nav-btn active" onclick="switchMainTab('commands')">💬 Commands</button>
+            <button class="tab-nav-btn" onclick="switchMainTab('sticky')">📌 Sticky Messages</button>
+            <button class="tab-nav-btn" onclick="switchMainTab('rulesets')">📋 Rulesets</button>
+            <button class="tab-nav-btn" onclick="switchMainTab('bulk')">🔨 Bulk Actions</button>
+            <button class="tab-nav-btn" onclick="switchMainTab('protection')">🛡️ Protection</button>
         </div>
-
-        <!-- Create Command Form (Hidden by default) -->
-        <div class="section" id="createCommandSection" style="display: none;">
-            <h2 class="section-title">📝 Create New Command</h2>
-            <form method="POST" action="/commands/create">
-                <div class="form-grid">
-                    <!-- Left Column -->
-                    <div>
-                        <div class="form-group">
-                            <label>Command Name *</label>
-                            <input type="text" name="name" placeholder="My Command" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Category</label>
-                            <select name="category">
-                                <option value="general">General</option>
-                                <option value="fun">Fun</option>
-                                <option value="moderation">Moderation</option>
-                                <option value="info">Info</option>
-                                <option value="utility">Utility</option>
-                                <option value="custom">Custom</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Description</label>
-                            <textarea name="description" rows="2" placeholder="What does this command do?"></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Trigger Type</label>
-                            <select name="triggerType">
-                                <option value="command">Command (!hello)</option>
-                                <option value="exact">Exact Match</option>
-                                <option value="contains">Contains Text</option>
-                                <option value="startswith">Starts With</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Trigger Text *</label>
-                            <input type="text" name="trigger" placeholder="hello, hi, hey" required>
-                            <small>Separate multiple triggers with commas</small>
-                        </div>
-
-                        <!-- Role Requirements -->
-                        <div class="form-group">
-                            <label>Required Roles <span style="color: rgba(255,255,255,0.5);">(optional)</span></label>
-                            <select name="requiredRoles" id="requiredRolesSelect" multiple style="height: 120px;">
-                                <!-- Roles will be loaded via JavaScript -->
-                            </select>
-                            <small>User must have at least ONE of these roles to use the command</small>
-                        </div>
-
-                        <!-- Role Exemptions -->
-                        <div class="form-group">
-                            <label>Exempt Roles <span style="color: rgba(255,255,255,0.5);">(optional)</span></label>
-                            <select name="exemptRoles" id="exemptRolesSelect" multiple style="height: 120px;">
-                                <!-- Roles will be loaded via JavaScript -->
-                            </select>
-                            <small>Users with these roles can use the command regardless of requirements</small>
-                        </div>
-                    </div>
-
-                    <!-- Right Column -->
-                    <div>
-                        <div class="form-group">
-                            <label>Response Type</label>
-                            <select name="responseType">
-                                <option value="text">Text Message</option>
-                                <option value="embed">Embed</option>
-                                <option value="react">Reaction Only</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Message Content</label>
-                            <textarea name="response" rows="4" placeholder="Hello {user}! Welcome to {server}"></textarea>
-                            <small>Variables: {user}, {channel}, {server}, {membercount}</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" name="enabled" checked>
-                                Enabled
-                            </label>
-                        </div>
-
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" name="deleteTrigger">
-                                Delete Trigger Message
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="button" onclick="toggleCreateForm()" class="btn btn-secondary">Cancel</button>
-                    <button type="submit" class="btn btn-primary btn-large">💾 Create Command</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Existing Commands -->
-        <div class="section">
-            <h2 class="section-title">📋 Command List</h2>
-            
-            <div class="tabs">
-    <button class="tab active" onclick="filterCommands('all')">All</button>
-    <button class="tab" onclick="filterCommands('general')">General</button>
-    <button class="tab" onclick="filterCommands('fun')">Fun</button>
-    <button class="tab" onclick="filterCommands('moderation')">Moderation</button>
-    <button class="tab" onclick="filterCommands('info')">Info</button>
-    <button class="tab" onclick="filterCommands('utility')">Utility</button>
-    <button class="tab" onclick="filterCommands('custom')">Custom</button>
-</div>
-
-            <div class="commands-table">
-                <% if (commands && commands.length > 0) { %>
-    <% commands.forEach(cmd => { %>
-        <div class="command-card <%= cmd.enabled ? '' : 'disabled' %>" data-category="<%= cmd.category || 'general' %>">
-            <div class="command-header">
-                <div>
-                    <h3><%= cmd.name %></h3>
-                    <div>
-                        <span class="badge badge-<%= cmd.category || 'general' %>"><%= cmd.category || 'general' %></span>
-                        <% if (cmd.type === 'builtin') { %>
-                            <span class="badge" style="background: rgba(88, 101, 242, 0.3); color: #5865f2;">Built-in</span>
-                        <% } %>
-                        <span class="badge <%= cmd.enabled ? 'badge-enabled' : 'badge-disabled' %>">
-                            <%= cmd.enabled ? 'Enabled' : 'Disabled' %>
-                        </span>
-                    </div>
-                </div>
-                <div class="command-actions">
-                    <% if (cmd.type !== 'builtin') { %>
-                        <button class="btn-icon" onclick="editCommand('<%= cmd._id %>')" title="Edit">
-                            ✏️
-                        </button>
-                    <% } %>
-                    <button class="btn-icon toggle" onclick="toggleCommand('<%= cmd._id %>', '<%= cmd.type %>')" title="Toggle Enable/Disable">
-                        <%= cmd.enabled ? '⏸️' : '▶️' %>
-                    </button>
-                    <% if (cmd.type !== 'builtin') { %>
-                        <button class="btn-icon delete" onclick="if(confirm('Delete this command?')) { window.location.href='/commands/delete/<%= cmd._id %>' }" title="Delete Command">
-                            🗑️
-                        </button>
-                    <% } %>
-                </div>
+        
+        <!-- Commands Tab -->
+        <div id="tab-commands" class="tab-content active">
+            <div style="display: flex; gap: 0.75rem; margin-bottom: 2rem; flex-wrap: wrap;">
+                <button onclick="toggleCreateForm()" class="btn btn-primary">➕ Create Command</button>
+                <a href="/commands/settings" class="btn btn-secondary" style="text-decoration: none;">⚙️ Command Settings</a>
+                <a href="/commands/all" class="btn btn-secondary" style="text-decoration: none;">📋 View All Commands</a>
             </div>
+
+            <!-- Create Command Form -->
+            <div id="createCommandSection" style="display: none; background: rgba(30,33,40,0.95); border: 1px solid rgba(88,101,242,0.3); border-radius: 12px; padding: 2rem; margin-bottom: 2rem;">
+                <h2 style="color: #fff; margin-bottom: 1.5rem;">📝 Create New Command</h2>
+                <form method="POST" action="/commands/create">
+                    <div class="form-grid">
+                        <div>
+                            <div class="form-group">
+                                <label>Command Name *</label>
+                                <input type="text" name="name" required>
+                            </div>
                             
-                            <% if (cmd.description) { %>
-                                <p class="command-desc"><%= cmd.description %></p>
-                            <% } %>
+                            <div class="form-group">
+                                <label>Category</label>
+                                <select name="category">
+                                    <option value="general">General</option>
+                                    <option value="fun">Fun</option>
+                                    <option value="moderation">Moderation</option>
+                                    <option value="info">Info</option>
+                                    <option value="utility">Utility</option>
+                                </select>
+                            </div>
                             
-                            <div class="command-meta">
-                                <div class="meta-item">
-                                    <strong>Trigger</strong>
-                                    <span><%= cmd.triggerType === 'command' ? '!' : '' %><%= Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger %></span>
-                                </div>
-                                <div class="meta-item">
-                                    <strong>Type</strong>
-                                    <span><%= cmd.responseType %></span>
-                                </div>
-                                <div class="meta-item">
-                                    <strong>Uses</strong>
-                                    <span><%= cmd.uses || 0 %></span>
+                            <div class="form-group">
+                                <label>Trigger Text *</label>
+                                <input type="text" name="trigger" required>
+                                <small>Separate multiple with commas</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Required Roles</label>
+                                <div class="role-selector">
+                                    <div class="role-tags" id="requiredRoleTags" onclick="toggleRoleDropdown('required')">
+                                        <span style="color: rgba(255,255,255,0.5);">Click to select roles...</span>
+                                    </div>
+                                    <div class="role-dropdown" id="requiredRoleDropdown"></div>
+                                    <input type="hidden" name="requiredRoles" id="requiredRolesInput">
                                 </div>
                             </div>
-
-                            <!-- Add Role Information -->
-                            <% if ((cmd.requiredRoles && cmd.requiredRoles.length > 0) || (cmd.exemptRoles && cmd.exemptRoles.length > 0)) { %>
-                                <div class="command-roles" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                                    <% if (cmd.requiredRoles && cmd.requiredRoles.length > 0) { %>
-                                        <div style="margin-bottom: 0.5rem;">
-                                            <strong style="color: rgba(255,255,255,0.6); font-size: 0.75rem; text-transform: uppercase;">Required Roles:</strong>
-                                            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem;">
-                                                <% cmd.requiredRoles.forEach(roleId => { %>
-                                                    <span class="role-badge" data-role-id="<%= roleId %>">
-                                                        🔒 <%= roleId %>
-                                                    </span>
-                                                <% }) %>
-                                            </div>
-                                        </div>
-                                    <% } %>
-                                    <% if (cmd.exemptRoles && cmd.exemptRoles.length > 0) { %>
-                                        <div>
-                                            <strong style="color: rgba(255,255,255,0.6); font-size: 0.75rem; text-transform: uppercase;">Exempt Roles:</strong>
-                                            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem;">
-                                                <% cmd.exemptRoles.forEach(roleId => { %>
-                                                    <span class="role-badge exempt" data-role-id="<%= roleId %>">
-                                                        ✅ <%= roleId %>
-                                                    </span>
-                                                <% }) %>
-                                            </div>
-                                        </div>
-                                    <% } %>
+                            
+                            <div class="form-group">
+                                <label>Exempt Roles</label>
+                                <div class="role-selector">
+                                    <div class="role-tags" id="exemptRoleTags" onclick="toggleRoleDropdown('exempt')">
+                                        <span style="color: rgba(255,255,255,0.5);">Click to select roles...</span>
+                                    </div>
+                                    <div class="role-dropdown" id="exemptRoleDropdown"></div>
+                                    <input type="hidden" name="exemptRoles" id="exemptRolesInput">
                                 </div>
-                            <% } %>
+                            </div>
                         </div>
-                    <% }); %>
-                <% } else { %>
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📦</div>
-                        <div class="empty-state-text">No commands yet</div>
-                        <div class="empty-state-subtext">Create your first custom command to get started</div>
+                        
+                        <div>
+                            <div class="form-group">
+                                <label>Response Type</label>
+                                <select name="responseType">
+                                    <option value="text">Text Message</option>
+                                    <option value="embed">Embed</option>
+                                    <option value="react">Reaction</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Response Content</label>
+                                <textarea name="response" rows="8" placeholder="Your response message here..."></textarea>
+                                <small>Variables: {user}, {server}, {channel}</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Description</label>
+                                <textarea name="description" rows="2" placeholder="What does this command do?"></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label><input type="checkbox" name="enabled" checked> Enabled</label>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label><input type="checkbox" name="deleteTrigger"> Delete Trigger Message</label>
+                            </div>
+                        </div>
                     </div>
-                <% } %>
+                    
+                    <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <button type="button" onclick="toggleCreateForm()" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn btn-primary">💾 Create Command</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Command List -->
+            <div class="section">
+                <h2 class="section-title">📋 Command List</h2>
+                
+                <div class="tabs">
+                    <button class="tab active" onclick="filterCommands('all')">All</button>
+                    <button class="tab" onclick="filterCommands('general')">General</button>
+                    <button class="tab" onclick="filterCommands('fun')">Fun</button>
+                    <button class="tab" onclick="filterCommands('moderation')">Moderation</button>
+                    <button class="tab" onclick="filterCommands('info')">Info</button>
+                    <button class="tab" onclick="filterCommands('utility')">Utility</button>
+                </div>
+
+                <div class="commands-table">
+                    <% if (commands && commands.length > 0) { %>
+                        <% commands.forEach(cmd => { %>
+                            <div class="command-card <%= cmd.enabled ? '' : 'disabled' %>" data-category="<%= cmd.category || 'general' %>">
+                                <div class="command-header">
+                                    <div>
+                                        <h3><%= cmd.name %></h3>
+                                        <div>
+                                            <span class="badge badge-<%= cmd.category || 'general' %>"><%= cmd.category || 'general' %></span>
+                                            <% if (cmd.type === 'builtin') { %>
+                                                <span class="badge" style="background: rgba(88, 101, 242, 0.3); color: #5865f2;">Built-in</span>
+                                            <% } %>
+                                            <span class="badge <%= cmd.enabled ? 'badge-enabled' : 'badge-disabled' %>">
+                                                <%= cmd.enabled ? 'Enabled' : 'Disabled' %>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="command-actions">
+                                        <% if (cmd.type !== 'builtin') { %>
+                                            <button class="btn-icon" onclick="editCommand('<%= cmd._id %>')" title="Edit">✏️</button>
+                                        <% } %>
+                                        <button class="btn-icon toggle" onclick="toggleCommand('<%= cmd._id %>', '<%= cmd.type %>')" title="Toggle">
+                                            <%= cmd.enabled ? '⏸️' : '▶️' %>
+                                        </button>
+                                        <% if (cmd.type !== 'builtin') { %>
+                                            <button class="btn-icon delete" onclick="if(confirm('Delete this command?')) { window.location.href='/commands/delete/<%= cmd._id %>' }" title="Delete">🗑️</button>
+                                        <% } %>
+                                    </div>
+                                </div>
+                                
+                                <% if (cmd.description) { %>
+                                    <p class="command-desc"><%= cmd.description %></p>
+                                <% } %>
+                                
+                                <div class="command-meta">
+                                    <div class="meta-item">
+                                        <strong>Trigger</strong>
+                                        <span><%= cmd.triggerType === 'command' ? '!' : '' %><%= Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger %></span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <strong>Type</strong>
+                                        <span><%= cmd.responseType %></span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <strong>Uses</strong>
+                                        <span><%= cmd.uses || 0 %></span>
+                                    </div>
+                                </div>
+
+                                <% if ((cmd.requiredRoles && cmd.requiredRoles.length > 0) || (cmd.exemptRoles && cmd.exemptRoles.length > 0)) { %>
+                                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                                        <% if (cmd.requiredRoles && cmd.requiredRoles.length > 0) { %>
+                                            <div style="margin-bottom: 0.5rem;">
+                                                <strong style="color: rgba(255,255,255,0.6); font-size: 0.75rem;">Required Roles:</strong>
+                                                <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem;">
+                                                    <% cmd.requiredRoles.forEach(roleId => { %>
+                                                        <span class="role-badge" data-role-id="<%= roleId %>">🔒 <%= roleId %></span>
+                                                    <% }) %>
+                                                </div>
+                                            </div>
+                                        <% } %>
+                                        <% if (cmd.exemptRoles && cmd.exemptRoles.length > 0) { %>
+                                            <div>
+                                                <strong style="color: rgba(255,255,255,0.6); font-size: 0.75rem;">Exempt Roles:</strong>
+                                                <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem;">
+                                                    <% cmd.exemptRoles.forEach(roleId => { %>
+                                                        <span class="role-badge exempt" data-role-id="<%= roleId %>">✅ <%= roleId %></span>
+                                                    <% }) %>
+                                                </div>
+                                            </div>
+                                        <% } %>
+                                    </div>
+                                <% } %>
+                            </div>
+                        <% }); %>
+                    <% } else { %>
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📦</div>
+                            <div class="empty-state-text">No commands yet</div>
+                            <div class="empty-state-subtext">Create your first custom command to get started</div>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+        <!-- Sticky Messages Tab -->
+        <div id="tab-sticky" class="tab-content">
+            <div class="sticky-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <div>
+                        <h2 style="color: #fff; margin: 0;">📌 Sticky Messages</h2>
+                        <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Pin important messages that auto-repost when pushed up</p>
+                    </div>
+                    <button onclick="openStickyModal()" class="btn btn-primary">➕ Create Sticky</button>
+                </div>
+
+                <div class="sticky-card">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div>
+                            <span class="sticky-indicator">🔥 Active</span>
+                            <h3 style="color: #fff; margin: 0.5rem 0;">Server Rules</h3>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-icon" title="Edit">✏️</button>
+                            <button class="btn-icon delete" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">Welcome! Please read our server rules...</p>
+                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                        <span>📍 Channel: #general</span>
+                        <span>💬 Threshold: 10 messages</span>
+                        <span>🔄 Reposts: 45</span>
+                    </div>
+                </div>
+
+                <div class="empty-state" style="margin-top: 2rem;">
+                    <div class="empty-state-icon">📌</div>
+                    <div class="empty-state-text">No more sticky messages</div>
+                    <div class="empty-state-subtext">Create sticky messages to keep important info visible</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rulesets Tab -->
+        <div id="tab-rulesets" class="tab-content">
+            <div class="ruleset-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <div>
+                        <h2 style="color: #fff; margin: 0;">📋 Server Rulesets</h2>
+                        <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Manage your server rules and display them with commands</p>
+                    </div>
+                    <button onclick="openRulesetModal()" class="btn btn-primary">➕ Create Ruleset</button>
+                </div>
+
+                <div class="ruleset-card">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div>
+                            <h3 style="color: #fff; margin: 0;">General Server Rules</h3>
+                            <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0;">Basic conduct rules for all members</p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-icon" title="Edit">✏️</button>
+                            <button class="btn-icon delete" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    <ul class="rule-list">
+                        <li class="rule-item">1. Be respectful to all members</li>
+                        <li class="rule-item">2. No spam or advertising</li>
+                        <li class="rule-item">3. Keep content appropriate</li>
+                        <li class="rule-item">4. Follow Discord TOS</li>
+                    </ul>
+                    <div class="copyable-content">
+                        <button class="copy-btn" onclick="copyRuleset(this)">📋 Copy</button>
+                        <pre>!rules</pre>
+                    </div>
+                </div>
+
+                <div class="empty-state" style="margin-top: 2rem;">
+                    <div class="empty-state-icon">📋</div>
+                    <div class="empty-state-text">No more rulesets</div>
+                    <div class="empty-state-subtext">Create organized rulesets for your community</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Actions Tab -->
+        <div id="tab-bulk" class="tab-content">
+            <div class="bulk-actions">
+                <h2 style="color: #fff; margin-bottom: 1rem;">🔨 Bulk Command Actions</h2>
+                <p style="color: rgba(255,255,255,0.6); margin-bottom: 2rem;">Perform actions on multiple commands at once</p>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                    <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="color: #fff; margin-bottom: 1rem;">🔀 Enable/Disable All</h3>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-success" onclick="bulkToggleCommands(true)">Enable All</button>
+                            <button class="btn btn-secondary" onclick="bulkToggleCommands(false)">Disable All</button>
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="color: #fff; margin-bottom: 1rem;">📊 Category Actions</h3>
+                        <select id="bulkCategory" class="form-control" style="margin-bottom: 0.5rem;">
+                            <option value="">Select Category</option>
+                            <option value="general">General</option>
+                            <option value="fun">Fun</option>
+                            <option value="moderation">Moderation</option>
+                            <option value="info">Info</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="bulkCategoryAction()">Apply to Category</button>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="color: #fff; margin-bottom: 1rem;">🗑️ Cleanup</h3>
+                        <button class="btn btn-danger" onclick="if(confirm('Delete all disabled commands?')) bulkDelete()">Delete Disabled Commands</button>
+                    </div>
+                </div>
+
+                <div class="channel-response-section" style="margin-top: 2rem;">
+                    <h3 style="color: #fff; margin-bottom: 1rem;">📍 Channel-Specific Responses</h3>
+                    <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">Set different responses for commands in specific channels</p>
+                    
+                    <div class="response-channel-grid">
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <strong style="color: #fff; display: block; margin-bottom: 0.5rem;">#general</strong>
+                            <span style="color: rgba(255,255,255,0.6); font-size: 0.85rem;">3 custom responses</span>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <strong style="color: #fff; display: block; margin-bottom: 0.5rem;">#announcements</strong>
+                            <span style="color: rgba(255,255,255,0.6); font-size: 0.85rem;">1 custom response</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Protection Tab -->
+        <div id="tab-protection" class="tab-content">
+            <div style="background: linear-gradient(135deg, rgba(30,33,40,0.95) 0%, rgba(20,23,28,0.95) 100%); border: 1px solid rgba(67,181,129,0.3); border-radius: 12px; padding: 2rem;">
+                <h2 style="color: #fff; margin-bottom: 1rem;">🛡️ Command Protection</h2>
+                <p style="color: rgba(255,255,255,0.6); margin-bottom: 2rem;">Configure rate limiting and abuse prevention</p>
+
+                <div style="display: grid; gap: 1.5rem;">
+                    <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="color: #fff; margin-bottom: 1rem;">⏱️ Rate Limiting</h3>
+                        <div class="form-group">
+                            <label>Commands per minute (per user)</label>
+                            <input type="number" value="5" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Cooldown between uses (seconds)</label>
+                            <input type="number" value="3" class="form-control">
+                        </div>
+                        <button class="btn btn-primary">💾 Save Settings</button>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="color: #fff; margin-bottom: 1rem;">🚫 Spam Prevention</h3>
+                        <label style="color: rgba(255,255,255,0.8); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                            <input type="checkbox" checked> Detect command spam
+                        </label>
+                        <label style="color: rgba(255,255,255,0.8); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                            <input type="checkbox" checked> Auto-timeout spammers
+                        </label>
+                        <label style="color: rgba(255,255,255,0.8); display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox"> Log abuse attempts
+                        </label>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="color: #fff; margin-bottom: 1rem;">📊 Usage Statistics</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 2rem; color: #5865f2; font-weight: bold;">1,247</div>
+                                <div style="color: rgba(255,255,255,0.6); font-size: 0.85rem;">Total Uses</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 2rem; color: #43b581; font-weight: bold;">23</div>
+                                <div style="color: rgba(255,255,255,0.6); font-size: 0.85rem;">Active Commands</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 2rem; color: #ed4245; font-weight: bold;">8</div>
+                                <div style="color: rgba(255,255,255,0.6); font-size: 0.85rem;">Blocked Attempts</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <!-- End Main Content Container -->
-     <!-- Edit Command Modal (Outside main container) -->
-    <div id="editModal" class="modal" style="display: none;">
+
+    <!-- Edit Command Modal -->
+    <div id="editModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>✏️ Edit Command</h2>
+                <h2 style="color: #fff; margin: 0;">✏️ Edit Command</h2>
                 <span class="close" onclick="closeEditModal()">&times;</span>
             </div>
-            <form id="editForm" method="POST">
-                <input type="hidden" id="edit_id" name="id">
+            <form method="POST" action="/commands/update" id="editCommandForm">
+                <input type="hidden" name="commandId" id="editCommandId">
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Command Name *</label>
-                        <input type="text" id="edit_name" name="name" required>
+                        <label>Command Name</label>
+                        <input type="text" name="name" id="editName" required>
                     </div>
-                    
                     <div class="form-group">
                         <label>Category</label>
-                        <select id="edit_category" name="category">
+                        <select name="category" id="editCategory">
                             <option value="general">General</option>
                             <option value="fun">Fun</option>
                             <option value="moderation">Moderation</option>
                             <option value="info">Info</option>
                             <option value="utility">Utility</option>
-                            <option value="custom">Custom</option>
                         </select>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Description</label>
-                    <input type="text" id="edit_description" name="description">
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Trigger Type</label>
-                        <select id="edit_triggerType" name="triggerType" onchange="updateTriggerHelp()">
-                            <option value="command">Command (!trigger)</option>
-                            <option value="exact">Exact Match</option>
-                            <option value="contains">Contains Word/Phrase</option>
-                            <option value="startswith">Starts With</option>
-                            <option value="regex">Regex Pattern</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Trigger(s) *</label>
-                        <input type="text" id="edit_trigger" name="trigger" required>
-                        <small id="edit_triggerHelp" class="help-text">Separate multiple with commas</small>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Response Type</label>
-                    <select id="edit_responseType" name="responseType" onchange="updateResponseType()">
-                        <option value="text">Text Message</option>
-                        <option value="embed">Embed</option>
-                        <option value="react">Reaction Only</option>
-                        <option value="multiple">Text + Reaction</option>
-                        <option value="dm">DM User</option>
-                    </select>
-                </div>
-                
-                <div id="edit_textResponse" class="form-group">
-                    <label>Response Text</label>
-                    <textarea id="edit_response" name="response" rows="4"></textarea>
-                    <small>Variables: {user}, {user.mention}, {channel}, {server}, {args}</small>
-                </div>
-                
-                <div id="edit_embedResponse" style="display: none;">
-                    <div class="form-group">
-                        <label>Embed Title</label>
-                        <input type="text" id="edit_embedTitle" name="embedTitle">
-                    </div>
-                    <div class="form-group">
-                        <label>Embed Description</label>
-                        <textarea id="edit_embedDescription" name="embedDescription" rows="4"></textarea>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Embed Color</label>
-                            <input type="color" id="edit_embedColor" name="embedColor" value="#5865f2">
-                        </div>
-                        <div class="form-group">
-                            <label>Footer Text</label>
-                            <input type="text" id="edit_embedFooter" name="embedFooter">
-                        </div>
-                    </div>
-                </div>
-                
-                <div id="edit_reactionResponse" style="display: none;">
-                    <div class="form-group">
-                        <label>Reaction Emoji</label>
-                        <input type="text" id="edit_reactionEmoji" name="reactionEmoji" placeholder="👍 or custom:emojiname">
                     </div>
                 </div>
 
-                <!-- Role Fields -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Required Roles</label>
-                        <select id="edit_requiredRoles" name="requiredRoles" multiple style="height: 120px;">
-                            <!-- Will be populated by JS -->
-                        </select>
-                        <small>User must have at least ONE of these roles</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Exempt Roles</label>
-                        <select id="edit_exemptRoles" name="exemptRoles" multiple style="height: 120px;">
-                            <!-- Will be populated by JS -->
-                        </select>
-                        <small>These roles bypass all requirements</small>
-                    </div>
+                <div class="form-group">
+                    <label>Trigger Text</label>
+                    <input type="text" name="trigger" id="editTrigger" required>
                 </div>
-                
+
+                <div class="form-group">
+                    <label>Response Content</label>
+                    <textarea name="response" id="editResponse" rows="6"></textarea>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="edit_enabled" name="enabled">
-                            Enabled
-                        </label>
+                        <label>Response Type</label>
+                        <select name="responseType" id="editResponseType">
+                            <option value="text">Text Message</option>
+                            <option value="embed">Embed</option>
+                            <option value="react">Reaction</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>
-                            <input type="checkbox" id="edit_deleteTrigger" name="deleteTrigger">
-                            Delete Trigger Message
+                            <input type="checkbox" name="enabled" id="editEnabled"> Enabled
                         </label>
                     </div>
                 </div>
-                
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+
+                <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button type="button" onclick="closeEditModal()" class="btn btn-secondary">Cancel</button>
                     <button type="submit" class="btn btn-primary">💾 Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
-
     <script>
-        // Toggle create form
-        function toggleCreateForm() {
-            const form = document.getElementById('createCommandSection');
-            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        // Global roles data
+        const rolesData = <%- JSON.stringify(roles || []) %>;
+        const selectedRequiredRoles = new Set();
+        const selectedExemptRoles = new Set();
+
+        // Initialize role dropdowns
+        function initializeRoleDropdowns() {
+            const requiredDropdown = document.getElementById('requiredRoleDropdown');
+            const exemptDropdown = document.getElementById('exemptRoleDropdown');
+            
+            rolesData.forEach(role => {
+                const requiredOption = createRoleOption(role, 'required');
+                const exemptOption = createRoleOption(role, 'exempt');
+                requiredDropdown.appendChild(requiredOption);
+                exemptDropdown.appendChild(exemptOption);
+            });
         }
 
-        // Filter commands by category
-        function filterCommands(category) {
-            const commands = document.querySelectorAll('.command-card');
-            const tabs = document.querySelectorAll('.tab');
+        function createRoleOption(role, type) {
+            const option = document.createElement('div');
+            option.className = 'role-option';
+            option.textContent = role.name;
+            option.onclick = () => toggleRole(role.id, role.name, type);
+            return option;
+        }
+
+        function toggleRoleDropdown(type) {
+            const dropdown = document.getElementById(`${type}RoleDropdown`);
+            dropdown.classList.toggle('active');
             
-            tabs.forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
+            // Close other dropdown
+            const otherType = type === 'required' ? 'exempt' : 'required';
+            document.getElementById(`${otherType}RoleDropdown`).classList.remove('active');
+        }
+
+        function toggleRole(roleId, roleName, type) {
+            const selectedSet = type === 'required' ? selectedRequiredRoles : selectedExemptRoles;
             
-            commands.forEach(cmd => {
-                if (category === 'all' || cmd.dataset.category === category) {
-                    cmd.style.display = 'block';
-                } else {
-                    cmd.style.display = 'none';
+            if (selectedSet.has(roleId)) {
+                selectedSet.delete(roleId);
+            } else {
+                selectedSet.add(roleId);
+            }
+            
+            updateRoleTags(type);
+            updateRoleInput(type);
+        }
+
+        function updateRoleTags(type) {
+            const tagsContainer = document.getElementById(`${type}RoleTags`);
+            const selectedSet = type === 'required' ? selectedRequiredRoles : selectedExemptRoles;
+            
+            if (selectedSet.size === 0) {
+                tagsContainer.innerHTML = '<span style="color: rgba(255,255,255,0.5);">Click to select roles...</span>';
+                return;
+            }
+            
+            tagsContainer.innerHTML = '';
+            selectedSet.forEach(roleId => {
+                const role = rolesData.find(r => r.id === roleId);
+                if (role) {
+                    const tag = document.createElement('div');
+                    tag.className = 'role-tag';
+                    tag.innerHTML = `
+                        ${role.name}
+                        <span class="role-tag-remove" onclick="event.stopPropagation(); removeRole('${roleId}', '${type}')">×</span>
+                    `;
+                    tagsContainer.appendChild(tag);
                 }
             });
         }
 
-        // Execute command
-        async function executeCommand(event) {
-            event.preventDefault();
-            
-            const channelId = document.getElementById('channelSelect').value;
-            const command = document.getElementById('commandInput').value;
-            const resultDiv = document.getElementById('executeResult');
-            
-            resultDiv.innerHTML = '<p style="color: #faa61a;">Executing...</p>';
-            
-            try {
-                const response = await fetch('/execute', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ channelId, command })
+        function removeRole(roleId, type) {
+            const selectedSet = type === 'required' ? selectedRequiredRoles : selectedExemptRoles;
+            selectedSet.delete(roleId);
+            updateRoleTags(type);
+            updateRoleInput(type);
+        }
+
+        function updateRoleInput(type) {
+            const selectedSet = type === 'required' ? selectedRequiredRoles : selectedExemptRoles;
+            const input = document.getElementById(`${type}RolesInput`);
+            input.value = Array.from(selectedSet).join(',');
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.role-selector')) {
+                document.querySelectorAll('.role-dropdown').forEach(dropdown => {
+                    dropdown.classList.remove('active');
                 });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    resultDiv.innerHTML = `<p style="color: #43b581;">✅ ${result.message}</p>`;
-                    document.getElementById('commandInput').value = '';
-                } else {
-                    resultDiv.innerHTML = `<p style="color: #ed4245;">❌ ${result.error}</p>`;
-                }
-            } catch (error) {
-                resultDiv.innerHTML = `<p style="color: #ed4245;">❌ Error: ${error.message}</p>`;
             }
+        });
+
+        // Tab switching
+        function switchMainTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Command filtering
+        function filterCommands(category) {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            const cards = document.querySelectorAll('.command-card');
+            cards.forEach(card => {
+                if (category === 'all' || card.dataset.category === category) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Toggle create form
+        function toggleCreateForm() {
+            const section = document.getElementById('createCommandSection');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
         }
 
         // Toggle command enabled/disabled
-        async function toggleCommand(id) {
+        async function toggleCommand(commandId, type) {
             try {
-                const response = await fetch(`/commands/toggle/${id}`, {
-                    method: 'POST'
+                const response = await fetch(`/commands/toggle/${commandId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type })
                 });
                 
-                const result = await response.json();
-                
-                if (result.success) {
+                if (response.ok) {
                     location.reload();
                 } else {
-                    alert('Error toggling command: ' + result.error);
+                    alert('Failed to toggle command');
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
+                console.error('Error toggling command:', error);
+                alert('Error toggling command');
             }
         }
 
-        // Edit command function
-        async function editCommand(id) {
-            try {
-                // Fetch command data
-                const response = await fetch(`/api/commands/${id}`);
-                const result = await response.json();
-                
-                if (result.success) {
-                    const cmd = result.command;
+        // Edit command modal
+        function editCommand(commandId) {
+            // Fetch command data and populate modal
+            fetch(`/commands/get/${commandId}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('editCommandId').value = data._id;
+                    document.getElementById('editName').value = data.name;
+                    document.getElementById('editCategory').value = data.category || 'general';
+                    document.getElementById('editTrigger').value = Array.isArray(data.trigger) ? data.trigger.join(', ') : data.trigger;
+                    document.getElementById('editResponse').value = data.response || '';
+                    document.getElementById('editResponseType').value = data.responseType || 'text';
+                    document.getElementById('editEnabled').checked = data.enabled;
                     
-                    // Populate form fields
-                    document.getElementById('edit_id').value = cmd._id;
-                    document.getElementById('edit_name').value = cmd.name;
-                    document.getElementById('edit_category').value = cmd.category || 'general';
-                    document.getElementById('edit_description').value = cmd.description || '';
-                    document.getElementById('edit_triggerType').value = cmd.triggerType || 'command';
-                    document.getElementById('edit_trigger').value = Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger;
-                    document.getElementById('edit_responseType').value = cmd.responseType || 'text';
-                    document.getElementById('edit_response').value = cmd.response || '';
-                    document.getElementById('edit_enabled').checked = cmd.enabled;
-                    document.getElementById('edit_deleteTrigger').checked = cmd.deleteTrigger || false;
-                    
-                    // Handle embed fields if they exist
-                    if (cmd.embedTitle) document.getElementById('edit_embedTitle').value = cmd.embedTitle;
-                    if (cmd.embedDescription) document.getElementById('edit_embedDescription').value = cmd.embedDescription;
-                    if (cmd.embedColor) document.getElementById('edit_embedColor').value = cmd.embedColor;
-                    if (cmd.embedFooter) document.getElementById('edit_embedFooter').value = cmd.embedFooter;
-                    if (cmd.reactionEmoji) document.getElementById('edit_reactionEmoji').value = cmd.reactionEmoji;
-                    
-                    // Load roles for edit modal
-                    const rolesResponse = await fetch('/api/roles');
-                    const rolesResult = await rolesResponse.json();
-                    
-                    if (rolesResult.success) {
-                        const requiredSelect = document.getElementById('edit_requiredRoles');
-                        const exemptSelect = document.getElementById('edit_exemptRoles');
-                        
-                        // Clear existing options
-                        requiredSelect.innerHTML = '';
-                        exemptSelect.innerHTML = '';
-                        
-                        rolesResult.roles.forEach(role => {
-                            // Required roles
-                            const option1 = document.createElement('option');
-                            option1.value = role.id;
-                            option1.textContent = role.name;
-                            option1.selected = cmd.requiredRoles && cmd.requiredRoles.includes(role.id);
-                            requiredSelect.appendChild(option1);
-                            
-                            // Exempt roles
-                            const option2 = document.createElement('option');
-                            option2.value = role.id;
-                            option2.textContent = role.name;
-                            option2.selected = cmd.exemptRoles && cmd.exemptRoles.includes(role.id);
-                            exemptSelect.appendChild(option2);
-                        });
-                    }
-                    
-                    // Update form action
-                    document.getElementById('editForm').action = `/commands/edit/${cmd._id}`;
-                    
-                    // Show/hide response type sections
-                    updateResponseType();
-                    
-                    // Show modal
                     document.getElementById('editModal').style.display = 'block';
-                } else {
-                    alert('Error loading command: ' + result.error);
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
+                })
+                .catch(error => {
+                    console.error('Error loading command:', error);
+                    alert('Failed to load command data');
+                });
         }
 
-        // Close modal
         function closeEditModal() {
             document.getElementById('editModal').style.display = 'none';
         }
 
-        // Update response type visibility
-        function updateResponseType() {
-            const responseType = document.getElementById('edit_responseType').value;
-            const textResponse = document.getElementById('edit_textResponse');
-            const embedResponse = document.getElementById('edit_embedResponse');
-            const reactionResponse = document.getElementById('edit_reactionResponse');
-            
-            textResponse.style.display = 'none';
-            embedResponse.style.display = 'none';
-            reactionResponse.style.display = 'none';
-            
-            if (responseType === 'text' || responseType === 'dm' || responseType === 'multiple') {
-                textResponse.style.display = 'block';
-            }
-            if (responseType === 'embed') {
-                embedResponse.style.display = 'block';
-            }
-            if (responseType === 'react' || responseType === 'multiple') {
-                reactionResponse.style.display = 'block';
-            }
-        }
-
-        // Update trigger help text
-        function updateTriggerHelp() {
-            const triggerType = document.getElementById('edit_triggerType').value;
-            const helpText = document.getElementById('edit_triggerHelp');
-            
-            switch(triggerType) {
-                case 'command':
-                    helpText.textContent = 'Separate multiple with commas (e.g., hello, hi, hey)';
-                    break;
-                case 'exact':
-                    helpText.textContent = 'Exact phrase match (case-insensitive)';
-                    break;
-                case 'contains':
-                    helpText.textContent = 'Triggers if message contains this text';
-                    break;
-                case 'startswith':
-                    helpText.textContent = 'Triggers if message starts with this text';
-                    break;
-                case 'regex':
-                    helpText.textContent = 'Advanced: Use regex pattern (e.g., /hello|hi/i)';
-                    break;
-            }
-        }
-
-        // Close modal when clicking outside
+        // Modal close on outside click
         window.onclick = function(event) {
             const modal = document.getElementById('editModal');
-            if (event.target == modal) {
+            if (event.target === modal) {
                 closeEditModal();
             }
         }
 
-        // Load channels on page load
-        async function loadChannels() {
+        // Bulk actions
+        async function bulkToggleCommands(enable) {
+            if (!confirm(`Are you sure you want to ${enable ? 'enable' : 'disable'} all commands?`)) return;
+            
             try {
-                const response = await fetch('/api/channels');
-                const result = await response.json();
+                const response = await fetch('/commands/bulk/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enable })
+                });
                 
-                if (result.success) {
-                    const select = document.getElementById('channelSelect');
-                    result.channels.forEach(channel => {
-                        const option = document.createElement('option');
-                        option.value = channel.id;
-                        option.textContent = `#${channel.name}`;
-                        select.appendChild(option);
-                    });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to update commands');
                 }
             } catch (error) {
-                console.error('Error loading channels:', error);
+                console.error('Error:', error);
+                alert('Error updating commands');
             }
         }
 
-        // Load roles for the create form
-        async function loadRolesForCreate() {
+        function bulkCategoryAction() {
+            const category = document.getElementById('bulkCategory').value;
+            if (!category) {
+                alert('Please select a category');
+                return;
+            }
+            alert(`Bulk action for ${category} category - feature coming soon!`);
+        }
+
+        async function bulkDelete() {
             try {
-                const response = await fetch('/api/roles');
-                const result = await response.json();
+                const response = await fetch('/commands/bulk/delete-disabled', {
+                    method: 'POST'
+                });
                 
-                if (result.success) {
-                    const requiredSelect = document.getElementById('requiredRolesSelect');
-                    const exemptSelect = document.getElementById('exemptRolesSelect');
-                    
-                    result.roles.forEach(role => {
-                        // Add to required roles
-                        const option1 = document.createElement('option');
-                        option1.value = role.id;
-                        option1.textContent = role.name;
-                        requiredSelect.appendChild(option1);
-                        
-                        // Add to exempt roles
-                        const option2 = document.createElement('option');
-                        option2.value = role.id;
-                        option2.textContent = role.name;
-                        exemptSelect.appendChild(option2);
-                    });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to delete commands');
                 }
             } catch (error) {
-                console.error('Error loading roles:', error);
+                console.error('Error:', error);
+                alert('Error deleting commands');
             }
         }
 
-        // Load role names for display
-        async function loadRoleNames() {
-            try {
-                const response = await fetch('/api/roles');
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Create a map of role IDs to role names
-                    const roleMap = new Map();
-                    result.roles.forEach(role => {
-                        roleMap.set(role.id, role.name);
-                    });
-                    
-                    // Update all role badges with actual names
-                    document.querySelectorAll('.role-badge').forEach(badge => {
-                        const roleId = badge.dataset.roleId;
-                        const roleName = roleMap.get(roleId);
-                        if (roleName) {
-                            const icon = badge.textContent.includes('🔒') ? '🔒' : '✅';
-                            badge.textContent = `${icon} ${roleName}`;
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading role names:', error);
-            }
+        // Copy functionality
+        function copyRuleset(button) {
+            const content = button.parentElement.querySelector('pre').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const originalText = button.textContent;
+                button.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            });
         }
 
-        // Load channels and roles when page loads
-        window.addEventListener('DOMContentLoaded', () => {
-            loadChannels();
-            loadRolesForCreate();
+        // Modal functions for sticky and rulesets
+        function openStickyModal() {
+            alert('Sticky message creation modal - feature coming soon!');
+        }
+
+        function openRulesetModal() {
+            alert('Ruleset creation modal - feature coming soon!');
+        }
+
+        // Load role names from IDs
+        function loadRoleNames() {
+            document.querySelectorAll('.role-badge[data-role-id]').forEach(badge => {
+                const roleId = badge.dataset.roleId;
+                const role = rolesData.find(r => r.id === roleId);
+                if (role) {
+                    const icon = badge.classList.contains('exempt') ? '✅' : '🔒';
+                    badge.textContent = `${icon} ${role.name}`;
+                }
+            });
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeRoleDropdowns();
             loadRoleNames();
         });
     </script>
-
-    <style>
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border);
-            margin-top: 2rem;
-        }
-
-        .quick-execute {
-            display: grid;
-            grid-template-columns: 1fr 2fr auto;
-            gap: 1rem;
-            align-items: end;
-        }
-
-        .commands-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        /* Enhanced Command Card Styles (Like Moderation Log) */
-        .command-card {
-            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
-            border: 1px solid rgba(88, 101, 242, 0.3);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Colored top border glow effect */
-        .command-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #5865f2, #7289da);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .command-card:hover::before {
-            opacity: 1;
-        }
-
-        .command-card:hover {
-            border-color: rgba(88, 101, 242, 0.6);
-            box-shadow: 0 4px 20px rgba(88, 101, 242, 0.25);
-            transform: translateY(-2px);
-        }
-
-        .command-card.disabled {
-            opacity: 0.5;
-            border-color: rgba(153, 170, 181, 0.3);
-        }
-
-        .command-card.disabled::before {
-            background: linear-gradient(90deg, #99aab5, #747f8d);
-        }
-
-        .command-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .command-header > div:first-child {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .command-header h3 {
-            margin: 0;
-            color: #fff;
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-
-        .command-header .badge {
-            display: inline-block;
-            margin-right: 0.5rem;
-        }
-
-        .command-actions {
-            display: flex;
-            gap: 0.5rem;
-            flex-shrink: 0;
-        }
-
-        .command-desc {
-            color: var(--text-secondary);
-            margin-bottom: 1rem;
-            line-height: 1.5;
-            font-size: 0.9rem;
-        }
-
-        /* Enhanced metadata grid */
-        .command-meta {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            padding: 1rem;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            font-size: 0.85rem;
-        }
-
-        .meta-item {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .meta-item strong {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
-        }
-
-        .meta-item span {
-            color: #fff;
-            font-size: 0.9rem;
-        }
-
-        /* Category badge colors */
-        .badge-general { background: rgba(88, 101, 242, 0.2); color: #5865f2; }
-        .badge-fun { background: rgba(250, 166, 26, 0.2); color: #faa61a; }
-        .badge-moderation { background: rgba(237, 66, 69, 0.2); color: #ed4245; }
-        .badge-info { background: rgba(67, 181, 129, 0.2); color: #43b581; }
-        .badge-utility { background: rgba(0, 176, 244, 0.2); color: #00b0f4; }
-        .badge-custom { background: rgba(153, 170, 181, 0.2); color: #99aab5; }
-
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 9999;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
-        }
-
-        .modal-content {
-            background: linear-gradient(135deg, rgba(30, 33, 40, 0.98) 0%, rgba(20, 23, 28, 0.98) 100%);
-            margin: 3% auto;
-            padding: 2rem;
-            border: 1px solid rgba(88, 101, 242, 0.3);
-            border-radius: 12px;
-            width: 90%;
-            max-width: 800px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-            position: relative;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 1.5rem;
-            margin-bottom: 2rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .modal-header h2 {
-            margin: 0;
-            color: #fff;
-            font-size: 1.5rem;
-        }
-
-        .close {
-            color: #aaa;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.3s ease;
-            line-height: 1;
-        }
-
-        .close:hover,
-        .close:focus {
-            color: #fff;
-        }
-
-        /* Edit Modal - More Padding */
-        #editForm .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        #editForm .form-group label {
-            display: block;
-            margin-bottom: 0.75rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        #editForm input[type="text"],
-        #editForm textarea,
-        #editForm select,
-        #editForm input[type="color"] {
-            padding: 12px 15px;
-            width: 100%;
-        }
-
-        #editForm textarea {
-            padding: 12px 15px;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        /* Add spacing between different sections */
-        #edit_embedResponse,
-        #edit_reactionResponse {
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border);
-            margin-top: 1rem;
-        }
-
-        .help-text {
-            display: block;
-            margin-top: 0.5rem;
-            padding-top: 0.5rem;
-        }
-
-        /* Checkbox groups */
-        #editForm input[type="checkbox"] {
-            margin-right: 0.75rem;
-        }
-
-        @media (max-width: 768px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .quick-execute {
-                grid-template-columns: 1fr;
-            }
-
-            .commands-header {
-                flex-direction: column;
-                gap: 1rem;
-            }
-
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-
-            .command-meta {
-                grid-template-columns: 1fr;
-            }
-
-            .modal-content {
-                width: 95%;
-                margin: 5% auto;
-                padding: 1.5rem;
-            }
-        }
-    </style>
 </body>
 </html>
