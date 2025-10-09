@@ -1468,7 +1468,7 @@ client.on('interactionCreate', async interaction => {
                                     )
                                     .addFields({
                                         name: 'Appeal',
-                                        value: 'You can submit an appeal here:\n[Click to submit appeal form](https://docs.google.com/forms/d/e/1FAIpQLSe8xo6UfTjTGCuc-1VxWx1s-bnGIhUuRDLUNFxWmC7uzUZATw/viewform?usp=dialog)',
+                                        value: 'You can submit an appeal here:\n[Click to submit appeal form](https://drugdealersim.com/submit-appeal)',
                                         inline: false
                                     })
                                     .setTimestamp()
