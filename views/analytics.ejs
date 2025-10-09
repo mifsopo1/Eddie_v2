@@ -801,21 +801,7 @@
         </div>
         
         <!-- Attachment Stats -->
-        <% if (attachmentStats && attachmentStats.byType) { %>
-            <div class="section-header" style="margin-top: 2rem;">
-                <h2>📎 Attachment Statistics</h2>
-            </div>
-            
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon">💾</div>
-                    <div class="stat-info">
-                        <div class="stat-value"><%= (attachmentStats.totalSize / 1024 / 1024 / 1024).toFixed(2) %> GB</div>
-                        <div class="stat-label">Total Storage Used</div>
-                    </div>
-                </div>
-            </div>
-            
+        <% if (attachmentStats && attachmentStats.byType) { %> 
             <div class="chart-container">
                 <h3>File Types</h3>
                 <div class="file-types">
