@@ -118,6 +118,21 @@
             transform: scale(1.05);
         }
 
+        .btn-link {
+            background: none;
+            border: none;
+            color: #5865f2;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: inherit;
+            padding: 0;
+            font-weight: 600;
+        }
+
+        .btn-link:hover {
+            color: #4752c4;
+        }
+
         .command-accordion {
             background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
             border: 1px solid rgba(88, 101, 242, 0.3);
@@ -384,6 +399,106 @@
             color: #ed4245;
         }
 
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, rgba(30, 33, 40, 0.98) 0%, rgba(20, 23, 28, 0.98) 100%);
+            margin: 3% auto;
+            padding: 0;
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 12px;
+            max-width: 800px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #fff;
+            font-size: 1.5rem;
+        }
+
+        .modal-close {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 32px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s ease;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: #fff;
+        }
+
+        .modal-body {
+            padding: 2rem;
+        }
+
+        .variables-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .variable-item {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .variable-item:hover {
+            border-color: rgba(88, 101, 242, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .variable-code {
+            background: rgba(88, 101, 242, 0.2);
+            color: #5865f2;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-block;
+        }
+
+        .variable-code:hover {
+            background: rgba(88, 101, 242, 0.4);
+            transform: scale(1.05);
+        }
+
+        .variable-desc {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
         @media (max-width: 768px) {
             .settings-header {
                 flex-direction: column;
@@ -396,6 +511,15 @@
 
             .message-tabs {
                 flex-wrap: wrap;
+            }
+
+            .variables-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .modal-content {
+                margin: 10% 5%;
+                max-width: 90%;
             }
         }
     </style>
@@ -487,12 +611,13 @@
         <!-- Info Card -->
         <div class="info-card">
             <h3>ℹ️ Available Variables</h3>
-            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">Click on a variable to copy it to your clipboard:</p>
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">Use these variables in your custom messages. <button class="btn-link" onclick="showVariablesModal()">View all variables →</button></p>
             <div>
                 <span class="variable-tag" onclick="copyVariable('{server}')">{server}</span>
                 <span class="variable-tag" onclick="copyVariable('{user}')">{user}</span>
                 <span class="variable-tag" onclick="copyVariable('{reason}')">{reason}</span>
                 <span class="variable-tag" onclick="copyVariable('{moderator}')">{moderator}</span>
+                <span style="color: rgba(255,255,255,0.5); margin-left: 0.5rem;">+ 8 more...</span>
             </div>
         </div>
 
@@ -612,6 +737,88 @@
         <% }) %>
     </div>
 
+    <!-- Variables Modal -->
+    <div id="variablesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📝 Available Variables</h2>
+                <span class="modal-close" onclick="closeVariablesModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: rgba(255,255,255,0.7); margin-bottom: 2rem;">Click any variable to copy it to your clipboard. These can be used in custom messages.</p>
+                
+                <div class="variables-grid">
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{server}')">{server}</div>
+                        <div class="variable-desc">The server/guild name</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{user}')">{user}</div>
+                        <div class="variable-desc">The user's username (text only)</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{user.mention}')">{user.mention}</div>
+                        <div class="variable-desc">Mention the user (@username)</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{user.tag}')">{user.tag}</div>
+                        <div class="variable-desc">User's full tag (username#0000)</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{user.id}')">{user.id}</div>
+                        <div class="variable-desc">User's Discord ID</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{moderator}')">{moderator}</div>
+                        <div class="variable-desc">Moderator's username</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{moderator.mention}')">{moderator.mention}</div>
+                        <div class="variable-desc">Mention the moderator</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{reason}')">{reason}</div>
+                        <div class="variable-desc">Reason for the action</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{channel}')">{channel}</div>
+                        <div class="variable-desc">Channel name</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{channel.mention}')">{channel.mention}</div>
+                        <div class="variable-desc">Mention the channel (#channel)</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{membercount}')">{membercount}</div>
+                        <div class="variable-desc">Total server member count</div>
+                    </div>
+                    
+                    <div class="variable-item">
+                        <div class="variable-code" onclick="copyVariable('{date}')">{date}</div>
+                        <div class="variable-desc">Current date (MM/DD/YYYY)</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 2rem; padding: 1rem; background: rgba(88, 101, 242, 0.1); border-radius: 8px; border: 1px solid rgba(88, 101, 242, 0.3);">
+                    <strong style="color: #5865f2;">💡 Example Usage:</strong>
+                    <p style="color: rgba(255,255,255,0.7); margin: 0.5rem 0 0 0; font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                        "You have been kicked from {server} by {moderator}. Reason: {reason}"
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         function toggleAccordion(index) {
             const header = document.querySelectorAll('.accordion-header')[index];
@@ -648,6 +855,22 @@
         function copyVariable(variable) {
             navigator.clipboard.writeText(variable);
             showAlert(`Copied ${variable} to clipboard!`);
+        }
+
+        function showVariablesModal() {
+            document.getElementById('variablesModal').style.display = 'block';
+        }
+
+        function closeVariablesModal() {
+            document.getElementById('variablesModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('variablesModal');
+            if (event.target == modal) {
+                closeVariablesModal();
+            }
         }
 
         async function updateDMSetting(command, enabled) {
