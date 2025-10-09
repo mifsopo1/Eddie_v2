@@ -767,7 +767,7 @@ this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
                     responseType: 'builtin',
                     uses: 0,
                     type: 'builtin',
-                    _id: `builtin_${name}` // Fake ID for built-in commands
+                    _id: `builtin_${name}`
                 });
             });
         }
@@ -775,10 +775,13 @@ this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
         // Combine both arrays
         const allCommands = [...customCommands, ...builtInCommands];
 
+        console.log(`📋 Loading commands page: ${customCommands.length} custom, ${builtInCommands.length} built-in`);
+
         res.render('commands', { 
             commands: allCommands,
             client: this.client,
             user: req.user,
+            page: 'commands',
             messages: {
                 success: req.flash('success'),
                 error: req.flash('error')
