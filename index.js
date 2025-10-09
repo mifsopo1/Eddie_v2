@@ -1918,4 +1918,57 @@ async function executeCustomCommand(message, command) {
     }
 }
 
-client.login(config.token);
+client.login(config.token).then(async () => {
+    // Register slash commands
+    const { REST, Routes } = require('discord.js');
+    
+    const commands = [
+        {
+            name: 'appeal',
+            description: 'Submit an appeal for a ban, mute, or warning',
+            options: [
+                {
+                    name: 'type',
+                    description: 'Type of punishment to appeal',
+                    type: 3, // STRING
+                    required: true,
+                    choices: [
+                        { name: 'Ban', value: 'ban' },
+                        { name: 'Mute/Timeout', value: 'mute' },
+                        { name: 'Warning', value: 'warn' },
+                        { name: 'Other', value: 'other' }
+                    ]
+                },
+                {
+                    name: 'reason',
+                    description: 'Why should we accept your appeal?',
+                    type: 3, // STRING
+                    required: true,
+                    max_length: 2000
+                },
+                {
+                    name: 'evidence',
+                    description: 'Any evidence to support your appeal (links, etc.)',
+                    type: 3, // STRING
+                    required: false,
+                    max_length: 1000
+                }
+            ]
+        }
+    ];
+
+    const rest = new REST({ version: '10' }).setToken(config.token);
+
+    try {
+        console.log('🔄 Registering /appeal slash command...');
+        
+        await rest.put(
+            Routes.applicationGuildCommands(config.clientId, config.guildId),
+            { body: commands }
+        );
+        
+        console.log('✅ /appeal command registered successfully!');
+    } catch (error) {
+        console.error('❌ Error registering commands:', error);
+    }
+});

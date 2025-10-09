@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appeals - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .appeals-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-header h1 {
+            color: #fff;
+            font-size: 2rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(88, 101, 242, 0.6);
+            box-shadow: 0 8px 24px rgba(88, 101, 242, 0.3);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .filter-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        .filter-btn.active {
+            background: rgba(88, 101, 242, 0.3);
+            color: #5865f2;
+            border-color: rgba(88, 101, 242, 0.5);
+        }
+
+        .appeals-table {
+            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .table-header {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            background: rgba(88, 101, 242, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .appeal-row {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr 1fr;
+            gap: 1rem;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            align-items: center;
+        }
+
+        .appeal-row:hover {
+            background: rgba(88, 101, 242, 0.1);
+        }
+
+        .appeal-row:last-child {
+            border-bottom: none;
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .user-name {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .user-id {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+            font-family: monospace;
+        }
+
+        .appeal-type {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .appeal-type.ban {
+            background: rgba(237, 66, 69, 0.2);
+            color: #ed4245;
+        }
+
+        .appeal-type.mute {
+            background: rgba(250, 166, 26, 0.2);
+            color: #faa61a;
+        }
+
+        .appeal-type.warn {
+            background: rgba(254, 231, 92, 0.2);
+            color: #fee75c;
+        }
+
+        .appeal-type.other {
+            background: rgba(153, 170, 181, 0.2);
+            color: #99aab5;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-badge.pending {
+            background: rgba(250, 166, 26, 0.2);
+            color: #faa61a;
+        }
+
+        .status-badge.reviewing {
+            background: rgba(88, 101, 242, 0.2);
+            color: #5865f2;
+        }
+
+        .status-badge.approved {
+            background: rgba(67, 181, 129, 0.2);
+            color: #43b581;
+        }
+
+        .status-badge.denied {
+            background: rgba(237, 66, 69, 0.2);
+            color: #ed4245;
+        }
+
+        .appeal-reason {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .appeal-date {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+        }
+
+        .empty-state {
+            padding: 4rem 2rem;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .pagination a, .pagination span {
+            padding: 0.75rem 1.25rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #fff;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .pagination a:hover {
+            background: rgba(88, 101, 242, 0.3);
+            border-color: rgba(88, 101, 242, 0.5);
+        }
+
+        .pagination .current {
+            background: rgba(88, 101, 242, 0.3);
+            border-color: rgba(88, 101, 242, 0.5);
+        }
+
+        @media (max-width: 1200px) {
+            .table-header, .appeal-row {
+                grid-template-columns: 2fr 1fr 1fr 1fr;
+            }
+            .table-header span:nth-child(3),
+            .appeal-row > div:nth-child(3),
+            .table-header span:nth-child(6),
+            .appeal-row > div:nth-child(6) {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .table-header {
+                display: none;
+            }
+            .appeal-row {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            .appeal-row > div {
+                display: flex !important;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .appeal-row > div::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: rgba(255, 255, 255, 0.7);
+            }
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/navbar') %>
+
+    <div class="appeals-container">
+        <!-- Header -->
+        <div class="page-header">
+            <h1>
+                <span>🎫</span> Appeals System
+            </h1>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <a href="/appeals?status=pending" class="stat-card">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-value"><%= stats.pending || 0 %></div>
+                <div class="stat-label">Pending Appeals</div>
+            </a>
+            
+            <a href="/appeals?status=reviewing" class="stat-card">
+                <div class="stat-icon">🔍</div>
+                <div class="stat-value"><%= stats.reviewing || 0 %></div>
+                <div class="stat-label">Under Review</div>
+            </a>
+            
+            <a href="/appeals?status=approved" class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value"><%= stats.approved || 0 %></div>
+                <div class="stat-label">Approved</div>
+            </a>
+            
+            <a href="/appeals?status=denied" class="stat-card">
+                <div class="stat-icon">❌</div>
+                <div class="stat-value"><%= stats.denied || 0 %></div>
+                <div class="stat-label">Denied</div>
+            </a>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+            <a href="/appeals?status=all" class="filter-btn <%= status === 'all' ? 'active' : '' %>">
+                All Appeals
+            </a>
+            <a href="/appeals?status=pending" class="filter-btn <%= status === 'pending' ? 'active' : '' %>">
+                ⏳ Pending
+            </a>
+            <a href="/appeals?status=reviewing" class="filter-btn <%= status === 'reviewing' ? 'active' : '' %>">
+                🔍 Reviewing
+            </a>
+            <a href="/appeals?status=approved" class="filter-btn <%= status === 'approved' ? 'active' : '' %>">
+                ✅ Approved
+            </a>
+            <a href="/appeals?status=denied" class="filter-btn <%= status === 'denied' ? 'active' : '' %>">
+                ❌ Denied
+            </a>
+        </div>
+
+        <!-- Appeals Table -->
+        <div class="appeals-table">
+            <div class="table-header">
+                <span>User</span>
+                <span>Reason</span>
+                <span>Type</span>
+                <span>Status</span>
+                <span>Submitted</span>
+                <span>Actions</span>
+            </div>
+
+            <% if (appeals.length === 0) { %>
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <h3>No Appeals Found</h3>
+                    <p>There are no appeals matching your current filter.</p>
+                </div>
+            <% } else { %>
+                <% appeals.forEach(appeal => { %>
+                    <div class="appeal-row" onclick="window.location.href='/appeals/<%= appeal._id %>'">
+                        <div class="user-info" data-label="User">
+                            <span class="user-name"><%= appeal.userName %></span>
+                            <span class="user-id"><%= appeal.userId %></span>
+                        </div>
+                        
+                        <div class="appeal-reason" data-label="Reason">
+                            <%= appeal.appeal.reason.substring(0, 100) %><%= appeal.appeal.reason.length > 100 ? '...' : '' %>
+                        </div>
+                        
+                        <div data-label="Type">
+                            <span class="appeal-type <%= appeal.appealType %>">
+                                <%= appeal.appealType %>
+                            </span>
+                        </div>
+                        
+                        <div data-label="Status">
+                            <span class="status-badge <%= appeal.status %>">
+                                <%= appeal.status %>
+                            </span>
+                        </div>
+                        
+                        <div class="appeal-date" data-label="Submitted">
+                            <%= new Date(appeal.appeal.submittedAt).toLocaleDateString() %>
+                        </div>
+                        
+                        <div data-label="Actions">
+                            <a href="/appeals/<%= appeal._id %>" style="color: #5865f2; text-decoration: none; font-weight: 600;">
+                                View →
+                            </a>
+                        </div>
+                    </div>
+                <% }); %>
+            <% } %>
+        </div>
+
+        <!-- Pagination -->
+        <% if (totalPages > 1) { %>
+            <div class="pagination">
+                <% if (currentPage > 1) { %>
+                    <a href="/appeals?status=<%= status %>&page=<%= currentPage - 1 %>">← Previous</a>
+                <% } %>
+                
+                <span class="current">Page <%= currentPage %> of <%= totalPages %></span>
+                
+                <% if (currentPage < totalPages) { %>
+                    <a href="/appeals?status=<%= status %>&page=<%= currentPage + 1 %>">Next →</a>
+                <% } %>
+            </div>
+        <% } %>
+    </div>
+</body>
+</html>

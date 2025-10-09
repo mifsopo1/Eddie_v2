@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Appeal - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e2128 0%, #2c2f38 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+
+        .appeal-form-container {
+            max-width: 700px;
+            width: 100%;
+            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 16px;
+            padding: 3rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .form-header h1 {
+            color: #fff;
+            font-size: 2rem;
+            margin: 0 0 0.5rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .form-header p {
+            color: rgba(255, 255, 255, 0.7);
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        .info-box {
+            background: rgba(88, 101, 242, 0.1);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .info-box strong {
+            color: #5865f2;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-box p {
+            color: rgba(255, 255, 255, 0.8);
+            margin: 0;
+            line-height: 1.5;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.75rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: #fff;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .form-group label .required {
+            color: #ed4245;
+            margin-left: 0.25rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.875rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #5865f2;
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-group small {
+            display: block;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .form-group select {
+            cursor: pointer;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 1rem;
+            background: #5865f2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .submit-btn:hover {
+            background: #4752c4;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(88, 101, 242, 0.4);
+        }
+
+        .submit-btn:disabled {
+            background: rgba(88, 101, 242, 0.5);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .alert-success {
+            background: rgba(67, 181, 129, 0.2);
+            border: 1px solid rgba(67, 181, 129, 0.3);
+            color: #43b581;
+        }
+
+        .alert-error {
+            background: rgba(237, 66, 69, 0.2);
+            border: 1px solid rgba(237, 66, 69, 0.3);
+            color: #ed4245;
+        }
+
+        .char-counter {
+            text-align: right;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .char-counter.warning {
+            color: #faa61a;
+        }
+
+        .char-counter.danger {
+            color: #ed4245;
+        }
+
+        @media (max-width: 768px) {
+            .appeal-form-container {
+                padding: 2rem 1.5rem;
+            }
+
+            .form-header h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="appeal-form-container">
+        <div class="form-header">
+            <h1>
+                <span>🎫</span>
+                Submit an Appeal
+            </h1>
+            <p>Please fill out this form to appeal your ban, mute, or warning. Be honest and provide as much detail as possible.</p>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <div class="info-box">
+            <strong>📋 Before You Submit:</strong>
+            <p>• Be respectful and honest in your appeal<br>
+               • Provide evidence if you have any (screenshots, links, etc.)<br>
+               • Appeals are typically reviewed within 24-48 hours<br>
+               • You will receive a DM when your appeal is updated</p>
+        </div>
+
+        <form id="appealForm">
+            <div class="form-group">
+                <label>
+                    Discord Username
+                    <span class="required">*</span>
+                </label>
+                <input type="text" name="userName" id="userName" required placeholder="YourUsername#0000">
+                <small>Enter your Discord username with discriminator</small>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    Discord User ID
+                    <span class="required">*</span>
+                </label>
+                <input type="text" name="userId" id="userId" required placeholder="123456789012345678" pattern="[0-9]{17,19}">
+                <small>Right-click your profile and select "Copy User ID" (requires Developer Mode)</small>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    Appeal Type
+                    <span class="required">*</span>
+                </label>
+                <select name="appealType" id="appealType" required>
+                    <option value="">-- Select Type --</option>
+                    <option value="ban">Ban</option>
+                    <option value="mute">Mute/Timeout</option>
+                    <option value="warn">Warning</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    Why should we accept your appeal?
+                    <span class="required">*</span>
+                </label>
+                <textarea name="reason" id="reason" required placeholder="Explain why you believe you should be unbanned/unmuted. Be honest and detailed." maxlength="2000"></textarea>
+                <div class="char-counter" id="reasonCounter">0 / 2000 characters</div>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    Evidence (Optional)
+                </label>
+                <textarea name="evidence" id="evidence" placeholder="Provide any evidence (links to screenshots, videos, etc.) that supports your appeal" maxlength="1000"></textarea>
+                <div class="char-counter" id="evidenceCounter">0 / 1000 characters</div>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+                <span>📨</span>
+                <span>Submit Appeal</span>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById('appealForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const reasonTextarea = document.getElementById('reason');
+        const evidenceTextarea = document.getElementById('evidence');
+        const reasonCounter = document.getElementById('reasonCounter');
+        const evidenceCounter = document.getElementById('evidenceCounter');
+
+        // Character counters
+        reasonTextarea.addEventListener('input', () => {
+            const length = reasonTextarea.value.length;
+            reasonCounter.textContent = `${length} / 2000 characters`;
+            
+            if (length > 1800) {
+                reasonCounter.classList.add('danger');
+                reasonCounter.classList.remove('warning');
+            } else if (length > 1500) {
+                reasonCounter.classList.add('warning');
+                reasonCounter.classList.remove('danger');
+            } else {
+                reasonCounter.classList.remove('warning', 'danger');
+            }
+        });
+
+        evidenceTextarea.addEventListener('input', () => {
+            const length = evidenceTextarea.value.length;
+            evidenceCounter.textContent = `${length} / 1000 characters`;
+            
+            if (length > 900) {
+                evidenceCounter.classList.add('danger');
+                evidenceCounter.classList.remove('warning');
+            } else if (length > 700) {
+                evidenceCounter.classList.add('warning');
+                evidenceCounter.classList.remove('danger');
+            } else {
+                evidenceCounter.classList.remove('warning', 'danger');
+            }
+        });
+
+        function showAlert(message, type) {
+            const alertHtml = `
+                <div class="alert alert-${type}">
+                    <span style="font-size: 1.5rem;">${type === 'success' ? '✅' : '❌'}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.getElementById('alertContainer').innerHTML = alertHtml;
+            
+            // Scroll to top to show alert
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span>⏳</span><span>Submitting...</span>';
+
+            const formData = {
+                userName: document.getElementById('userName').value.trim(),
+                userId: document.getElementById('userId').value.trim(),
+                appealType: document.getElementById('appealType').value,
+                reason: document.getElementById('reason').value.trim(),
+                evidence: document.getElementById('evidence').value.trim(),
+                discordTag: document.getElementById('userName').value.trim()
+            };
+
+            // Validate User ID format
+            if (!/^[0-9]{17,19}$/.test(formData.userId)) {
+                showAlert('Invalid Discord User ID. It should be 17-19 digits.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>📨</span><span>Submit Appeal</span>';
+                return;
+            }
+
+            try {
+                const response = await fetch('/appeals/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('✅ ' + data.message, 'success');
+                    form.reset();
+                    reasonCounter.textContent = '0 / 2000 characters';
+                    evidenceCounter.textContent = '0 / 1000 characters';
+                    
+                    // Disable form after successful submission
+                    setTimeout(() => {
+                        form.innerHTML = `
+                            <div class="info-box" style="background: rgba(67, 181, 129, 0.1); border-color: rgba(67, 181, 129, 0.3);">
+                                <strong style="color: #43b581;">✅ Appeal Submitted Successfully!</strong>
+                                <p style="margin-top: 0.75rem;">Your appeal has been received. Staff will review it and send you a DM when there's an update.</p>
+                                <p style="margin-top: 0.5rem;"><strong>Appeal ID:</strong> ${data.appealId}</p>
+                            </div>
+                        `;
+                    }, 2000);
+                } else {
+                    showAlert('❌ ' + (data.error || 'Failed to submit appeal'), 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span>📨</span><span>Submit Appeal</span>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('❌ Network error. Please try again later.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>📨</span><span>Submit Appeal</span>';
+            }
+        });
+    </script>
+</body>
+</html>

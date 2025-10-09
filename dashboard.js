@@ -6,6 +6,7 @@ const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const flash = require('express-flash');
 const path = require('path');
+const EmbedBuilder = require('discord.js');
 
 class Dashboard {
     constructor(client, mongoLogger, config) {
@@ -136,6 +137,14 @@ class Dashboard {
     }
 
     setupRoutes() {
+    // ============================================
+    // PUBLIC ROUTES (NO AUTH REQUIRED)
+    // ============================================
+    
+    // Public Appeal Submission Page
+    this.app.get('/submit-appeal', async (req, res) => {
+        res.render('submit-appeal');
+    });
         // ============================================
         // AUTH ROUTES
         // ============================================
@@ -1219,6 +1228,390 @@ this.app.post('/commands/edit/:id', this.requireAdmin.bind(this), async (req, re
             }
         });
     }
+
+    // ============================================
+// APPEALS SYSTEM
+// ============================================
+
+// Appeals Dashboard (Admin)
+this.app.get('/appeals', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const status = req.query.status || 'all';
+        const page = parseInt(req.query.page) || 1;
+        const limit = 20;
+        const skip = (page - 1) * limit;
+        
+        let query = {};
+        if (status !== 'all') {
+            query.status = status;
+        }
+        
+        const [appeals, totalAppeals, stats] = await Promise.all([
+            this.mongoLogger.db.collection('appeals')
+                .find(query)
+                .sort({ 'appeal.submittedAt': -1 })
+                .skip(skip)
+                .limit(limit)
+                .toArray(),
+            this.mongoLogger.db.collection('appeals').countDocuments(query),
+            this.getAppealsStats()
+        ]);
+        
+        const totalPages = Math.ceil(totalAppeals / limit);
+        
+        res.render('appeals', {
+            client: this.client,
+            appeals,
+            stats,
+            status,
+            currentPage: page,
+            totalPages,
+            page: 'appeals'
+        });
+    } catch (error) {
+        console.error('Appeals page error:', error);
+        req.flash('error', 'Error loading appeals');
+        res.redirect('/');
+    }
+});
+
+// Single Appeal View
+this.app.get('/appeals/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const appeal = await this.mongoLogger.db.collection('appeals')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        if (!appeal) {
+            req.flash('error', 'Appeal not found');
+            return res.redirect('/appeals');
+        }
+        
+        // Get user's moderation history
+        const modHistory = await this.mongoLogger.db.collection('moderation')
+            .find({ userId: appeal.userId })
+            .sort({ timestamp: -1 })
+            .limit(10)
+            .toArray();
+        
+        res.render('appeal-detail', {
+            client: this.client,
+            appeal,
+            modHistory,
+            page: 'appeals'
+        });
+    } catch (error) {
+        console.error('Appeal detail error:', error);
+        req.flash('error', 'Error loading appeal');
+        res.redirect('/appeals');
+    }
+});
+
+// Create Appeal (Public - anyone can submit)
+this.app.post('/appeals/create', async (req, res) => {
+    try {
+        const { userId, userName, appealType, reason, evidence, discordTag } = req.body;
+        
+        if (!userId || !userName || !appealType || !reason) {
+            return res.json({ success: false, error: 'Missing required fields' });
+        }
+        
+        // Check if user already has pending appeal
+        const existingAppeal = await this.mongoLogger.db.collection('appeals')
+            .findOne({ 
+                userId: userId,
+                status: { $in: ['pending', 'reviewing'] }
+            });
+        
+        if (existingAppeal) {
+            return res.json({ 
+                success: false, 
+                error: 'You already have a pending appeal. Please wait for staff to review it.' 
+            });
+        }
+        
+        // Find the original moderation action
+        const originalAction = await this.mongoLogger.db.collection('moderation')
+            .findOne({ 
+                userId: userId,
+                actionType: appealType
+            }, 
+            { sort: { timestamp: -1 } });
+        
+        const appeal = {
+            userId: userId,
+            userName: userName,
+            discordTag: discordTag || userName,
+            appealType: appealType,
+            originalAction: originalAction || null,
+            appeal: {
+                reason: reason,
+                evidence: evidence || '',
+                submittedAt: new Date()
+            },
+            status: 'pending',
+            response: null,
+            history: [
+                {
+                    action: 'submitted',
+                    by: userName,
+                    timestamp: new Date()
+                }
+            ]
+        };
+        
+        const result = await this.mongoLogger.db.collection('appeals').insertOne(appeal);
+        
+        // Log to appeals channel if configured
+        const appealsChannel = await this.client.channels.fetch(this.config.logChannels.appeals).catch(() => null);
+        if (appealsChannel) {
+            const embed = new EmbedBuilder()
+                .setColor('#faa61a')
+                .setTitle('🎫 New Appeal Submitted')
+                .setDescription(`**User:** ${userName} (\`${userId}\`)\n**Type:** ${appealType}`)
+                .addFields(
+                    { name: 'Reason', value: reason.substring(0, 1024) },
+                    { name: 'Appeal ID', value: result.insertedId.toString(), inline: true },
+                    { name: 'Status', value: '⏳ Pending', inline: true }
+                )
+                .setTimestamp();
+            
+            if (evidence) {
+                embed.addFields({ name: 'Evidence', value: evidence.substring(0, 1024) });
+            }
+            
+            await appealsChannel.send({ embeds: [embed] });
+        }
+        
+        res.json({ 
+            success: true, 
+            message: 'Appeal submitted successfully! Staff will review it soon.',
+            appealId: result.insertedId.toString()
+        });
+    } catch (error) {
+        console.error('Create appeal error:', error);
+        res.json({ success: false, error: 'Failed to submit appeal' });
+    }
+});
+
+// Respond to Appeal
+this.app.post('/appeals/:id/respond', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const { message, status } = req.body;
+        
+        const update = {
+            $set: {
+                response: {
+                    moderator: req.user?.username || 'Admin',
+                    message: message,
+                    timestamp: new Date()
+                },
+                status: status || 'reviewing'
+            },
+            $push: {
+                history: {
+                    action: 'responded',
+                    by: req.user?.username || 'Admin',
+                    message: message,
+                    timestamp: new Date()
+                }
+            }
+        };
+        
+        const appeal = await this.mongoLogger.db.collection('appeals')
+            .findOneAndUpdate(
+                { _id: new ObjectId(req.params.id) },
+                update,
+                { returnDocument: 'after' }
+            );
+        
+        // DM the user
+        try {
+            const user = await this.client.users.fetch(appeal.userId);
+            const embed = new EmbedBuilder()
+                .setColor('#5865f2')
+                .setTitle('📬 Appeal Update')
+                .setDescription(`Your **${appeal.appealType}** appeal has been updated.`)
+                .addFields(
+                    { name: 'Status', value: status || 'Under Review', inline: true },
+                    { name: 'Response from Staff', value: message }
+                )
+                .setTimestamp();
+            
+            await user.send({ embeds: [embed] });
+        } catch (e) {
+            console.log('Could not DM user about appeal update');
+        }
+        
+        req.flash('success', 'Response sent to user');
+        res.redirect(`/appeals/${req.params.id}`);
+    } catch (error) {
+        console.error('Respond to appeal error:', error);
+        req.flash('error', 'Error responding to appeal');
+        res.redirect(`/appeals/${req.params.id}`);
+    }
+});
+
+// Approve Appeal
+this.app.post('/appeals/:id/approve', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const { message } = req.body;
+        
+        const appeal = await this.mongoLogger.db.collection('appeals')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        if (!appeal) {
+            return res.json({ success: false, error: 'Appeal not found' });
+        }
+        
+        // Update appeal status
+        await this.mongoLogger.db.collection('appeals').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            {
+                $set: {
+                    status: 'approved',
+                    response: {
+                        moderator: req.user?.username || 'Admin',
+                        message: message || 'Your appeal has been approved.',
+                        timestamp: new Date()
+                    }
+                },
+                $push: {
+                    history: {
+                        action: 'approved',
+                        by: req.user?.username || 'Admin',
+                        timestamp: new Date()
+                    }
+                }
+            }
+        );
+        
+        // Try to unban/unmute the user
+        const guild = this.client.guilds.cache.first();
+        if (guild) {
+            try {
+                if (appeal.appealType === 'ban') {
+                    await guild.members.unban(appeal.userId, 'Appeal approved');
+                } else if (appeal.appealType === 'mute') {
+                    const member = await guild.members.fetch(appeal.userId).catch(() => null);
+                    if (member) {
+                        await member.timeout(null, 'Appeal approved');
+                    }
+                }
+            } catch (e) {
+                console.error('Error removing punishment:', e);
+            }
+        }
+        
+        // DM the user
+        try {
+            const user = await this.client.users.fetch(appeal.userId);
+            const embed = new EmbedBuilder()
+                .setColor('#43b581')
+                .setTitle('✅ Appeal Approved')
+                .setDescription(`Your **${appeal.appealType}** appeal has been approved!`)
+                .addFields(
+                    { name: 'Response from Staff', value: message || 'Your appeal has been approved. Welcome back!' }
+                )
+                .setTimestamp();
+            
+            await user.send({ embeds: [embed] });
+        } catch (e) {
+            console.log('Could not DM user about approval');
+        }
+        
+        req.flash('success', 'Appeal approved and user unbanned/unmuted');
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Approve appeal error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Deny Appeal
+this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const { message } = req.body;
+        
+        const appeal = await this.mongoLogger.db.collection('appeals')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        if (!appeal) {
+            return res.json({ success: false, error: 'Appeal not found' });
+        }
+        
+        await this.mongoLogger.db.collection('appeals').updateOne(
+            { _id: new ObjectId(req.params.id) },
+            {
+                $set: {
+                    status: 'denied',
+                    response: {
+                        moderator: req.user?.username || 'Admin',
+                        message: message || 'Your appeal has been denied.',
+                        timestamp: new Date()
+                    }
+                },
+                $push: {
+                    history: {
+                        action: 'denied',
+                        by: req.user?.username || 'Admin',
+                        timestamp: new Date()
+                    }
+                }
+            }
+        );
+        
+        // DM the user
+        try {
+            const user = await this.client.users.fetch(appeal.userId);
+            const embed = new EmbedBuilder()
+                .setColor('#ed4245')
+                .setTitle('❌ Appeal Denied')
+                .setDescription(`Your **${appeal.appealType}** appeal has been denied.`)
+                .addFields(
+                    { name: 'Response from Staff', value: message || 'Your appeal has been denied.' }
+                )
+                .setTimestamp();
+            
+            await user.send({ embeds: [embed] });
+        } catch (e) {
+            console.log('Could not DM user about denial');
+        }
+        
+        req.flash('success', 'Appeal denied');
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Deny appeal error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Helper function for stats
+// ADD THIS METHOD RIGHT AFTER getModerationStats:
+async getAppealsStats() {
+    try {
+        const [pending, approved, denied, reviewing] = await Promise.all([
+            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'pending' }),
+            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'approved' }),
+            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'denied' }),
+            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'reviewing' })
+        ]);
+        
+        return { 
+            pending, 
+            approved, 
+            denied, 
+            reviewing, 
+            total: pending + approved + denied + reviewing 
+        };
+    } catch (error) {
+        console.error('Error getting appeals stats:', error);
+        return { pending: 0, approved: 0, denied: 0, reviewing: 0, total: 0 };
+    }
+}
 
     // ============================================
     // HELPER METHODS
