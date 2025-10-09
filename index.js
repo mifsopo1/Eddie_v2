@@ -20,7 +20,7 @@ const client = new Client({
 
 // Create command handler
 const CommandHandler = require('./commands');
-const commandHandler = new CommandHandler(client, config);
+const commandHandler = new CommandHandler(client, config, mongoLogger);
 
 // MongoDB and Dashboard
 let mongoLogger = null;

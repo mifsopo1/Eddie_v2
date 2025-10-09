@@ -2,24 +2,24 @@ const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs');
 
 class CommandHandler {
-    constructor(client, config) {
-        this.client = client;
-        this.config = config;
-        this.mongoLogger = mongoLogger;
-        this.prefix = config.prefix || '!';
-        this.commands = new Map();
-        this.warnings = new Map();
-        this.afkUsers = new Map();
-        this.reminders = new Map();
-        this.logChannels = {}; // Store log channels reference
-        this.commandSettings = new Map(); // Store custom command settings
-        
-        this.loadWarnings();
-        this.loadCommandSettings();
-        this.registerCommands();
-        
-        console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
-    }
+    constructor(client, config, mongoLogger) {  // Add mongoLogger parameter
+    this.client = client;
+    this.config = config;
+    this.mongoLogger = mongoLogger;  // Now it's defined
+    this.prefix = config.prefix || '!';
+    this.commands = new Map();
+    this.warnings = new Map();
+    this.afkUsers = new Map();
+    this.reminders = new Map();
+    this.logChannels = {};
+    this.commandSettings = new Map();
+    
+    this.loadWarnings();
+    this.loadCommandSettings();
+    this.registerCommands();
+    
+    console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
+}
 
     // Add method to set log channels from index.js
     setLogChannels(logChannels) {
