@@ -65,6 +65,222 @@
             .nav-links { gap: 0.25rem; }
             .nav-links a { padding: 0.45rem 0.55rem; font-size: 0.8rem; }
         }
+
+        /* Voice Activity Styles */
+        .voice-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .page-header h1 {
+            color: #fff;
+            font-size: 1.75rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-section {
+            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .filter-row label {
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .filter-row select {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-row select:hover {
+            background: rgba(0, 0, 0, 0.4);
+            border-color: rgba(88, 101, 242, 0.5);
+        }
+
+        .results-count {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            margin-top: 0.75rem;
+        }
+
+        .activity-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .activity-card {
+            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-left: 4px solid;
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .activity-card:hover {
+            transform: translateX(4px);
+            border-color: rgba(88, 101, 242, 0.6);
+            box-shadow: 0 4px 16px rgba(88, 101, 242, 0.2);
+        }
+
+        .activity-card.join {
+            border-left-color: #43b581;
+        }
+
+        .activity-card.leave {
+            border-left-color: #ed4245;
+        }
+
+        .activity-card.move {
+            border-left-color: #5865f2;
+        }
+
+        .activity-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .action-badge {
+            display: inline-block;
+            padding: 0.3rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .action-badge.join {
+            background: rgba(67, 181, 129, 0.2);
+            color: #43b581;
+        }
+
+        .action-badge.leave {
+            background: rgba(237, 66, 69, 0.2);
+            color: #ed4245;
+        }
+
+        .action-badge.move {
+            background: rgba(88, 101, 242, 0.2);
+            color: #5865f2;
+        }
+
+        .user-info-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .user-avatar-small {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .user-name-link {
+            color: #5865f2;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .user-name-link:hover {
+            color: #7289da;
+            text-decoration: underline;
+        }
+
+        .channel-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .channel-icon {
+            font-size: 1rem;
+        }
+
+        .channel-name {
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .timestamp {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .empty-state {
+            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 12px;
+            padding: 4rem 2rem;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .voice-container {
+                padding: 0 1rem;
+            }
+
+            .activity-card {
+                padding: 1rem;
+            }
+
+            .user-info-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
     </style>
 </head>
 <body>
@@ -110,7 +326,7 @@
                     <span class="nav-icon">📈</span> <span>Analytics</span>
                 </a>
                 <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
-                <span class="nav-icon">🎫</span> <span>Appeals</span>
+                    <span class="nav-icon">🎫</span> <span>Appeals</span>
                 </a>
             </div>
         </div>
@@ -140,51 +356,69 @@
         </div>
     </nav>
 
-    
-    
-    <div class="container">
-        <h1>🔊 Voice Activity Log</h1>
-        
-        <div class="filter-box">
-            <label>Action Type:</label>
-            <select onchange="window.location='?type=' + this.value">
-                <option value="all" <%= actionType === 'all' ? 'selected' : '' %>>All Actions</option>
-                <option value="join" <%= actionType === 'join' ? 'selected' : '' %>>Joins</option>
-                <option value="leave" <%= actionType === 'leave' ? 'selected' : '' %>>Leaves</option>
-                <option value="switch" <%= actionType === 'switch' ? 'selected' : '' %>>Channel Switches</option>
-            </select>
+    <div class="voice-container">
+        <div class="page-header">
+            <h1>🔊 Voice Activity Log</h1>
         </div>
-        
-        <p class="result-count">Found <%= events.length %> events</p>
-        
-        <div class="voice-events">
-            <% events.forEach(event => { %>
-                <div class="voice-event <%= event.actionType %>">
-                    <div class="voice-header">
-                        <span class="voice-type"><%= event.actionType.toUpperCase() %></span>
-                        <span class="voice-user">
-                            <a href="/user/<%= event.userId %>"><%= event.userName %></a>
-                        </span>
-                        <span class="voice-time"><%= new Date(event.timestamp).toLocaleString() %></span>
-                    </div>
-                    <div class="voice-details">
-                        <% if (event.actionType === 'switch') { %>
-                            <p>From: <strong><%= event.oldChannelName %></strong> → To: <strong><%= event.newChannelName %></strong></p>
-                        <% } else { %>
-                            <p>Channel: <strong><%= event.channelName %></strong></p>
+
+        <div class="filter-section">
+            <div class="filter-row">
+                <label>Action Type:</label>
+                <select onchange="window.location='?action=' + this.value">
+                    <option value="all" <%= action === 'all' ? 'selected' : '' %>>All Actions</option>
+                    <option value="join" <%= action === 'join' ? 'selected' : '' %>>Joins</option>
+                    <option value="leave" <%= action === 'leave' ? 'selected' : '' %>>Leaves</option>
+                    <option value="move" <%= action === 'move' ? 'selected' : '' %>>Moves</option>
+                </select>
+            </div>
+            <p class="results-count">Found <%= activities.length %> events</p>
+        </div>
+
+        <div class="activity-list">
+            <% if (activities.length === 0) { %>
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔊</div>
+                    <h3>No Voice Activity</h3>
+                    <p>There are no voice activities matching your filter.</p>
+                </div>
+            <% } else { %>
+                <% activities.forEach(activity => { %>
+                    <div class="activity-card <%= activity.action.toLowerCase() %>">
+                        <div class="activity-header">
+                            <span class="action-badge <%= activity.action.toLowerCase() %>">
+                                <%= activity.action.toUpperCase() %>
+                            </span>
+                            <span class="timestamp">
+                                📅 <%= new Date(activity.timestamp).toLocaleString() %>
+                            </span>
+                        </div>
+
+                        <div class="user-info-row">
+                            <img src="https://cdn.discordapp.com/avatars/<%= activity.userId %>/<%= activity.userAvatar %>.png" 
+                                 class="user-avatar-small"
+                                 onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                            <a href="/user/<%= activity.userId %>" class="user-name-link">
+                                <%= activity.userName %>
+                            </a>
+                        </div>
+
+                        <div class="channel-info">
+                            <span class="channel-icon">🔊</span>
+                            <span>Channel:</span>
+                            <span class="channel-name"><%= activity.channelName %></span>
+                        </div>
+
+                        <% if (activity.oldChannel) { %>
+                            <div class="channel-info">
+                                <span class="channel-icon">➡️</span>
+                                <span>From:</span>
+                                <span class="channel-name"><%= activity.oldChannelName %></span>
+                                <span>→</span>
+                                <span class="channel-name"><%= activity.newChannelName %></span>
+                            </div>
                         <% } %>
                     </div>
-                </div>
-            <% }); %>
-        </div>
-        
-        <div class="pagination">
-            <% if (currentPage > 1) { %>
-                <a href="?type=<%= actionType %>&page=<%= currentPage - 1 %>" class="btn">← Previous</a>
-            <% } %>
-            <span>Page <%= currentPage %> of <%= totalPages %></span>
-            <% if (currentPage < totalPages) { %>
-                <a href="?type=<%= actionType %>&page=<%= currentPage + 1 %>" class="btn">Next →</a>
+                <% }); %>
             <% } %>
         </div>
     </div>
