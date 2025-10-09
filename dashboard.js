@@ -593,7 +593,7 @@ this.app.post('/commands/server-settings', this.requireAuth.bind(this), express.
         // VOICE PAGE
         // ============================================
         
-        app.get('/voice', async (req, res) => {
+        this.app.get('/voice', async (req, res) => {
     try {
         const action = req.query.action || 'all'; // Get action from query or default to 'all'
         
