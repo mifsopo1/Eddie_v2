@@ -712,6 +712,138 @@
         </div>
     </div>
 
+    <!-- Sticky Message Modal -->
+    <div id="stickyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 style="color: #fff; margin: 0;">📌 Create Sticky Message</h2>
+                <span class="close" onclick="closeStickyModal()">&times;</span>
+            </div>
+            <form onsubmit="saveStickyMessage(event)">
+                <div class="form-group">
+                    <label>Channel *</label>
+                    <select name="channelId" required>
+                        <option value="">Select Channel...</option>
+                        <!-- Channels will be populated by JS -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Message *</label>
+                    <textarea name="message" rows="6" required placeholder="This message will stay at the bottom of the channel..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Repost Threshold</label>
+                    <input type="number" name="threshold" value="10" min="1" max="50">
+                    <small>Repost after this many messages</small>
+                </div>
+                
+                <div class="form-group">
+                    <label><input type="checkbox" name="enabled" checked> Enable immediately</label>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button type="button" onclick="closeStickyModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">💾 Create Sticky</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ruleset Modal -->
+    <div id="rulesetModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2 style="color: #fff; margin: 0;">🛡️ Create AutoMod Ruleset</h2>
+                <span class="close" onclick="closeRulesetModal()">&times;</span>
+            </div>
+            <form onsubmit="saveRuleset(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ruleset Name *</label>
+                        <input type="text" name="name" required placeholder="Anti-Spam">
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select name="priority">
+                            <option value="high">🔴 High</option>
+                            <option value="medium" selected>🟡 Medium</option>
+                            <option value="low">🟢 Low</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" rows="2" placeholder="What does this ruleset do?"></textarea>
+                </div>
+                
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1.5rem 0; padding-top: 1.5rem;">
+                    <h3 style="color: #fff; margin-bottom: 1rem;">🎯 Trigger Conditions</h3>
+                    
+                    <div class="form-group">
+                        <label>Trigger Type *</label>
+                        <select name="triggerType" id="rulesetTriggerType" onchange="updateRulesetTriggerFields()" required>
+                            <option value="">Select trigger type...</option>
+                            <option value="spam">💬 Spam Detection (rapid messages)</option>
+                            <option value="links">🔗 Link Filter (URLs & invites)</option>
+                            <option value="words">🚫 Banned Words</option>
+                            <option value="mentions">👥 Excessive Mentions</option>
+                            <option value="caps">🔠 Caps Lock Abuse</option>
+                            <option value="attachments">📎 Attachment Limits</option>
+                        </select>
+                    </div>
+                    
+                    <div id="triggerConfigFields" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                        <p style="color: rgba(255,255,255,0.6);">Select a trigger type to configure</p>
+                    </div>
+                </div>
+                
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1.5rem 0; padding-top: 1.5rem;">
+                    <h3 style="color: #fff; margin-bottom: 1rem;">⚡ Actions</h3>
+                    
+                    <div class="form-group">
+                        <label>Action Type *</label>
+                        <select name="actionType" id="rulesetActionType" onchange="updateRulesetActionFields()" required>
+                            <option value="">Select action...</option>
+                            <option value="delete">🗑️ Delete Message</option>
+                            <option value="warn">⚠️ Warn User</option>
+                            <option value="timeout">⏰ Timeout User</option>
+                            <option value="kick">👢 Kick User</option>
+                            <option value="ban">🔨 Ban User</option>
+                        </select>
+                    </div>
+                    
+                    <div id="actionConfigFields" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                        <p style="color: rgba(255,255,255,0.6);">Select an action type to configure</p>
+                    </div>
+                </div>
+                
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1.5rem 0; padding-top: 1.5rem;">
+                    <h3 style="color: #fff; margin-bottom: 1rem;">🛡️ Exclusions</h3>
+                    
+                    <div class="form-group">
+                        <label>Excluded Roles (comma-separated IDs)</label>
+                        <input type="text" name="excludedRoles" placeholder="123456789, 987654321">
+                        <small>Users with these roles will be exempt</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Excluded Channels (comma-separated IDs)</label>
+                        <input type="text" name="excludedChannels" placeholder="123456789, 987654321">
+                        <small>Rule won't apply in these channels</small>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button type="button" onclick="closeRulesetModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">💾 Create Ruleset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Edit Command Modal -->
     <div id="editModal" class="modal">
         <div class="modal-content">
@@ -1019,11 +1151,349 @@
 
         // Modal functions for sticky and rulesets
         function openStickyModal() {
-            alert('Sticky message creation modal - feature coming soon!');
+            document.getElementById('stickyModal').style.display = 'block';
+        }
+
+        function closeStickyModal() {
+            document.getElementById('stickyModal').style.display = 'none';
         }
 
         function openRulesetModal() {
-            alert('Ruleset creation modal - feature coming soon!');
+            document.getElementById('rulesetModal').style.display = 'block';
+            updateRulesetTriggerFields();
+            updateRulesetActionFields();
+        }
+
+        function closeRulesetModal() {
+            document.getElementById('rulesetModal').style.display = 'none';
+        }
+
+        function updateRulesetTriggerFields() {
+            const triggerType = document.getElementById('rulesetTriggerType').value;
+            const container = document.getElementById('triggerConfigFields');
+            
+            let html = '';
+            
+            switch(triggerType) {
+                case 'spam':
+                    html = `
+                        <div class="form-group">
+                            <label>Message Count</label>
+                            <input type="number" name="messageCount" value="5" min="2" max="20">
+                            <small>Number of messages</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Time Window (seconds)</label>
+                            <input type="number" name="timeWindow" value="3" min="1" max="60">
+                            <small>Within this time period</small>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'links':
+                    html = `
+                        <div class="form-group">
+                            <label><input type="checkbox" name="blockDiscordInvites" checked> Block Discord Invites</label>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" name="blockAllUrls"> Block All URLs</label>
+                        </div>
+                        <div class="form-group">
+                            <label>Whitelisted Domains (comma-separated)</label>
+                            <input type="text" name="whitelistedDomains" placeholder="youtube.com, twitter.com">
+                            <small>These domains will be allowed</small>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'words':
+                    html = `
+                        <div class="form-group">
+                            <label>Banned Words (one per line)</label>
+                            <textarea name="bannedWords" rows="5" placeholder="word1&#10;word2&#10;word3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" name="caseSensitive"> Case Sensitive</label>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" name="wildcard" checked> Use Wildcard Matching</label>
+                            <small>*word* matches anywhere in message</small>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'mentions':
+                    html = `
+                        <div class="form-group">
+                            <label>Max Mentions</label>
+                            <input type="number" name="maxMentions" value="5" min="1" max="20">
+                            <small>Maximum user/role mentions per message</small>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" name="includeBotMentions"> Include Bot Mentions</label>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'caps':
+                    html = `
+                        <div class="form-group">
+                            <label>Caps Percentage</label>
+                            <input type="number" name="capsPercentage" value="70" min="50" max="100">
+                            <small>% of message in CAPS</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Minimum Length</label>
+                            <input type="number" name="minLength" value="10" min="5" max="50">
+                            <small>Minimum message length to check</small>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'attachments':
+                    html = `
+                        <div class="form-group">
+                            <label>Max Attachments</label>
+                            <input type="number" name="maxAttachments" value="3" min="1" max="10">
+                            <small>Maximum attachments per message</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Blocked File Types (comma-separated)</label>
+                            <input type="text" name="blockedTypes" placeholder=".exe, .bat, .cmd">
+                        </div>
+                    `;
+                    break;
+                    
+                default:
+                    html = '<p style="color: rgba(255,255,255,0.6);">Select a trigger type</p>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function updateRulesetActionFields() {
+            const actionType = document.getElementById('rulesetActionType').value;
+            const container = document.getElementById('actionConfigFields');
+            
+            let html = '';
+            
+            switch(actionType) {
+                case 'delete':
+                    html = `
+                        <div class="form-group">
+                            <label><input type="checkbox" name="notifyUser" checked> Notify User</label>
+                            <small>Send a DM explaining why message was deleted</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Custom Message</label>
+                            <textarea name="customMessage" rows="2" placeholder="Your message violated our rules..."></textarea>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'warn':
+                    html = `
+                        <div class="form-group">
+                            <label>Warning Message</label>
+                            <textarea name="warnMessage" rows="3" placeholder="You have been warned for..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" name="deleteMessage" checked> Also Delete Message</label>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'timeout':
+                    html = `
+                        <div class="form-group">
+                            <label>Timeout Duration</label>
+                            <select name="timeoutDuration">
+                                <option value="60">1 minute</option>
+                                <option value="300" selected>5 minutes</option>
+                                <option value="600">10 minutes</option>
+                                <option value="1800">30 minutes</option>
+                                <option value="3600">1 hour</option>
+                                <option value="86400">24 hours</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" name="deleteMessage" checked> Delete Message</label>
+                        </div>
+                        <div class="form-group">
+                            <label>Reason (shown to user)</label>
+                            <textarea name="timeoutReason" rows="2" placeholder="You have been timed out for..."></textarea>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'kick':
+                    html = `
+                        <div class="form-group">
+                            <label>Kick Reason</label>
+                            <textarea name="kickReason" rows="2" placeholder="Kicked for violating rules"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" name="notifyBeforeKick" checked> DM User Before Kick</label>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'ban':
+                    html = `
+                        <div class="form-group">
+                            <label>Ban Reason</label>
+                            <textarea name="banReason" rows="2" placeholder="Banned for violating rules"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Delete Message History</label>
+                            <select name="deleteMessageDays">
+                                <option value="0">Don't delete any</option>
+                                <option value="1" selected>Previous 24 hours</option>
+                                <option value="7">Previous 7 days</option>
+                            </select>
+                        </div>
+                    `;
+                    break;
+                    
+                default:
+                    html = '<p style="color: rgba(255,255,255,0.6);">Select an action type</p>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        async function saveRuleset(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            // Build trigger config based on type
+            const triggerType = formData.get('triggerType');
+            const triggerConfig = {};
+            
+            switch(triggerType) {
+                case 'spam':
+                    triggerConfig.messageCount = parseInt(formData.get('messageCount'));
+                    triggerConfig.timeWindow = parseInt(formData.get('timeWindow'));
+                    break;
+                case 'links':
+                    triggerConfig.blockDiscordInvites = formData.get('blockDiscordInvites') === 'on';
+                    triggerConfig.blockAllUrls = formData.get('blockAllUrls') === 'on';
+                    break;
+                case 'words':
+                    triggerConfig.bannedWords = formData.get('bannedWords').split('\n').filter(w => w.trim());
+                    triggerConfig.caseSensitive = formData.get('caseSensitive') === 'on';
+                    triggerConfig.wildcard = formData.get('wildcard') === 'on';
+                    break;
+                case 'mentions':
+                    triggerConfig.maxMentions = parseInt(formData.get('maxMentions'));
+                    triggerConfig.includeBotMentions = formData.get('includeBotMentions') === 'on';
+                    break;
+                case 'caps':
+                    triggerConfig.capsPercentage = parseInt(formData.get('capsPercentage'));
+                    triggerConfig.minLength = parseInt(formData.get('minLength'));
+                    break;
+                case 'attachments':
+                    triggerConfig.maxAttachments = parseInt(formData.get('maxAttachments'));
+                    triggerConfig.blockedTypes = formData.get('blockedTypes')?.split(',').map(t => t.trim());
+                    break;
+            }
+            
+            // Build action config
+            const actionType = formData.get('actionType');
+            const actionConfig = {};
+            
+            switch(actionType) {
+                case 'delete':
+                    actionConfig.notifyUser = formData.get('notifyUser') === 'on';
+                    actionConfig.customMessage = formData.get('customMessage');
+                    break;
+                case 'warn':
+                    actionConfig.warnMessage = formData.get('warnMessage');
+                    actionConfig.deleteMessage = formData.get('deleteMessage') === 'on';
+                    break;
+                case 'timeout':
+                    actionConfig.duration = parseInt(formData.get('timeoutDuration'));
+                    actionConfig.deleteMessage = formData.get('deleteMessage') === 'on';
+                    actionConfig.reason = formData.get('timeoutReason');
+                    break;
+                case 'kick':
+                    actionConfig.reason = formData.get('kickReason');
+                    actionConfig.notifyBeforeKick = formData.get('notifyBeforeKick') === 'on';
+                    break;
+                case 'ban':
+                    actionConfig.reason = formData.get('banReason');
+                    actionConfig.deleteMessageDays = parseInt(formData.get('deleteMessageDays'));
+                    break;
+            }
+            
+            const data = {
+                name: formData.get('name'),
+                description: formData.get('description'),
+                triggerType: triggerType,
+                triggerConfig: triggerConfig,
+                actionType: actionType,
+                actionConfig: actionConfig,
+                priority: formData.get('priority'),
+                excludedRoles: formData.get('excludedRoles')?.split(',').filter(r => r.trim()) || [],
+                excludedChannels: formData.get('excludedChannels')?.split(',').filter(c => c.trim()) || [],
+                whitelistedDomains: formData.get('whitelistedDomains')?.split(',').map(d => d.trim()) || []
+            };
+            
+            try {
+                const response = await fetch('/commands/ruleset/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    closeRulesetModal();
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error saving ruleset:', error);
+                alert('Failed to save ruleset');
+            }
+        }
+
+        async function saveStickyMessage(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            const data = {
+                channelId: formData.get('channelId'),
+                message: formData.get('message'),
+                threshold: formData.get('threshold'),
+                enabled: formData.get('enabled') === 'on'
+            };
+            
+            try {
+                const response = await fetch('/commands/sticky/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    closeStickyModal();
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error saving sticky message:', error);
+                alert('Failed to save sticky message');
+            }
         }
 
         // Load role names from IDs
