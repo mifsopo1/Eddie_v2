@@ -1310,10 +1310,19 @@ this.app.get('/appeals/:id', this.requireAdmin.bind(this), async (req, res) => {
 // Create Appeal (Public - anyone can submit)
 this.app.post('/appeals/create', async (req, res) => {
     try {
+        console.log('Appeal submission received:', req.body);
+        
         const { userId, userName, appealType, reason, evidence, discordTag } = req.body;
         
         if (!userId || !userName || !appealType || !reason) {
+            console.log('Missing required fields:', { userId, userName, appealType, reason });
             return res.json({ success: false, error: 'Missing required fields' });
+        }
+        
+        // Check MongoDB connection
+        if (!this.mongoLogger || !this.mongoLogger.connected) {
+            console.error('MongoDB not connected');
+            return res.json({ success: false, error: 'Database connection error' });
         }
         
         // Check if user already has pending appeal
@@ -1324,6 +1333,7 @@ this.app.post('/appeals/create', async (req, res) => {
             });
         
         if (existingAppeal) {
+            console.log('User already has pending appeal:', userId);
             return res.json({ 
                 success: false, 
                 error: 'You already have a pending appeal. Please wait for staff to review it.' 
@@ -1359,38 +1369,46 @@ this.app.post('/appeals/create', async (req, res) => {
                 }
             ]
         };
-        
+
         const result = await this.mongoLogger.db.collection('appeals').insertOne(appeal);
+        console.log('Appeal created successfully:', result.insertedId);
         
-        // Log to appeals channel if configured
-        const appealsChannel = await this.client.channels.fetch(this.config.logChannels.appeals).catch(() => null);
-        if (appealsChannel) {
-            const embed = new EmbedBuilder()
-                .setColor('#faa61a')
-                .setTitle('🎫 New Appeal Submitted')
-                .setDescription(`**User:** ${userName} (\`${userId}\`)\n**Type:** ${appealType}`)
-                .addFields(
-                    { name: 'Reason', value: reason.substring(0, 1024) },
-                    { name: 'Appeal ID', value: result.insertedId.toString(), inline: true },
-                    { name: 'Status', value: '⏳ Pending', inline: true }
-                )
-                .setTimestamp();
-            
-            if (evidence) {
-                embed.addFields({ name: 'Evidence', value: evidence.substring(0, 1024) });
+        // Send DM to user if bot can reach them
+        try {
+            const user = await this.client.users.fetch(userId);
+            if (user) {
+                await user.send({
+                    embeds: [{
+                        color: 0x5865f2,
+                        title: '📨 Appeal Submitted',
+                        description: `Your ${appealType} appeal has been submitted and is pending review.`,
+                        fields: [
+                            { name: 'Appeal ID', value: result.insertedId.toString(), inline: true },
+                            { name: 'Status', value: 'Pending Review', inline: true }
+                        ],
+                        footer: { text: 'You will receive a DM when your appeal is reviewed.' },
+                        timestamp: new Date()
+                    }]
+                });
+                console.log('DM sent to user:', userId);
             }
-            
-            await appealsChannel.send({ embeds: [embed] });
+        } catch (dmError) {
+            console.log('Could not send DM to user:', dmError.message);
+            // Don't fail the appeal if DM fails
         }
-        
+
         res.json({ 
             success: true, 
-            message: 'Appeal submitted successfully! Staff will review it soon.',
+            message: 'Appeal submitted successfully! You will receive a DM when it is reviewed.',
             appealId: result.insertedId.toString()
         });
+        
     } catch (error) {
-        console.error('Create appeal error:', error);
-        res.json({ success: false, error: 'Failed to submit appeal' });
+        console.error('Error creating appeal:', error);
+        res.json({ 
+            success: false, 
+            error: 'Failed to submit appeal. Please try again later.' 
+        });
     }
 });
 
