@@ -1643,7 +1643,35 @@ this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res
             return { pending: 0, approved: 0, denied: 0, reviewing: 0, total: 0 };
         }
     }
-
+    async getInviteLeaderboard() {
+        try {
+            return await this.mongoLogger.db.collection('members')
+                .aggregate([
+                    {
+                        $match: {
+                            eventType: 'join',
+                            'inviteData.code': { $exists: true }
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: '$inviteData.code',
+                            inviter: { $first: '$inviteData.inviter' },
+                            uses: { $sum: 1 }
+                        }
+                    },
+                    {
+                        $sort: { uses: -1 }
+                    },
+                    {
+                        $limit: 20
+                    }
+                ]).toArray();
+        } catch (error) {
+            console.error('Error getting invite leaderboard:', error);
+            return [];
+        }
+    }
     async getRecentInvites(limit = 50) {
         try {
             return await this.mongoLogger.db.collection('members')
