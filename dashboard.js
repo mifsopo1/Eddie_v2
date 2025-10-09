@@ -1261,6 +1261,62 @@ this.app.post('/commands/sticky/create', this.requireAdmin.bind(this), async (re
     }
 });
 
+// Get all sticky messages
+this.app.get('/commands/sticky/list', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const stickyMessages = await this.mongoLogger.db.collection('stickyMessages')
+            .find({})
+            .sort({ createdAt: -1 })
+            .toArray();
+        
+        console.log('📋 Found', stickyMessages.length, 'sticky messages');
+        res.json({ success: true, stickyMessages });
+    } catch (error) {
+        console.error('Get sticky messages error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Toggle sticky message on/off
+this.app.post('/commands/sticky/toggle/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const sticky = await this.mongoLogger.db.collection('stickyMessages')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        if (!sticky) {
+            return res.json({ success: false, error: 'Sticky message not found' });
+        }
+        
+        await this.mongoLogger.db.collection('stickyMessages')
+            .updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: { enabled: !sticky.enabled } }
+            );
+        
+        console.log('🔄 Toggled sticky message:', req.params.id, 'to', !sticky.enabled);
+        res.json({ success: true, enabled: !sticky.enabled });
+    } catch (error) {
+        console.error('Toggle sticky error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Delete sticky message
+this.app.delete('/commands/sticky/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const result = await this.mongoLogger.db.collection('stickyMessages')
+            .deleteOne({ _id: new ObjectId(req.params.id) });
+        
+        console.log('🗑️ Deleted sticky message:', req.params.id);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Delete sticky error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
 // ============================================
 // AUTOMOD RULESETS ROUTES (YAGPDB-style)
 // ============================================
