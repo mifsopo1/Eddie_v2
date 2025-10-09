@@ -4,6 +4,7 @@ const path = require('path');
 const config = require('./config.json');
 const MongoDBLogger = require('./mongodb-logger');
 const Dashboard = require('./dashboard');
+const StickyManager = require('./stickyManager');
 
 const client = new Client({
     intents: [
@@ -582,7 +583,7 @@ client.once('ready', async () => {
     console.log(`💾 Attachments saved to: ${ATTACHMENTS_DIR}`);
     console.log('='.repeat(50));
     
-    // Initialize MongoDB
+    // Initialize MongoDB FIRST
     if (config.mongodb && config.mongodb.enabled) {
         mongoLogger = new MongoDBLogger(config);
         const connected = await mongoLogger.connect();
@@ -594,6 +595,10 @@ client.once('ready', async () => {
             commandHandler = new CommandHandler(client, config, mongoLogger);
             client.commandHandler = commandHandler;
             console.log('✅ Command handler initialized');
+            
+            // Initialize sticky manager AFTER mongoLogger is connected
+            const stickyManager = new StickyManager(client, mongoLogger);
+            await stickyManager.initialize();
             
             // Start Dashboard
             if (config.dashboard && config.dashboard.enabled) {
@@ -672,7 +677,7 @@ client.once('ready', async () => {
         }
     }
     
-    // Status Rotation - Drug Dealer Simulator Theme (MOVED INSIDE ready event)
+    // Status Rotation - Drug Dealer Simulator Theme
     const statuses = [
         { name: '👀 Watching the streets', type: ActivityType.Watching },
         { name: '🎮 Competing in the game', type: ActivityType.Competing },
@@ -694,10 +699,10 @@ client.once('ready', async () => {
         currentStatus = (currentStatus + 1) % statuses.length;
     };
     
-    updateStatus(); // Set initial status
-    setInterval(updateStatus, 15000); // Rotate every 15 seconds
+    updateStatus();
+    setInterval(updateStatus, 15000);
     console.log('🔄 Status rotation started');
-}); // ← This closes the ready event
+});
 
 // Message Create Event (continues below)
 client.on('messageCreate', async message => {
