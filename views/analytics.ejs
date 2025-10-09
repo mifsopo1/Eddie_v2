@@ -657,17 +657,34 @@
         
         <!-- Overview Stats -->
         <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">💬</div>
-                <div class="stat-info">
-                    <div class="stat-value"><%= analytics.messages?.total.toLocaleString() || 0 %></div>
-                    <div class="stat-label">Total Messages</div>
-                    <div class="stat-change">
-                        <%= analytics.messages?.last24h || 0 %> last 24h | 
-                        <%= analytics.messages?.avgPerDay || 0 %>/day avg
-                    </div>
-                </div>
+    <% if (diskSpace) { %>
+    <div class="stat-card">
+        <div class="stat-icon">💾</div>
+        <div class="stat-info">
+            <div class="stat-value"><%= diskSpace.used %></div>
+            <div class="stat-label">Server Storage Used</div>
+            <div class="stat-change">
+                <%= diskSpace.percentage %> of <%= diskSpace.total %> 
+                (<%= diskSpace.available %> available)
             </div>
+            <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; margin-top: 0.75rem; overflow: hidden;">
+                <div style="background: linear-gradient(90deg, #5865f2, #7289da); height: 100%; width: <%= diskSpace.percentage %>; transition: width 0.3s ease;"></div>
+            </div>
+        </div>
+    </div>
+    <% } %>
+    
+    <div class="stat-card">
+        <div class="stat-icon">📎</div>
+        <div class="stat-info">
+            <div class="stat-value"><%= (attachmentStats.totalSize / 1024 / 1024 / 1024).toFixed(2) %> GB</div>
+            <div class="stat-label">Attachment Storage</div>
+            <div class="stat-change">
+                <%= attachmentStats.byType ? attachmentStats.byType.length : 0 %> file types
+            </div>
+        </div>
+    </div>
+</div>
             
             <div class="stat-card">
                 <div class="stat-icon">👥</div>
