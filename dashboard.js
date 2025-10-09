@@ -277,7 +277,7 @@ this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res)
             .map(c => ({ id: c.id, name: c.name }))
             .sort((a, b) => a.name.localeCompare(b.name)) : [];
 
-        res.render('command-settings', {
+                res.render('command-settings', {
             client: client,
             customizableCommands,
             commandSettings,
@@ -291,6 +291,10 @@ this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res)
             })),
             page: 'commands'
         });
+    } catch (error) {
+        console.error('Error loading command settings:', error);
+        res.status(500).send('Error loading command settings');
+    }
     } catch (error) {
         console.error('Error loading command settings:', error);
         res.status(500).send('Error loading command settings');
@@ -904,6 +908,7 @@ this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
 
 
 // Command Settings Route
+// Command Settings Page
 this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res) => {
     try {
         const fs = require('fs');
@@ -912,6 +917,12 @@ this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res)
         let commandSettings = {};
         if (fs.existsSync('command-settings.json')) {
             commandSettings = JSON.parse(fs.readFileSync('command-settings.json', 'utf8'));
+        }
+
+        // Load server settings
+        let serverSettings = {};
+        if (fs.existsSync('server-settings.json')) {
+            serverSettings = JSON.parse(fs.readFileSync('server-settings.json', 'utf8'));
         }
 
         // List of commands that support customization
@@ -924,9 +935,19 @@ this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res)
             { name: 'unban', description: 'Unban a user', category: 'Moderation' }
         ];
 
+        // Get server channels for logging
+        const guild = this.client.guilds.cache.first();
+        const channels = guild ? Array.from(guild.channels.cache.values())
+            .filter(c => c.isTextBased() && c.type !== 4)
+            .map(c => ({ id: c.id, name: c.name }))
+            .sort((a, b) => a.name.localeCompare(b.name)) : [];
+
         res.render('command-settings', {
+            client: this.client,  // ← Changed from client to this.client
             customizableCommands,
             commandSettings,
+            serverSettings,
+            channels,
             bot: this.client.user,
             guilds: this.client.guilds.cache.map(g => ({
                 id: g.id,
