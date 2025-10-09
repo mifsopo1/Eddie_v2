@@ -528,7 +528,7 @@
     <!-- Same Navbar as your commands page -->
     <nav class="navbar">
         <div class="nav-brand">
-            <img src="<%= bot.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
+            <img src="<%= client.user.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
             <div class="bot-info">
                 <h2>Drug Dealer Simulator | Eddie</h2>
                 <span class="bot-status">Online • Monitoring</span>
@@ -537,35 +537,38 @@
         
         <div class="nav-center">
             <div class="nav-links">
-                <a href="/">
+                <a href="/" class="<%= typeof page !== 'undefined' && page === 'dashboard' ? 'active' : '' %>">
                     <span class="nav-icon">📊</span> Dashboard
                 </a>
-                <a href="/messages">
+                <a href="/messages" class="<%= typeof page !== 'undefined' && page === 'messages' ? 'active' : '' %>">
                     <span class="nav-icon">💬</span> Messages
                 </a>
-                <a href="/deleted">
+                <a href="/deleted" class="<%= typeof page !== 'undefined' && page === 'deleted' ? 'active' : '' %>">
                     <span class="nav-icon">🗑️</span> Deleted
                 </a>
-                <a href="/members">
+                <a href="/members" class="<%= typeof page !== 'undefined' && page === 'members' ? 'active' : '' %>">
                     <span class="nav-icon">👥</span> Members
                 </a>
-                <a href="/moderation">
+                <a href="/moderation" class="<%= typeof page !== 'undefined' && page === 'moderation' ? 'active' : '' %>">
                     <span class="nav-icon">🔨</span> Moderation
                 </a>
-                <a href="/attachments">
+                <a href="/attachments" class="<%= typeof page !== 'undefined' && page === 'attachments' ? 'active' : '' %>">
                     <span class="nav-icon">📎</span> Attachments
                 </a>
-                <a href="/voice">
+                <a href="/voice" class="<%= typeof page !== 'undefined' && page === 'voice' ? 'active' : '' %>">
                     <span class="nav-icon">🔊</span> Voice
                 </a>
-                <a href="/invites">
+                <a href="/invites" class="<%= typeof page !== 'undefined' && page === 'invites' ? 'active' : '' %>">
                     <span class="nav-icon">🎫</span> Invites
                 </a>
-                <a href="/commands" class="active">
+                <a href="/commands" class="<%= typeof page !== 'undefined' && page === 'commands' ? 'active' : '' %>">
                     <span class="nav-icon">⚙️</span> Commands
                 </a>
-                <a href="/analytics">
+                <a href="/analytics" class="active" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
                     <span class="nav-icon">📈</span> Analytics
+                </a>
+                <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
+                <span class="nav-icon">🎫</span> Appeals
                 </a>
             </div>
         </div>

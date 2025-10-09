@@ -273,62 +273,65 @@
         
         <div class="nav-center">
             <div class="nav-links">
-                <a href="/">
-                    <span class="nav-icon">📊</span> <span>Dashboard</span>
+                <a href="/" class="<%= typeof page !== 'undefined' && page === 'dashboard' ? 'active' : '' %>">
+                    <span class="nav-icon">📊</span> Dashboard
                 </a>
-                <a href="/messages">
-                    <span class="nav-icon">💬</span> <span>Messages</span>
+                <a href="/messages" class="<%= typeof page !== 'undefined' && page === 'messages' ? 'active' : '' %>">
+                    <span class="nav-icon">💬</span> Messages
                 </a>
-                <a href="/deleted">
-                    <span class="nav-icon">🗑️</span> <span>Deleted</span>
+                <a href="/deleted" class="<%= typeof page !== 'undefined' && page === 'deleted' ? 'active' : '' %>">
+                    <span class="nav-icon">🗑️</span> Deleted
                 </a>
-                <a href="/members">
-                    <span class="nav-icon">👥</span> <span>Members</span>
+                <a href="/members" class="<%= typeof page !== 'undefined' && page === 'members' ? 'active' : '' %>">
+                    <span class="nav-icon">👥</span> Members
                 </a>
-                <a href="/moderation">
-                    <span class="nav-icon">🔨</span> <span>Moderation</span>
+                <a href="/moderation" class="<%= typeof page !== 'undefined' && page === 'moderation' ? 'active' : '' %>">
+                    <span class="nav-icon">🔨</span> Moderation
                 </a>
-                <a href="/attachments">
-                    <span class="nav-icon">📎</span> <span>Attachments</span>
+                <a href="/attachments" class="<%= typeof page !== 'undefined' && page === 'attachments' ? 'active' : '' %>">
+                    <span class="nav-icon">📎</span> Attachments
                 </a>
-                <a href="/voice">
-                    <span class="nav-icon">🔊</span> <span>Voice</span>
+                <a href="/voice" class="<%= typeof page !== 'undefined' && page === 'voice' ? 'active' : '' %>">
+                    <span class="nav-icon">🔊</span> Voice
                 </a>
-                <a href="/invites">
-                    <span class="nav-icon">🎫</span> <span>Invites</span>
+                <a href="/invites" class="<%= typeof page !== 'undefined' && page === 'invites' ? 'active' : '' %>">
+                    <span class="nav-icon">🎫</span> Invites
                 </a>
-                <a href="/commands" class="active">
-                    <span class="nav-icon">⚙️</span> <span>Commands</span>
+                <a href="/commands" class="<%= typeof page !== 'undefined' && page === 'commands' ? 'active' : '' %>">
+                    <span class="nav-icon">⚙️</span> Commands
                 </a>
-                <a href="/analytics">
-                    <span class="nav-icon">📈</span> <span>Analytics</span>
+                <a href="/analytics" class="active" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
+                    <span class="nav-icon">📈</span> Analytics
+                </a>
+                <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
+                <span class="nav-icon">🎫</span> Appeals
                 </a>
             </div>
         </div>
 
         <div class="nav-user">
-    <% if (user) { %>
-        <div class="user-profile">
-            <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
-            <div class="user-details">
-                <span class="user-name"><%= user.username %></span>
-                <span class="user-badge admin">Admin</span>
-            </div>
+            <% if (user) { %>
+                <div class="user-profile">
+                    <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
+                    <div class="user-details">
+                        <span class="user-name"><%= user.username %></span>
+                        <span class="user-badge admin">Admin</span>
+                    </div>
+                </div>
+            <% } else { %>
+                <div class="user-profile">
+                    <div class="user-avatar-placeholder">👤</div>
+                    <div class="user-details">
+                        <span class="user-name">Admin</span>
+                        <span class="user-badge password">Password Auth</span>
+                    </div>
+                </div>
+            <% } %>
+            
+            <a href="/logout" class="logout-btn" title="Logout">
+                <span class="nav-icon">🚪</span>
+            </a>
         </div>
-    <% } else { %>
-        <div class="user-profile">
-            <div class="user-avatar-placeholder">👤</div>
-            <div class="user-details">
-                <span class="user-name">Admin</span>
-                <span class="user-badge password">Password Auth</span>
-            </div>
-        </div>
-    <% } %>
-    
-    <a href="/logout" class="logout-btn" title="Logout">
-        <span class="nav-icon">🚪</span>
-    </a>
-</div>
     </nav>
     
     <div class="container">

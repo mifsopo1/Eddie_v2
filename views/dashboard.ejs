@@ -80,7 +80,7 @@
         
         <div class="nav-center">
             <div class="nav-links">
-                <a href="/" class="active" class="<%= typeof page !== 'undefined' && page === 'dashboard' ? 'active' : '' %>">
+                <a href="/" class="<%= typeof page !== 'undefined' && page === 'dashboard' ? 'active' : '' %>">
                     <span class="nav-icon">📊</span> Dashboard
                 </a>
                 <a href="/messages" class="<%= typeof page !== 'undefined' && page === 'messages' ? 'active' : '' %>">
@@ -107,8 +107,11 @@
                 <a href="/commands" class="<%= typeof page !== 'undefined' && page === 'commands' ? 'active' : '' %>">
                     <span class="nav-icon">⚙️</span> Commands
                 </a>
-                <a href="/analytics" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
+                <a href="/analytics" class="active" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
                     <span class="nav-icon">📈</span> Analytics
+                </a>
+                <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
+                <span class="nav-icon">🎫</span> Appeals
                 </a>
             </div>
         </div>

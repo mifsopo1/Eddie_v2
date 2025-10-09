@@ -94,7 +94,7 @@
                 <a href="/moderation" class="<%= typeof page !== 'undefined' && page === 'moderation' ? 'active' : '' %>">
                     <span class="nav-icon">🔨</span> Moderation
                 </a>
-                <a href="/attachments" class="active" class="<%= typeof page !== 'undefined' && page === 'attachments' ? 'active' : '' %>">
+                <a href="/attachments" class="<%= typeof page !== 'undefined' && page === 'attachments' ? 'active' : '' %>">
                     <span class="nav-icon">📎</span> Attachments
                 </a>
                 <a href="/voice" class="<%= typeof page !== 'undefined' && page === 'voice' ? 'active' : '' %>">
@@ -106,8 +106,11 @@
                 <a href="/commands" class="<%= typeof page !== 'undefined' && page === 'commands' ? 'active' : '' %>">
                     <span class="nav-icon">⚙️</span> Commands
                 </a>
-                <a href="/analytics" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
+                <a href="/analytics" class="active" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
                     <span class="nav-icon">📈</span> Analytics
+                </a>
+                <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
+                <span class="nav-icon">🎫</span> Appeals
                 </a>
             </div>
         </div>

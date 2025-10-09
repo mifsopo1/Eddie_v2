@@ -100,14 +100,17 @@
                 <a href="/voice" class="<%= typeof page !== 'undefined' && page === 'voice' ? 'active' : '' %>">
                     <span class="nav-icon">🔊</span> Voice
                 </a>
-                <a href="/invites" class="active" class="<%= typeof page !== 'undefined' && page === 'invites' ? 'active' : '' %>">
+                <a href="/invites" class="<%= typeof page !== 'undefined' && page === 'invites' ? 'active' : '' %>">
                     <span class="nav-icon">🎫</span> Invites
                 </a>
                 <a href="/commands" class="<%= typeof page !== 'undefined' && page === 'commands' ? 'active' : '' %>">
                     <span class="nav-icon">⚙️</span> Commands
                 </a>
-                <a href="/analytics" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
+                <a href="/analytics" class="active" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
                     <span class="nav-icon">📈</span> Analytics
+                </a>
+                <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
+                <span class="nav-icon">🎫</span> Appeals
                 </a>
             </div>
         </div>
