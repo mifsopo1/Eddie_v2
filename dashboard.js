@@ -1605,7 +1605,7 @@ this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res
     }
 });
 
-    } // Close setupRoutes() method
+   
 
     // Helper method - OUTSIDE of setupRoutes()
     async getAppealsStats() {
