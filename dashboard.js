@@ -1302,6 +1302,60 @@ this.app.post('/commands/sticky/toggle/:id', this.requireAdmin.bind(this), async
     }
 });
 
+// Get single sticky message for editing
+this.app.get('/commands/sticky/get/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const sticky = await this.mongoLogger.db.collection('stickyMessages')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        if (!sticky) {
+            return res.json({ success: false, error: 'Sticky message not found' });
+        }
+        
+        res.json({ success: true, sticky });
+    } catch (error) {
+        console.error('Get sticky error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Update sticky message
+this.app.post('/commands/sticky/edit/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const { channelId, message, threshold, enabled } = req.body;
+        
+        if (!channelId || !message) {
+            return res.json({ success: false, error: 'Channel and message are required' });
+        }
+        
+        // Get channel name
+        const channel = await this.client.channels.fetch(channelId).catch(() => null);
+        
+        const updateData = {
+            channelId,
+            channelName: channel ? channel.name : null,
+            message,
+            threshold: parseInt(threshold) || 10,
+            enabled: enabled === true || enabled === 'on',
+            updatedAt: new Date()
+        };
+        
+        await this.mongoLogger.db.collection('stickyMessages')
+            .updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: updateData }
+            );
+        
+        console.log('✏️ Updated sticky message:', req.params.id);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Update sticky error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
 // Delete sticky message
 this.app.delete('/commands/sticky/:id', this.requireAdmin.bind(this), async (req, res) => {
     try {

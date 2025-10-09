@@ -1296,6 +1296,103 @@ function switchMainTab(tabName) {
                 alert('Error deleting sticky message');
             }
         }
+        // Edit sticky message
+async function editSticky(stickyId) {
+    console.log('✏️ Edit sticky called:', stickyId);
+    try {
+        const response = await fetch(`/commands/sticky/get/${stickyId}`);
+        const data = await response.json();
+        
+        console.log('Got sticky data:', data);
+        
+        if (data.success && data.sticky) {
+            const sticky = data.sticky;
+            
+            // Populate form
+            document.getElementById('editStickyId').value = sticky._id;
+            document.getElementById('editStickyMessage').value = sticky.message;
+            document.getElementById('editStickyThreshold').value = sticky.threshold;
+            document.getElementById('editStickyEnabled').checked = sticky.enabled;
+            
+            // Load channels and select the current one
+            const channelsResponse = await fetch('/api/channels');
+            const channelsData = await channelsResponse.json();
+            
+            if (channelsData.success && channelsData.channels) {
+                const select = document.getElementById('editStickyChannelId');
+                select.innerHTML = '<option value="">Select Channel...</option>';
+                
+                channelsData.channels.forEach(channel => {
+                    const option = document.createElement('option');
+                    option.value = channel.id;
+                    option.textContent = `#${channel.name}`;
+                    if (channel.id === sticky.channelId) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            }
+            
+            document.getElementById('editStickyModal').style.display = 'block';
+        } else {
+            alert('Failed to load sticky message: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error loading sticky for edit:', error);
+        alert('Failed to load sticky message: ' + error.message);
+    }
+}
+
+function closeEditStickyModal() {
+    document.getElementById('editStickyModal').style.display = 'none';
+}
+
+async function submitEditStickyForm() {
+    console.log('💾 Submitting edit form');
+    
+    const form = document.getElementById('editStickyMessageForm');
+    const formData = new FormData(form);
+    
+    const data = {
+        channelId: formData.get('channelId'),
+        message: formData.get('message'),
+        threshold: parseInt(formData.get('threshold')) || 10,
+        enabled: formData.get('enabled') === 'on'
+    };
+    
+    console.log('Edit data:', data);
+    
+    if (!data.channelId || !data.message) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    try {
+        const stickyId = document.getElementById('editStickyId').value;
+        const response = await fetch(`/commands/sticky/edit/${stickyId}`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        console.log('Edit result:', result);
+        
+        if (result.success) {
+            alert('✅ Sticky message updated!');
+            closeEditStickyModal();
+            loadStickyMessages();
+        } else {
+            alert('❌ Error: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error updating sticky:', error);
+        alert('Failed to update sticky message: ' + error.message);
+    }
+}
 
         function openRulesetModal() {
             document.getElementById('rulesetModal').style.display = 'block';
