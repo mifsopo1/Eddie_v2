@@ -638,7 +638,12 @@ this.app.post('/commands/server-settings', this.requireAuth.bind(this), express.
         // ============================================
         
         this.app.get('/invites', this.requireAuth.bind(this), async (req, res) => {
-            try {
+    console.log('🎫 INVITES ROUTE HIT!');
+    console.log('🔐 Authenticated:', req.isAuthenticated());
+    console.log('🔐 Password auth:', req.session?.passwordAuth);
+    console.log('👤 User:', req.user);
+    
+    try {
                 const inviteStats = await this.getInviteLeaderboard();
                 const recentInvites = await this.getRecentInvites(50);
                 
