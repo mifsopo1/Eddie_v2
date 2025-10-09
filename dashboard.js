@@ -610,40 +610,58 @@ class Dashboard {
         // ============================================
         
         this.app.get('/analytics', this.requireAuth.bind(this), async (req, res) => {
-            try {
-                if (!this.mongoLogger || !this.mongoLogger.connected) {
-                    return res.status(500).send('MongoDB not connected. <a href="/">Go back</a>');
-                }
-                
-                let analytics = {};
-                let topUsers = [];
-                let inviteStats = [];
-                let timeline = [];
-                let attachmentStats = {};
-                let newAccounts = [];
-                
-                try { analytics = await this.mongoLogger.getServerAnalytics() || {}; } catch (e) {}
-                try { topUsers = await this.mongoLogger.getTopUsers(7, 15) || []; } catch (e) {}
-                try { inviteStats = await this.mongoLogger.getInviteStats() || []; } catch (e) {}
-                try { timeline = await this.mongoLogger.getMessageTimeline(14) || []; } catch (e) {}
-                try { attachmentStats = await this.mongoLogger.getAttachmentStats() || {}; } catch (e) {}
-                try { newAccounts = await this.mongoLogger.getNewAccountJoins(7) || []; } catch (e) {}
-                
-                res.render('analytics', {
-                    analytics,
-                    topUsers,
-                    inviteStats,
-                    timeline,
-                    attachmentStats,
-                    newAccounts,
-                    client: this.client,
-                    page: 'analytics'
-                });
-            } catch (error) {
-                console.error('Analytics page error:', error);
-                res.status(500).send(`Error Loading Analytics: ${error.message}`);
-            }
+    try {
+        if (!this.mongoLogger || !this.mongoLogger.connected) {
+            return res.status(500).send('MongoDB not connected. <a href="/">Go back</a>');
+        }
+        
+        let analytics = {};
+        let topUsers = [];
+        let inviteStats = [];
+        let timeline = [];
+        let attachmentStats = {};
+        let newAccounts = [];
+        let diskSpace = null;  // ← Add this
+        
+        try { analytics = await this.mongoLogger.getServerAnalytics() || {}; } catch (e) {}
+        try { topUsers = await this.mongoLogger.getTopUsers(7, 15) || []; } catch (e) {}
+        try { inviteStats = await this.mongoLogger.getInviteStats() || []; } catch (e) {}
+        try { timeline = await this.mongoLogger.getMessageTimeline(14) || []; } catch (e) {}
+        try { attachmentStats = await this.mongoLogger.getAttachmentStats() || {}; } catch (e) {}
+        try { newAccounts = await this.mongoLogger.getNewAccountJoins(7) || []; } catch (e) {}
+        
+        // ← Add this entire block
+        try {
+            const { execSync } = require('child_process');
+            const output = execSync('df -h /var/lib/jenkins/discord-logger-bot | tail -1').toString();
+            const parts = output.split(/\s+/);
+            diskSpace = {
+                total: parts[1],
+                used: parts[2],
+                available: parts[3],
+                percentage: parts[4]
+            };
+            console.log('💾 Disk space:', diskSpace);  // Debug log
+        } catch (error) {
+            console.error('Error getting disk space:', error);
+        }
+        
+        res.render('analytics', {
+            analytics,
+            topUsers,
+            inviteStats,
+            timeline,
+            attachmentStats,
+            newAccounts,
+            diskSpace,  // ← Make sure this is here!
+            client: this.client,
+            page: 'analytics'
         });
+    } catch (error) {
+        console.error('Analytics page error:', error);
+        res.status(500).send(`Error Loading Analytics: ${error.message}`);
+    }
+});
 
 
 // ALL COMMANDS PAGE (Built-in + Custom)
