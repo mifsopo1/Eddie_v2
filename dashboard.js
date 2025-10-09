@@ -226,88 +226,128 @@ class Dashboard {
             }
         });
 
-        // ============================================
-    // COMMAND SETTINGS ROUTES - ADD THESE HERE
-    // ============================================
-    
-    // Command Settings Page
-    this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res) => {
-        try {
-            const fs = require('fs');
+// ============================================
+// COMMAND SETTINGS ROUTES
+// ============================================
+
+// Command Settings Page
+this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        const fs = require('fs');
+        
+        // Load command settings from file
+        let commandSettings = {};
+        if (fs.existsSync('command-settings.json')) {
+            commandSettings = JSON.parse(fs.readFileSync('command-settings.json', 'utf8'));
+        }
+
+        // Load server settings
+        let serverSettings = {};
+        if (fs.existsSync('server-settings.json')) {
+            serverSettings = JSON.parse(fs.readFileSync('server-settings.json', 'utf8'));
+        }
+
+        // List of commands that support customization
+        const customizableCommands = [
+            { name: 'kick', description: 'Kick a member from the server', category: 'Moderation' },
+            { name: 'ban', description: 'Ban a member from the server', category: 'Moderation' },
+            { name: 'mute', description: 'Mute a member', category: 'Moderation' },
+            { name: 'unmute', description: 'Unmute a member', category: 'Moderation' },
+            { name: 'warn', description: 'Warn a member', category: 'Moderation' },
+            { name: 'unban', description: 'Unban a user', category: 'Moderation' }
+        ];
+
+        // Get server channels for logging
+        const guild = this.client.guilds.cache.first();
+        const channels = guild ? Array.from(guild.channels.cache.values())
+            .filter(c => c.isTextBased() && c.type !== 4)
+            .map(c => ({ id: c.id, name: c.name }))
+            .sort((a, b) => a.name.localeCompare(b.name)) : [];
+
+        res.render('command-settings', {
+            customizableCommands,
+            commandSettings,
+            serverSettings,
+            channels,
+            bot: this.client.user,
+            guilds: this.client.guilds.cache.map(g => ({
+                id: g.id,
+                name: g.name,
+                icon: g.iconURL()
+            })),
+            page: 'commands'
+        });
+    } catch (error) {
+        console.error('Error loading command settings:', error);
+        res.status(500).send('Error loading command settings');
+    }
+});
+
+// Save Command Settings
+this.app.post('/commands/settings', this.requireAuth.bind(this), express.json(), async (req, res) => {
+    try {
+        const fs = require('fs');
+        const { command, settings } = req.body;
+
+        // Load existing settings
+        let commandSettings = {};
+        if (fs.existsSync('command-settings.json')) {
+            commandSettings = JSON.parse(fs.readFileSync('command-settings.json', 'utf8'));
+        }
+
+        // Update settings for the command
+        if (settings === null) {
+            // Reset command to defaults
+            delete commandSettings[command];
+        } else {
+            commandSettings[command] = {
+                ...commandSettings[command],
+                ...settings
+            };
             
-            // Load command settings from file
-            let commandSettings = {};
-            if (fs.existsSync('command-settings.json')) {
-                commandSettings = JSON.parse(fs.readFileSync('command-settings.json', 'utf8'));
-            }
-
-            // List of commands that support customization
-            const customizableCommands = [
-                { name: 'kick', description: 'Kick a member from the server', category: 'Moderation' },
-                { name: 'ban', description: 'Ban a member from the server', category: 'Moderation' },
-                { name: 'mute', description: 'Mute a member', category: 'Moderation' },
-                { name: 'unmute', description: 'Unmute a member', category: 'Moderation' },
-                { name: 'warn', description: 'Warn a member', category: 'Moderation' },
-                { name: 'unban', description: 'Unban a user', category: 'Moderation' }
-            ];
-
-            res.render('command-settings', {
-                customizableCommands,
-                commandSettings,
-                bot: this.client.user,
-                guilds: this.client.guilds.cache.map(g => ({
-                    id: g.id,
-                    name: g.name,
-                    icon: g.iconURL()
-                })),
-                page: 'commands'
-            });
-        } catch (error) {
-            console.error('Error loading command settings:', error);
-            res.status(500).send('Error loading command settings');
-        }
-    });
-
-    // Save Command Settings
-    this.app.post('/commands/settings', this.requireAuth.bind(this), express.json(), async (req, res) => {
-        try {
-            const fs = require('fs');
-            const { command, settings } = req.body;
-
-            // Load existing settings
-            let commandSettings = {};
-            if (fs.existsSync('command-settings.json')) {
-                commandSettings = JSON.parse(fs.readFileSync('command-settings.json', 'utf8'));
-            }
-
-            // Update settings for the command
-            if (settings === null) {
-                // Reset command to defaults
-                delete commandSettings[command];
-            } else {
-                commandSettings[command] = {
-                    ...commandSettings[command],
-                    ...settings
+            // Merge messages if they exist
+            if (settings.messages && commandSettings[command].messages) {
+                commandSettings[command].messages = {
+                    ...commandSettings[command].messages,
+                    ...settings.messages
                 };
-                
-                // Merge messages if they exist
-                if (settings.messages && commandSettings[command].messages) {
-                    commandSettings[command].messages = {
-                        ...commandSettings[command].messages,
-                        ...settings.messages
-                    };
-                }
             }
-
-            // Save to file
-            fs.writeFileSync('command-settings.json', JSON.stringify(commandSettings, null, 2));
-
-            res.json({ success: true, message: 'Settings saved successfully!' });
-        } catch (error) {
-            console.error('Error saving command settings:', error);
-            res.status(500).json({ success: false, message: 'Failed to save settings' });
         }
-    });
+
+        // Save to file
+        fs.writeFileSync('command-settings.json', JSON.stringify(commandSettings, null, 2));
+
+        res.json({ success: true, message: 'Settings saved successfully!' });
+    } catch (error) {
+        console.error('Error saving command settings:', error);
+        res.status(500).json({ success: false, message: 'Failed to save settings' });
+    }
+});
+
+// Save Server Settings (NEW)
+this.app.post('/commands/server-settings', this.requireAuth.bind(this), express.json(), async (req, res) => {
+    try {
+        const fs = require('fs');
+        const { settings } = req.body;
+
+        // Load existing settings
+        let serverSettings = {};
+        if (fs.existsSync('server-settings.json')) {
+            serverSettings = JSON.parse(fs.readFileSync('server-settings.json', 'utf8'));
+        }
+
+        // Merge new settings
+        serverSettings = { ...serverSettings, ...settings };
+
+        // Save to file
+        fs.writeFileSync('server-settings.json', JSON.stringify(serverSettings, null, 2));
+
+        res.json({ success: true, message: 'Server settings saved successfully!' });
+    } catch (error) {
+        console.error('Error saving server settings:', error);
+        res.status(500).json({ success: false, message: 'Failed to save settings' });
+    }
+});
 
         // ============================================
         // MESSAGES PAGE

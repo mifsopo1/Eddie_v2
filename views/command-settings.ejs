@@ -735,7 +735,320 @@
                 </div>
             </div>
         <% }) %>
+
+        <!-- Server Protection Settings -->
+        <div class="section" style="margin-top: 3rem;">
+            <h2 class="section-title" style="color: #fff; font-size: 1.5rem; margin-bottom: 1.5rem;">🛡️ Server Protection Settings</h2>
+    
+    <!-- Anti-Spam Settings -->
+    <div class="command-accordion">
+        <div class="accordion-header" onclick="toggleServerAccordion(0)">
+            <div class="accordion-title">
+                <h3>Anti-Spam Protection</h3>
+                <span class="command-badge">Protection</span>
+            </div>
+            <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body" id="server-accordion-0">
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;">Automatically detect and handle spam messages</p>
+            
+            <div class="toggle-switch">
+                <label class="switch">
+                    <input type="checkbox" id="antiSpamEnabled" 
+                        <%= serverSettings.antiSpam?.enabled ? 'checked' : '' %>
+                        onchange="updateServerSetting('antiSpam.enabled', this.checked)">
+                    <span class="slider"></span>
+                </label>
+                <label for="antiSpamEnabled" style="color: #fff; cursor: pointer;">
+                    🚫 Enable Anti-Spam Protection
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Maximum Messages in Time Window</label>
+                <input type="number" id="antiSpamMaxMessages" 
+                    value="<%= serverSettings.antiSpam?.maxMessages || 5 %>" 
+                    onchange="updateServerSetting('antiSpam.maxMessages', parseInt(this.value))"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                <small>Number of messages before triggering spam detection</small>
+            </div>
+
+            <div class="form-group">
+                <label>Time Window (seconds)</label>
+                <input type="number" id="antiSpamTimeWindow" 
+                    value="<%= serverSettings.antiSpam?.timeWindow || 5 %>" 
+                    onchange="updateServerSetting('antiSpam.timeWindow', parseInt(this.value))"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                <small>Time window for spam detection (in seconds)</small>
+            </div>
+
+            <div class="form-group">
+                <label>Action on Detection</label>
+                <select id="antiSpamAction" 
+                    onchange="updateServerSetting('antiSpam.action', this.value)"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                    <option value="delete" <%= serverSettings.antiSpam?.action === 'delete' ? 'selected' : '' %>>Delete Messages</option>
+                    <option value="warn" <%= serverSettings.antiSpam?.action === 'warn' ? 'selected' : '' %>>Warn User</option>
+                    <option value="mute" <%= serverSettings.antiSpam?.action === 'mute' ? 'selected' : '' %>>Mute User (10min)</option>
+                    <option value="kick" <%= serverSettings.antiSpam?.action === 'kick' ? 'selected' : '' %>>Kick User</option>
+                </select>
+            </div>
+        </div>
     </div>
+
+    <!-- Mass Mentions -->
+    <div class="command-accordion">
+        <div class="accordion-header" onclick="toggleServerAccordion(1)">
+            <div class="accordion-title">
+                <h3>Mass Mention Protection</h3>
+                <span class="command-badge">Protection</span>
+            </div>
+            <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body" id="server-accordion-1">
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;">Prevent users from mass mentioning</p>
+            
+            <div class="toggle-switch">
+                <label class="switch">
+                    <input type="checkbox" id="massMentionEnabled" 
+                        <%= serverSettings.massMention?.enabled ? 'checked' : '' %>
+                        onchange="updateServerSetting('massMention.enabled', this.checked)">
+                    <span class="slider"></span>
+                </label>
+                <label for="massMentionEnabled" style="color: #fff; cursor: pointer;">
+                    👥 Enable Mass Mention Protection
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Maximum Mentions per Message</label>
+                <input type="number" id="massMentionMax" 
+                    value="<%= serverSettings.massMention?.maxMentions || 5 %>" 
+                    onchange="updateServerSetting('massMention.maxMentions', parseInt(this.value))"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                <small>Maximum number of mentions allowed in a single message</small>
+            </div>
+
+            <div class="form-group">
+                <label>Action on Violation</label>
+                <select id="massMentionAction" 
+                    onchange="updateServerSetting('massMention.action', this.value)"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                    <option value="delete" <%= serverSettings.massMention?.action === 'delete' ? 'selected' : '' %>>Delete Message</option>
+                    <option value="warn" <%= serverSettings.massMention?.action === 'warn' ? 'selected' : '' %>>Delete & Warn</option>
+                    <option value="mute" <%= serverSettings.massMention?.action === 'mute' ? 'selected' : '' %>>Delete & Mute (10min)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Protection -->
+    <div class="command-accordion">
+        <div class="accordion-header" onclick="toggleServerAccordion(2)">
+            <div class="accordion-title">
+                <h3>Link Protection</h3>
+                <span class="command-badge">Protection</span>
+            </div>
+            <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body" id="server-accordion-2">
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;">Control which links can be posted</p>
+            
+            <div class="toggle-switch">
+                <label class="switch">
+                    <input type="checkbox" id="linkProtectionEnabled" 
+                        <%= serverSettings.linkProtection?.enabled ? 'checked' : '' %>
+                        onchange="updateServerSetting('linkProtection.enabled', this.checked)">
+                    <span class="slider"></span>
+                </label>
+                <label for="linkProtectionEnabled" style="color: #fff; cursor: pointer;">
+                    🔗 Enable Link Protection
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Protection Mode</label>
+                <select id="linkProtectionMode" 
+                    onchange="updateServerSetting('linkProtection.mode', this.value)"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                    <option value="blacklist" <%= serverSettings.linkProtection?.mode === 'blacklist' ? 'selected' : '' %>>Blacklist (Block specific domains)</option>
+                    <option value="whitelist" <%= serverSettings.linkProtection?.mode === 'whitelist' ? 'selected' : '' %>>Whitelist (Allow only specific domains)</option>
+                    <option value="all" <%= serverSettings.linkProtection?.mode === 'all' ? 'selected' : '' %>>Block All Links</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Allowed/Blocked Domains</label>
+                <textarea id="linkDomains" rows="5" 
+                    onchange="updateServerSetting('linkProtection.domains', this.value.split('\n').filter(d => d.trim()))"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-family: monospace;"
+                    placeholder="youtube.com&#10;discord.gg&#10;twitter.com"><%= serverSettings.linkProtection?.domains ? serverSettings.linkProtection.domains.join('\n') : '' %></textarea>
+                <small>One domain per line (e.g., youtube.com, discord.gg)</small>
+            </div>
+
+            <div class="toggle-switch">
+                <label class="switch">
+                    <input type="checkbox" id="allowDiscordInvites" 
+                        <%= serverSettings.linkProtection?.allowDiscordInvites !== false ? 'checked' : '' %>
+                        onchange="updateServerSetting('linkProtection.allowDiscordInvites', this.checked)">
+                    <span class="slider"></span>
+                </label>
+                <label for="allowDiscordInvites" style="color: #fff; cursor: pointer;">
+                    ✅ Allow Discord Invite Links
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Banned Words -->
+    <div class="command-accordion">
+        <div class="accordion-header" onclick="toggleServerAccordion(3)">
+            <div class="accordion-title">
+                <h3>Word Filter</h3>
+                <span class="command-badge">Protection</span>
+            </div>
+            <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body" id="server-accordion-3">
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;">Filter inappropriate words and phrases</p>
+            
+            <div class="toggle-switch">
+                <label class="switch">
+                    <input type="checkbox" id="wordFilterEnabled" 
+                        <%= serverSettings.wordFilter?.enabled ? 'checked' : '' %>
+                        onchange="updateServerSetting('wordFilter.enabled', this.checked)">
+                    <span class="slider"></span>
+                </label>
+                <label for="wordFilterEnabled" style="color: #fff; cursor: pointer;">
+                    🚫 Enable Word Filter
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Banned Words/Phrases</label>
+                <textarea id="bannedWords" rows="8" 
+                    onchange="updateServerSetting('wordFilter.words', this.value.split('\n').filter(w => w.trim()))"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-family: monospace;"
+                    placeholder="badword1&#10;badphrase2&#10;inappropriateterm"><%= serverSettings.wordFilter?.words ? serverSettings.wordFilter.words.join('\n') : '' %></textarea>
+                <small>One word/phrase per line (case-insensitive)</small>
+            </div>
+
+            <div class="form-group">
+                <label>Action on Detection</label>
+                <select id="wordFilterAction" 
+                    onchange="updateServerSetting('wordFilter.action', this.value)"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                    <option value="delete" <%= serverSettings.wordFilter?.action === 'delete' ? 'selected' : '' %>>Delete Message</option>
+                    <option value="warn" <%= serverSettings.wordFilter?.action === 'warn' ? 'selected' : '' %>>Delete & Warn</option>
+                    <option value="mute" <%= serverSettings.wordFilter?.action === 'mute' ? 'selected' : '' %>>Delete & Mute</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Log Channel</label>
+                <select id="wordFilterLogChannel" 
+                    onchange="updateServerSetting('wordFilter.logChannel', this.value)"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                    <option value="">None</option>
+                    <% channels.forEach(channel => { %>
+                        <option value="<%= channel.id %>" <%= serverSettings.wordFilter?.logChannel === channel.id ? 'selected' : '' %>>
+                            #<%= channel.name %>
+                        </option>
+                    <% }); %>
+                </select>
+                <small>Log filtered messages to this channel</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auto-Slowmode -->
+    <div class="command-accordion">
+        <div class="accordion-header" onclick="toggleServerAccordion(4)">
+            <div class="accordion-title">
+                <h3>Auto Slowmode</h3>
+                <span class="command-badge">Protection</span>
+            </div>
+            <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body" id="server-accordion-4">
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;">Automatically enable slowmode during high activity</p>
+            
+            <div class="toggle-switch">
+                <label class="switch">
+                    <input type="checkbox" id="autoSlowmodeEnabled" 
+                        <%= serverSettings.autoSlowmode?.enabled ? 'checked' : '' %>
+                        onchange="updateServerSetting('autoSlowmode.enabled', this.checked)">
+                    <span class="slider"></span>
+                </label>
+                <label for="autoSlowmodeEnabled" style="color: #fff; cursor: pointer;">
+                    ⏱️ Enable Auto Slowmode
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Trigger: Messages per Minute</label>
+                <input type="number" id="autoSlowmodeTrigger" 
+                    value="<%= serverSettings.autoSlowmode?.messagesPerMinute || 20 %>" 
+                    onchange="updateServerSetting('autoSlowmode.messagesPerMinute', parseInt(this.value))"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                <small>Enable slowmode when channel exceeds this message rate</small>
+            </div>
+
+            <div class="form-group">
+                <label>Slowmode Duration (seconds)</label>
+                <input type="number" id="autoSlowmodeDuration" 
+                    value="<%= serverSettings.autoSlowmode?.duration || 5 %>" 
+                    onchange="updateServerSetting('autoSlowmode.duration', parseInt(this.value))"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                <small>Slowmode delay when triggered (0-21600 seconds)</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Caps Lock Protection -->
+    <div class="command-accordion">
+        <div class="accordion-header" onclick="toggleServerAccordion(5)">
+            <div class="accordion-title">
+                <h3>Caps Lock Protection</h3>
+                <span class="command-badge">Protection</span>
+            </div>
+            <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body" id="server-accordion-5">
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;">Prevent excessive use of capital letters</p>
+            
+            <div class="toggle-switch">
+                <label class="switch">
+                    <input type="checkbox" id="capsProtectionEnabled" 
+                        <%= serverSettings.capsProtection?.enabled ? 'checked' : '' %>
+                        onchange="updateServerSetting('capsProtection.enabled', this.checked)">
+                    <span class="slider"></span>
+                </label>
+                <label for="capsProtectionEnabled" style="color: #fff; cursor: pointer;">
+                    🔠 Enable Caps Protection
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Maximum Caps Percentage</label>
+                <input type="number" id="capsProtectionPercent" min="0" max="100"
+                    value="<%= serverSettings.capsProtection?.maxPercent || 70 %>" 
+                    onchange="updateServerSetting('capsProtection.maxPercent', parseInt(this.value))"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                <small>Maximum percentage of capital letters allowed (0-100%)</small>
+            </div>
+
+            <div class="form-group">
+                <label>Minimum Message Length</label>
+                <input type="number" id="capsProtectionMinLength" 
+                    value="<%= serverSettings.capsProtection?.minLength || 10 %>" 
+                    onchange="updateServerSetting('capsProtection.minLength', parseInt(this.value))"
+                    style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff;">
+                <small>Only check messages longer than this many characters</small>
+            </div>
+        </div>
+    </div>
+</div>
 
     <!-- Variables Modal -->
     <div id="variablesModal" class="modal">
@@ -978,6 +1291,59 @@
                 showAlert('Error resetting command', 'error');
             }
         }
+
+        // Server Settings Functions
+function toggleServerAccordion(index) {
+    const header = document.querySelectorAll('.command-accordion .accordion-header')[index + 6]; // Offset by command accordions
+    const body = document.getElementById(`server-accordion-${index}`);
+    
+    if (header && body) {
+        header.classList.toggle('active');
+        body.classList.toggle('active');
+    }
+}
+
+async function updateServerSetting(path, value) {
+    try {
+        // Parse the path (e.g., "antiSpam.enabled" -> ["antiSpam", "enabled"])
+        const keys = path.split('.');
+        
+        // Build nested object
+        const settings = {};
+        let current = settings;
+        
+        for (let i = 0; i < keys.length - 1; i++) {
+            current[keys[i]] = {};
+            current = current[keys[i]];
+        }
+        current[keys[keys.length - 1]] = value;
+        
+        const response = await fetch('/commands/server-settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settings })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showAlert(`Server setting updated!`, 'success');
+        } else {
+            showAlert('Failed to update setting', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('Error updating setting', 'error');
+    }
+}
+
+// Debounced version for text inputs
+let settingUpdateTimeout;
+function debouncedServerSetting(path, value) {
+    clearTimeout(settingUpdateTimeout);
+    settingUpdateTimeout = setTimeout(() => {
+        updateServerSetting(path, value);
+    }, 1000); // Wait 1 second after user stops typing
+}
     </script>
 </body>
 </html>
