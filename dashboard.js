@@ -753,10 +753,17 @@ this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
             .sort({ createdAt: -1 })
             .toArray();
 
-        // Get built-in commands from the command handler
+        console.log('🔍 Custom commands:', customCommands.length);
+        console.log('🔍 CommandHandler exists?', !!this.client.commandHandler);
+        console.log('🔍 Commands Map exists?', !!this.client.commandHandler?.commands);
+
+        // Get built-in commands
         const builtInCommands = [];
-        if (this.client.commandHandler && this.client.commandHandler.commands) {
-            this.client.commandHandler.commands.forEach((cmd, name) => {
+        
+        if (this.client.commandHandler?.commands) {
+            console.log('🔍 Commands Map size:', this.client.commandHandler.commands.size);
+            
+            for (const [name, cmd] of this.client.commandHandler.commands) {
                 builtInCommands.push({
                     name: name,
                     description: cmd.description || 'No description',
@@ -769,13 +776,15 @@ this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
                     type: 'builtin',
                     _id: `builtin_${name}`
                 });
-            });
+            }
         }
+
+        console.log('🔍 Built-in commands:', builtInCommands.length);
 
         // Combine both arrays
         const allCommands = [...customCommands, ...builtInCommands];
 
-        console.log(`📋 Loading commands page: ${customCommands.length} custom, ${builtInCommands.length} built-in`);
+        console.log(`✅ Total commands to display: ${allCommands.length}`);
 
         res.render('commands', { 
             commands: allCommands,
@@ -788,67 +797,16 @@ this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Commands page error:', error);
+        console.error('❌ Commands page error:', error);
         req.flash('error', 'Error loading commands');
         res.redirect('/');
     }
 });
 
-this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        // Get custom commands from MongoDB
-        const customCommands = await this.mongoLogger.db
-            .collection('customCommands')
-            .find({})
-            .sort({ createdAt: -1 })
-            .toArray();
+// ============================================
+// COMMANDS PAGE (main page showing custom commands)
+// ============================================
 
-        console.log('🔍 Debug Info:');
-        console.log('Has commandHandler?', !!this.client.commandHandler);
-        console.log('Has commands Map?', !!this.client.commandHandler?.commands);
-        console.log('Commands size:', this.client.commandHandler?.commands?.size);
-
-        // Get built-in commands from the command handler
-        const builtInCommands = [];
-        if (this.client.commandHandler && this.client.commandHandler.commands) {
-            this.client.commandHandler.commands.forEach((cmd, name) => {
-                console.log('Found command:', name, cmd);
-                builtInCommands.push({
-                    name: name,
-                    description: cmd.description || 'No description',
-                    category: cmd.category || 'general',
-                    enabled: cmd.enabled !== false,
-                    trigger: name,
-                    triggerType: 'command',
-                    responseType: 'builtin',
-                    uses: 0,
-                    type: 'builtin',
-                    _id: `builtin_${name}`
-                });
-            });
-        }
-
-        // Combine both arrays
-        const allCommands = [...customCommands, ...builtInCommands];
-
-        console.log(`📋 Total commands: ${allCommands.length} (${customCommands.length} custom + ${builtInCommands.length} built-in)`);
-
-        res.render('commands', { 
-            commands: allCommands,
-            client: this.client,
-            user: req.user,
-            page: 'commands',
-            messages: {
-                success: req.flash('success'),
-                error: req.flash('error')
-            }
-        });
-    } catch (error) {
-        console.error('Commands page error:', error);
-        req.flash('error', 'Error loading commands');
-        res.redirect('/');
-    }
-});
 
 // Command Settings Route
 this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res) => {
