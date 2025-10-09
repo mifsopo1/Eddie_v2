@@ -645,11 +645,7 @@ class Dashboard {
             }
         });
 
-        // ============================================
-        // COMMANDS PAGE
-        // ============================================
-        
-        // ============================================
+
 // ALL COMMANDS PAGE (Built-in + Custom)
 // ============================================
 
@@ -741,9 +737,6 @@ this.app.get('/commands/all', this.requireAuth.bind(this), async (req, res) => {
     }
 });
 
-// ============================================
-// COMMANDS PAGE (main page showing custom commands)
-// ============================================
 this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
     try {
         // Get custom commands from MongoDB
@@ -920,24 +913,6 @@ this.app.post('/commands/toggle-builtin/:name', this.requireAdmin.bind(this), as
     }
 });
 
-// Toggle custom command (existing route - make sure it returns JSON)
-this.app.post('/commands/toggle/:id', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const { ObjectId } = require('mongodb');
-        const command = await this.mongoLogger.db.collection('customCommands')
-            .findOne({ _id: new ObjectId(req.params.id) });
-        
-        await this.mongoLogger.db.collection('customCommands')
-            .updateOne(
-                { _id: new ObjectId(req.params.id) },
-                { $set: { enabled: !command.enabled } }
-            );
-        
-        res.json({ success: true, enabled: !command.enabled });
-    } catch (error) {
-        res.json({ success: false, error: error.message });
-    }
-});
 
         // ============================================
         // COMMAND ACTIONS
