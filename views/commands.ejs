@@ -731,7 +731,45 @@
         </form>
     </div>
 </div>
-
+<!-- Edit Sticky Message Modal -->
+<div id="editStickyModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 style="color: #fff; margin: 0;">✏️ Edit Sticky Message</h2>
+            <span class="close" onclick="closeEditStickyModal()">&times;</span>
+        </div>
+        <form id="editStickyMessageForm">
+            <input type="hidden" id="editStickyId" name="stickyId">
+            
+            <div class="form-group">
+                <label>Channel *</label>
+                <select name="channelId" id="editStickyChannelId" required>
+                    <option value="">Select Channel...</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Message *</label>
+                <textarea name="message" id="editStickyMessage" rows="6" required placeholder="This message will stay at the bottom of the channel..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Repost Threshold</label>
+                <input type="number" name="threshold" id="editStickyThreshold" value="10" min="1" max="50">
+                <small>Repost after this many messages</small>
+            </div>
+            
+            <div class="form-group">
+                <label><input type="checkbox" name="enabled" id="editStickyEnabled"> Enable</label>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button type="button" onclick="closeEditStickyModal()" class="btn btn-secondary">Cancel</button>
+                <button type="button" onclick="submitEditStickyForm()" class="btn btn-primary">💾 Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
     <!-- Ruleset Modal -->
     <div id="rulesetModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
@@ -1648,6 +1686,7 @@ async function loadStickyMessages() {
                             <h3 style="color: #fff; margin: 0.5rem 0;">#${sticky.channelName || 'Unknown Channel'}</h3>
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-icon" onclick="editSticky('${sticky._id}')" title="Edit">✏️</button>
                             <button class="btn-icon toggle" onclick="toggleSticky('${sticky._id}')" title="Toggle">
                                 ${sticky.enabled ? '⏸️' : '▶️'}
                             </button>
