@@ -46,6 +46,26 @@
         .user-badge.password { background: rgba(250, 166, 26, 0.3); color: #faa61a; }
         .logout-btn { background: rgba(237, 66, 69, 0.2); color: #ed4245; padding: 0.5rem; border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; text-decoration: none; border: 1px solid rgba(237, 66, 69, 0.3); width: 36px; height: 36px; }
         .logout-btn:hover { background: rgba(237, 66, 69, 0.3); transform: scale(1.08); }
+        .login-btn {
+            background: rgba(88, 101, 242, 0.2);
+            color: #5865f2;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            font-weight: 600;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        .login-btn:hover {
+            background: rgba(88, 101, 242, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);
+        }
         @media (max-width: 1400px) {
             .nav-links a span:not(.nav-icon) { display: none; }
             .nav-links a { padding: 0.5rem 0.6rem; }
@@ -256,6 +276,8 @@
             </div>
         </div>
         
+        <% if (user) { %>
+        <!-- Show full navbar for authenticated users -->
         <div class="nav-center">
             <div class="nav-links">
                 <a href="/" class="<%= typeof page !== 'undefined' && page === 'dashboard' ? 'active' : '' %>">
@@ -289,34 +311,40 @@
                     <span class="nav-icon">📈</span> <span>Analytics</span>
                 </a>
                 <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
-                <span class="nav-icon">🎫</span> <span>Appeals</span>
+                    <span class="nav-icon">🎫</span> <span>Appeals</span>
                 </a>
             </div>
         </div>
 
         <div class="nav-user">
-            <% if (user) { %>
-                <div class="user-profile">
-                    <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
-                    <div class="user-details">
-                        <span class="user-name"><%= user.username %></span>
-                        <span class="user-badge admin">Admin</span>
-                    </div>
+            <div class="user-profile">
+                <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
+                <div class="user-details">
+                    <span class="user-name"><%= user.username %></span>
+                    <span class="user-badge admin">Admin</span>
                 </div>
-            <% } else { %>
-                <div class="user-profile">
-                    <div class="user-avatar-placeholder">👤</div>
-                    <div class="user-details">
-                        <span class="user-name">Admin</span>
-                        <span class="user-badge password">Password Auth</span>
-                    </div>
-                </div>
-            <% } %>
-            
+            </div>
             <a href="/logout" class="logout-btn" title="Logout">
                 <span class="nav-icon">🚪</span>
             </a>
         </div>
+        <% } else { %>
+        <!-- Show minimal navbar for guests -->
+        <div class="nav-center">
+            <div class="nav-links">
+                <a href="/submit-appeal" class="active">
+                    <span class="nav-icon">🎫</span> <span>Submit Appeal</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-user">
+            <a href="/login" class="login-btn">
+                <span class="nav-icon">🔑</span>
+                <span>Admin Login</span>
+            </a>
+        </div>
+        <% } %>
     </nav>
     <div class="appeal-form-container">
         <div class="form-header">
