@@ -6,7 +6,7 @@ const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const flash = require('express-flash');
 const path = require('path');
-const EmbedBuilder = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 
 class Dashboard {
     constructor(client, mongoLogger, config) {
@@ -1549,6 +1549,7 @@ this.app.post('/appeals/:id/approve', this.requireAdmin.bind(this), async (req, 
 });
 
 // Deny Appeal
+// Deny Appeal
 this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res) => {
     try {
         const { ObjectId } = require('mongodb');
@@ -1585,6 +1586,7 @@ this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res
         // DM the user
         try {
             const user = await this.client.users.fetch(appeal.userId);
+            const { EmbedBuilder } = require('discord.js');
             const embed = new EmbedBuilder()
                 .setColor('#ed4245')
                 .setTitle('❌ Appeal Denied')
@@ -1595,11 +1597,12 @@ this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res
                 .setTimestamp();
             
             await user.send({ embeds: [embed] });
+            console.log('Denial DM sent to user:', appeal.userId);
         } catch (e) {
-            console.log('Could not DM user about denial');
+            console.error('Could not DM user about denial:', e.message);
         }
         
-        req.flash('success', 'Appeal denied');
+        req.flash('success', 'Appeal denied and user notified');
         res.json({ success: true });
     } catch (error) {
         console.error('Deny appeal error:', error);
