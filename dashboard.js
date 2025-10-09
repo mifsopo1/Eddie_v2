@@ -277,8 +277,8 @@ this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res)
             .map(c => ({ id: c.id, name: c.name }))
             .sort((a, b) => a.name.localeCompare(b.name)) : [];
 
-                res.render('command-settings', {
-            client: client,
+        res.render('command-settings', {
+            client: this.client,
             customizableCommands,
             commandSettings,
             serverSettings,
@@ -291,10 +291,6 @@ this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res)
             })),
             page: 'commands'
         });
-    } catch (error) {
-        console.error('Error loading command settings:', error);
-        res.status(500).send('Error loading command settings');
-    }
     } catch (error) {
         console.error('Error loading command settings:', error);
         res.status(500).send('Error loading command settings');
