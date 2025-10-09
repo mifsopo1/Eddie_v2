@@ -142,29 +142,35 @@
     <div class="container">
         <h1>🔨 Moderation Log</h1>
         
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">🔨</div>
-                <div class="stat-info">
-                    <div class="stat-value"><%= stats.totalBans %></div>
-                    <div class="stat-label">Total Bans</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">🔇</div>
-                <div class="stat-info">
-                    <div class="stat-value"><%= stats.totalMutes %></div>
-                    <div class="stat-label">Total Mutes</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">📋</div>
-                <div class="stat-info">
-                    <div class="stat-value"><%= stats.recentActions %></div>
-                    <div class="stat-label">Actions (7 Days)</div>
-                </div>
-            </div>
+        <!-- Stats Cards -->
+<div class="stats-grid">
+    <a href="/moderation?type=ban" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-icon">🔨</div>
+        <div class="stat-info">
+            <div class="stat-value"><%= stats.totalBans || 0 %></div>
+            <div class="stat-label">Total Bans</div>
+            <div class="stat-change">Click to filter</div>
         </div>
+    </a>
+    
+    <a href="/moderation?type=mute" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-icon">🔇</div>
+        <div class="stat-info">
+            <div class="stat-value"><%= stats.totalMutes || 0 %></div>
+            <div class="stat-label">Total Mutes</div>
+            <div class="stat-change">Click to filter</div>
+        </div>
+    </a>
+    
+    <a href="/moderation?type=all&days=7" class="stat-card" style="text-decoration: none; cursor: pointer;">
+        <div class="stat-icon">📊</div>
+        <div class="stat-info">
+            <div class="stat-value"><%= stats.recentActions || 0 %></div>
+            <div class="stat-label">Actions (7 Days)</div>
+            <div class="stat-change">Click to filter</div>
+        </div>
+    </a>
+</div>
         
         <div class="filter-box">
             <label>Action Type:</label>
