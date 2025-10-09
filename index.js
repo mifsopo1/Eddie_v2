@@ -668,15 +668,12 @@ client.once('ready', async () => {
 
 // Message Create Event
 client.on('messageCreate', async message => {
-    // Ignore bot messages - ADD THIS LINE
-    if (message.author.bot) return;
-    // Command handler - MUST BE FIRST
-    if (!message.author.bot && message.guild) {
-        await commandHandler.handleCommand(message);
-    }
-    
+    // Ignore bot messages - FIRST
     if (message.author.bot) return;
     if (!message.guild) return;
+
+    // Command handler - handle custom commands
+    await commandHandler.handleCommand(message);
 
     // Save attachments when posted
     if (message.attachments.size > 0) {

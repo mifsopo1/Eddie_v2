@@ -5,6 +5,7 @@ class CommandHandler {
     constructor(client, config) {
         this.client = client;
         this.config = config;
+        this.mongoLogger = mongoLogger;
         this.prefix = config.prefix || '!';
         this.commands = new Map();
         this.warnings = new Map();
@@ -2264,51 +2265,158 @@ class CommandHandler {
     }
 
     async handleCommand(message) {
-        // Check for AFK users
-        if (this.afkUsers.has(message.author.id)) {
-            this.afkUsers.delete(message.author.id);
-            message.reply('✅ Welcome back! Your AFK status has been removed.').then(m => {
+    // Check for AFK users
+    if (this.afkUsers.has(message.author.id)) {
+        this.afkUsers.delete(message.author.id);
+        message.reply('✅ Welcome back! Your AFK status has been removed.').then(m => {
+            setTimeout(() => m.delete().catch(() => {}), 5000);
+        });
+    }
+    
+    // Check if anyone mentioned is AFK
+    message.mentions.users.forEach(user => {
+        if (this.afkUsers.has(user.id)) {
+            const afkData = this.afkUsers.get(user.id);
+            message.reply(`💤 ${user.tag} is currently AFK: ${afkData.reason}`).then(m => {
                 setTimeout(() => m.delete().catch(() => {}), 5000);
             });
         }
+    });
+    
+    // ========== CHECK CUSTOM COMMANDS FIRST ==========
+    try {
+        const customCommands = await this.client.mongoLogger.db.collection('customCommands')
+            .find({ enabled: true })
+            .toArray();
         
-        // Check if anyone mentioned is AFK
-        message.mentions.users.forEach(user => {
-            if (this.afkUsers.has(user.id)) {
-                const afkData = this.afkUsers.get(user.id);
-                message.reply(`💤 ${user.tag} is currently AFK: ${afkData.reason}`).then(m => {
-                    setTimeout(() => m.delete().catch(() => {}), 5000);
-                });
+        for (const cmd of customCommands) {
+            let triggered = false;
+            const content = message.content.toLowerCase();
+            
+            // Handle different trigger types
+            if (cmd.triggerType === 'command') {
+                // Command trigger (with prefix)
+                const triggers = Array.isArray(cmd.trigger) ? cmd.trigger : [cmd.trigger];
+                triggered = triggers.some(trigger => 
+                    content.startsWith(this.prefix + trigger.toLowerCase())
+                );
+            } else if (cmd.triggerType === 'exact') {
+                // Exact match
+                const triggers = Array.isArray(cmd.trigger) ? cmd.trigger : [cmd.trigger];
+                triggered = triggers.some(trigger => 
+                    content === trigger.toLowerCase()
+                );
+            } else if (cmd.triggerType === 'contains') {
+                // Contains word/phrase
+                const triggers = Array.isArray(cmd.trigger) ? cmd.trigger : [cmd.trigger];
+                triggered = triggers.some(trigger => 
+                    content.includes(trigger.toLowerCase())
+                );
+            } else if (cmd.triggerType === 'startswith') {
+                // Starts with
+                const triggers = Array.isArray(cmd.trigger) ? cmd.trigger : [cmd.trigger];
+                triggered = triggers.some(trigger => 
+                    content.startsWith(trigger.toLowerCase())
+                );
+            } else if (cmd.triggerType === 'regex') {
+                // Regex pattern
+                try {
+                    const regex = new RegExp(cmd.trigger, 'i');
+                    triggered = regex.test(content);
+                } catch (e) {
+                    console.error('Invalid regex:', cmd.trigger);
+                }
             }
-        });
-        
-        if (!message.content.startsWith(this.prefix)) return;
-        if (message.author.bot) return;
-        
-        const args = message.content.slice(this.prefix.length).trim().split(/ +/);
-        const commandName = args.shift().toLowerCase();
-        
-        console.log(`🔍 Command received: "${commandName}" from ${message.author.tag}`);
-        console.log(`📝 Args:`, args);
-        
-        const command = this.commands.get(commandName) || 
-                       Array.from(this.commands.values()).find(cmd => cmd.aliases?.includes(commandName));
-        
-        if (!command) {
-            console.log(`❌ Command not found: ${commandName}`);
-            return;
+            
+            if (triggered) {
+                console.log(`🎯 Custom command triggered: ${cmd.name}`);
+                
+                // Delete trigger message if enabled
+                if (cmd.deleteTrigger) {
+                    await message.delete().catch(() => {});
+                }
+                
+                // Replace variables in response
+                let response = cmd.response || '';
+                response = response.replace(/{user}/g, message.author.username);
+                response = response.replace(/{user\.mention}/g, `<@${message.author.id}>`);
+                response = response.replace(/{channel}/g, message.channel.name);
+                response = response.replace(/{server}/g, message.guild.name);
+                response = response.replace(/{membercount}/g, message.guild.memberCount);
+                
+                // Handle different response types
+                if (cmd.responseType === 'text') {
+                    await message.channel.send(response);
+                } else if (cmd.responseType === 'embed') {
+                    const embed = new EmbedBuilder()
+                        .setColor(cmd.embedColor || '#5865f2')
+                        .setTitle(cmd.embedTitle || '')
+                        .setDescription(cmd.embedDescription || response);
+                    
+                    if (cmd.embedFooter) {
+                        embed.setFooter({ text: cmd.embedFooter });
+                    }
+                    
+                    await message.channel.send({ embeds: [embed] });
+                } else if (cmd.responseType === 'react') {
+                    await message.react(cmd.reactionEmoji || '👍').catch(() => {});
+                } else if (cmd.responseType === 'multiple') {
+                    if (response) {
+                        await message.channel.send(response);
+                    }
+                    if (cmd.reactionEmoji) {
+                        await message.react(cmd.reactionEmoji).catch(() => {});
+                    }
+                } else if (cmd.responseType === 'dm') {
+                    try {
+                        await message.author.send(response);
+                        await message.react('✅').catch(() => {});
+                    } catch (e) {
+                        await message.reply('❌ I could not DM you!');
+                    }
+                }
+                
+                // Increment usage counter
+                await this.client.mongoLogger.db.collection('customCommands')
+                    .updateOne(
+                        { _id: cmd._id },
+                        { $inc: { uses: 1 } }
+                    );
+                
+                return; // Stop processing after first match
+            }
         }
-        
-        console.log(`✅ Command found: ${command.name}`);
-        
-        try {
-            await command.execute.call(this, message, args);
-            console.log(`✅ Command executed successfully: ${command.name}`);
-        } catch (error) {
-            console.error(`❌ Error executing command ${commandName}:`, error);
-            message.reply('❌ There was an error executing that command!');
-        }
+    } catch (error) {
+        console.error('Error checking custom commands:', error);
     }
+    
+    // ========== HANDLE BUILT-IN COMMANDS ==========
+    if (!message.content.startsWith(this.prefix)) return;
+    
+    const args = message.content.slice(this.prefix.length).trim().split(/ +/);
+    const commandName = args.shift().toLowerCase();
+    
+    console.log(`🔍 Command received: "${commandName}" from ${message.author.tag}`);
+    console.log(`📝 Args:`, args);
+    
+    const command = this.commands.get(commandName) || 
+                   Array.from(this.commands.values()).find(cmd => cmd.aliases?.includes(commandName));
+    
+    if (!command) {
+        console.log(`❌ Command not found: ${commandName}`);
+        return;
+    }
+    
+    console.log(`✅ Command found: ${command.name}`);
+    
+    try {
+        await command.execute.call(this, message, args);
+        console.log(`✅ Command executed successfully: ${command.name}`);
+    } catch (error) {
+        console.error(`❌ Error executing command ${commandName}:`, error);
+        message.reply('❌ There was an error executing that command!');
+    }
+}
 }
 
 module.exports = CommandHandler;
