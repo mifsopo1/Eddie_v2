@@ -462,7 +462,7 @@
                             <p style="color: rgba(255,255,255,0.6); margin: 0; font-size: 0.9rem;">Detects and punishes rapid message spam</p>
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn-icon" title="Edit" onclick="editRuleset('spam')">✏️</button>
+                            <button class="btn-icon" title="Edit" data-action="edit-ruleset" data-id="spam">✏️</button>
                             <button class="btn-icon toggle" title="Toggle">⏸️</button>
                             <button class="btn-icon delete" title="Delete">🗑️</button>
                         </div>
@@ -1982,7 +1982,26 @@ window.onclick = function(event) {
         modal.style.display = 'none';
     }
 }
-
+// Add event delegation for ruleset buttons
+document.addEventListener('click', function(event) {
+    const button = event.target.closest('[data-action]');
+    if (!button) return;
+    
+    const action = button.dataset.action;
+    const id = button.dataset.id;
+    
+    switch(action) {
+        case 'edit-ruleset':
+            editRuleset(id);
+            break;
+        case 'toggle-ruleset':
+            toggleRuleset(id);
+            break;
+        case 'delete-ruleset':
+            deleteRuleset(id);
+            break;
+    }
+});
     </script>
 </body>
 </html>
