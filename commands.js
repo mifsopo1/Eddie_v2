@@ -1512,6 +1512,97 @@ class CommandHandler {
         });
 
         // ========== SERVER MANAGEMENT COMMANDS ==========
+        
+
+
+// List Custom Settings Command
+this.commands.set('listcustom', {
+    name: 'listcustom',
+    description: 'List all customized commands',
+    usage: '!listcustom',
+    aliases: ['customlist', 'customsettings'],
+    category: 'Server Management',
+    permissions: ['Administrator'],
+    execute: async (message) => {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ You need **Administrator** permission!');
+        }
+
+        if (this.commandSettings.size === 0) {
+            return message.reply('ℹ️ No commands have been customized yet!\nUse `!cmdsettings` to customize command messages.');
+        }
+
+        const embed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setTitle('📋 Customized Commands')
+            .setDescription('List of all commands with custom settings')
+            .setTimestamp();
+
+        for (const [cmdName, settings] of this.commandSettings.entries()) {
+            let settingsText = '';
+            
+            if (settings.dmUser !== undefined) {
+                settingsText += `• DM User: ${settings.dmUser ? '✅ Yes' : '❌ No'}\n`;
+            }
+            
+            if (settings.messages) {
+                settingsText += `• Custom Messages: ${Object.keys(settings.messages).length}\n`;
+                Object.keys(settings.messages).forEach(type => {
+                    settingsText += `  - ${type}\n`;
+                });
+            }
+
+            embed.addFields({
+                name: `⚙️ ${cmdName}`,
+                value: settingsText || 'No settings',
+                inline: true
+            });
+        }
+
+        embed.setFooter({ text: 'Use !cmdsettings <command> view for details' });
+        return message.reply({ embeds: [embed] });
+    }
+});
+
+// Reset Command Settings
+this.commands.set('resetcustom', {
+    name: 'resetcustom',
+    description: 'Reset all custom settings for a command',
+    usage: '!resetcustom <command>',
+    aliases: ['clearcustom'],
+    category: 'Server Management',
+    permissions: ['Administrator'],
+    execute: async (message, args) => {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ You need **Administrator** permission!');
+        }
+
+        if (args.length === 0) {
+            return message.reply('❌ Usage: `!resetcustom <command>`\nExample: `!resetcustom kick`');
+        }
+
+        const commandName = args[0].toLowerCase();
+
+        if (!this.commands.has(commandName)) {
+            return message.reply('❌ Command not found!');
+        }
+
+        if (!this.commandSettings.has(commandName)) {
+            return message.reply(`ℹ️ Command **${commandName}** has no custom settings to reset.`);
+        }
+
+        this.commandSettings.delete(commandName);
+        this.saveCommandSettings();
+
+        const embed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('✅ Settings Reset')
+            .setDescription(`All custom settings for **${commandName}** have been reset to defaults`)
+            .setTimestamp();
+
+        return message.reply({ embeds: [embed] });
+    }
+});
 
         // Add Role Command
         this.commands.set('addrole', {
