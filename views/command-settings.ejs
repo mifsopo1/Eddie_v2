@@ -3,345 +3,640 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Command Settings - Discord Bot Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Command Settings - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
     <style>
-        :root {
-            --discord-dark: #2C2F33;
-            --discord-darker: #23272A;
-            --discord-blurple: #5865F2;
-            --discord-green: #57F287;
-            --discord-red: #ED4245;
-        }
-
-        body {
-            background: linear-gradient(135deg, var(--discord-darker) 0%, var(--discord-dark) 100%);
-            min-height: 100vh;
-            color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
+        /* Match your existing navbar styles */
         .navbar {
-            background: var(--discord-darker) !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-
-        .card {
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.75rem 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        .nav-brand { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+        .bot-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(88, 101, 242, 0.5); box-shadow: 0 0 12px rgba(88, 101, 242, 0.3); }
+        .bot-info { display: flex; flex-direction: column; gap: 0.15rem; }
+        .bot-info h2 { color: #fff; font-size: 1.1rem; margin: 0; font-weight: 600; line-height: 1; }
+        .bot-status { color: #43b581; font-size: 0.7rem; font-weight: 500; line-height: 1; }
+        .nav-center { flex: 1; display: flex; justify-content: center; overflow-x: auto; }
+        .nav-links { display: flex; gap: 0.35rem; flex-wrap: nowrap; justify-content: center; }
+        .nav-links a { color: var(--text-secondary); text-decoration: none; padding: 0.5rem 0.85rem; border-radius: 6px; transition: all 0.2s ease; font-weight: 500; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+        .nav-icon { font-size: 0.95rem; }
+        .nav-links a:hover { background: rgba(255, 255, 255, 0.1); color: #fff; transform: translateY(-1px); }
+        .nav-links a.active { background: rgba(88, 101, 242, 0.25); color: var(--primary); box-shadow: 0 2px 8px rgba(88, 101, 242, 0.3); }
+        .nav-user { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+        .user-profile { display: flex; align-items: center; gap: 0.6rem; background: rgba(0, 0, 0, 0.3); padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s ease; }
+        .user-profile:hover { background: rgba(0, 0, 0, 0.4); border-color: rgba(88, 101, 242, 0.5); }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.2); }
+        .user-avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: rgba(88, 101, 242, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; border: 2px solid rgba(255, 255, 255, 0.2); }
+        .user-details { display: flex; flex-direction: column; gap: 0.15rem; }
+        .user-name { color: #fff; font-weight: 600; font-size: 0.85rem; line-height: 1; }
+        .user-badge { font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px; width: fit-content; line-height: 1; }
+        .user-badge.admin { background: rgba(88, 101, 242, 0.3); color: #5865f2; }
+        .user-badge.password { background: rgba(250, 166, 26, 0.3); color: #faa61a; }
+        .logout-btn { background: rgba(237, 66, 69, 0.2); color: var(--danger); padding: 0.5rem; border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; text-decoration: none; border: 1px solid rgba(237, 66, 69, 0.3); width: 36px; height: 36px; }
+        .logout-btn:hover { background: rgba(237, 66, 69, 0.3); transform: scale(1.08); }
+
+        /* Command Settings Specific Styles */
+        .settings-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
         }
 
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(88, 101, 242, 0.3);
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
 
-        .btn-primary {
-            background: var(--discord-blurple);
-            border: none;
-            transition: all 0.3s ease;
+        .settings-header h1 {
+            color: #fff;
+            font-size: 2rem;
+            margin: 0;
         }
 
-        .btn-primary:hover {
-            background: #4752C4;
+        .back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(88, 101, 242, 0.4);
         }
 
-        .btn-success {
-            background: var(--discord-green);
-            border: none;
+        .info-card {
+            background: rgba(88, 101, 242, 0.1);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
         }
 
-        .btn-danger {
-            background: var(--discord-red);
-            border: none;
-        }
-
-        .form-control, .form-select {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        .info-card h3 {
             color: #fff;
-        }
-
-        .form-control:focus, .form-select:focus {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--discord-blurple);
-            color: #fff;
-            box-shadow: 0 0 0 0.25rem rgba(88, 101, 242, 0.25);
-        }
-
-        .form-check-input {
-            background-color: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .form-check-input:checked {
-            background-color: var(--discord-blurple);
-            border-color: var(--discord-blurple);
+            margin: 0 0 1rem 0;
+            font-size: 1.2rem;
         }
 
         .variable-tag {
             display: inline-block;
-            background: var(--discord-blurple);
-            color: white;
-            padding: 3px 8px;
-            border-radius: 5px;
-            font-size: 0.85em;
-            margin: 2px;
+            background: rgba(88, 101, 242, 0.3);
+            color: #5865f2;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.9em;
+            margin: 0.25rem;
             cursor: pointer;
             transition: all 0.2s ease;
+            font-family: 'Courier New', monospace;
         }
 
         .variable-tag:hover {
-            background: #4752C4;
+            background: rgba(88, 101, 242, 0.5);
             transform: scale(1.05);
         }
 
-        .accordion-button {
-            background: rgba(255, 255, 255, 0.05);
-            color: #fff;
-            border: none;
+        .command-accordion {
+            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            overflow: hidden;
         }
 
-        .accordion-button:not(.collapsed) {
-            background: var(--discord-blurple);
-            color: #fff;
+        .accordion-header {
+            padding: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
         }
 
-        .accordion-button:focus {
-            box-shadow: 0 0 0 0.25rem rgba(88, 101, 242, 0.25);
+        .accordion-header:hover {
+            background: rgba(88, 101, 242, 0.1);
+        }
+
+        .accordion-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+        }
+
+        .accordion-title h3 {
+            color: #fff;
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        .command-badge {
+            background: rgba(67, 181, 129, 0.2);
+            color: #43b581;
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .customized-badge {
+            background: rgba(88, 101, 242, 0.3);
+            color: #5865f2;
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .accordion-arrow {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1.5rem;
+            transition: transform 0.3s ease;
+        }
+
+        .accordion-header.active .accordion-arrow {
+            transform: rotate(180deg);
         }
 
         .accordion-body {
-            background: rgba(255, 255, 255, 0.02);
+            padding: 0 1.5rem 1.5rem 1.5rem;
+            display: none;
+        }
+
+        .accordion-body.active {
+            display: block;
+        }
+
+        .settings-group {
+            margin-bottom: 2rem;
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 26px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #5865f2;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        .message-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .message-tab {
+            background: transparent;
+            color: rgba(255, 255, 255, 0.6);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+        }
+
+        .message-tab:hover {
             color: #fff;
+        }
+
+        .message-tab.active {
+            color: #5865f2;
+            border-bottom-color: #5865f2;
+        }
+
+        .message-content {
+            display: none;
+        }
+
+        .message-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: #fff;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #5865f2;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background: #5865f2;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #4752c4;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-danger {
+            background: rgba(237, 66, 69, 0.2);
+            color: #ed4245;
+            border: 1px solid rgba(237, 66, 69, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(237, 66, 69, 0.3);
+        }
+
+        .reset-all {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .alert {
-            border: none;
-            border-radius: 10px;
-        }
-
-        .message-preview {
-            background: rgba(255, 255, 255, 0.05);
-            border-left: 4px solid var(--discord-blurple);
-            padding: 15px;
+            padding: 1rem 1.5rem;
             border-radius: 8px;
-            margin-top: 10px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
-        .nav-tabs .nav-link {
-            color: rgba(255, 255, 255, 0.6);
-            border: none;
-            background: transparent;
+        .alert-success {
+            background: rgba(67, 181, 129, 0.2);
+            border: 1px solid rgba(67, 181, 129, 0.3);
+            color: #43b581;
         }
 
-        .nav-tabs .nav-link.active {
-            color: #fff;
-            background: rgba(88, 101, 242, 0.2);
-            border-bottom: 2px solid var(--discord-blurple);
+        .alert-error {
+            background: rgba(237, 66, 69, 0.2);
+            border: 1px solid rgba(237, 66, 69, 0.3);
+            color: #ed4245;
         }
 
-        .badge {
-            font-weight: 500;
+        @media (max-width: 768px) {
+            .settings-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .message-tabs {
+                flex-wrap: wrap;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <% if (bot && bot.displayAvatarURL) { %>
-                    <img src="<%= bot.displayAvatarURL() %>" alt="Bot" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 10px;">
-                <% } %>
-                <%= bot ? bot.username : 'Discord Bot' %> Dashboard
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/logs"><i class="fas fa-list"></i> Logs</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/commands"><i class="fas fa-terminal"></i> Commands</a>
-                    </li>
-                </ul>
+    <!-- Same Navbar as your commands page -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <img src="<%= bot.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
+            <div class="bot-info">
+                <h2>Eddie's Logger</h2>
+                <span class="bot-status">Online • Monitoring</span>
             </div>
+        </div>
+        
+        <div class="nav-center">
+            <div class="nav-links">
+                <a href="/">
+                    <span class="nav-icon">📊</span> Dashboard
+                </a>
+                <a href="/messages">
+                    <span class="nav-icon">💬</span> Messages
+                </a>
+                <a href="/deleted">
+                    <span class="nav-icon">🗑️</span> Deleted
+                </a>
+                <a href="/members">
+                    <span class="nav-icon">👥</span> Members
+                </a>
+                <a href="/moderation">
+                    <span class="nav-icon">🔨</span> Moderation
+                </a>
+                <a href="/attachments">
+                    <span class="nav-icon">📎</span> Attachments
+                </a>
+                <a href="/voice">
+                    <span class="nav-icon">🔊</span> Voice
+                </a>
+                <a href="/invites">
+                    <span class="nav-icon">🎫</span> Invites
+                </a>
+                <a href="/commands" class="active">
+                    <span class="nav-icon">⚙️</span> Commands
+                </a>
+                <a href="/analytics">
+                    <span class="nav-icon">📈</span> Analytics
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-user">
+            <% if (user) { %>
+                <div class="user-profile">
+                    <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
+                    <div class="user-details">
+                        <span class="user-name"><%= user.username %></span>
+                        <span class="user-badge admin">Admin</span>
+                    </div>
+                </div>
+            <% } else { %>
+                <div class="user-profile">
+                    <div class="user-avatar-placeholder">👤</div>
+                    <div class="user-details">
+                        <span class="user-name">Admin</span>
+                        <span class="user-badge password">Password Auth</span>
+                    </div>
+                </div>
+            <% } %>
+            
+            <a href="/logout" class="logout-btn" title="Logout">
+                <span class="nav-icon">🚪</span>
+            </a>
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <!-- Main Content -->
+    <div class="settings-container">
         <!-- Header -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h1><i class="fas fa-cog"></i> Command Settings</h1>
-                        <p class="text-muted">Customize messages and behavior for moderation commands</p>
-                    </div>
-                    <a href="/commands" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Back to Commands
-                    </a>
-                </div>
-            </div>
+        <div class="settings-header">
+            <h1>⚙️ Command Settings</h1>
+            <a href="/commands" class="back-btn">
+                ← Back to Commands
+            </a>
         </div>
 
-        <!-- Alert for messages -->
+        <!-- Alert Container -->
         <div id="alertContainer"></div>
 
         <!-- Info Card -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5><i class="fas fa-info-circle"></i> Available Variables</h5>
-                <p class="mb-2">Use these variables in your custom messages:</p>
-                <div>
-                    <span class="variable-tag" onclick="copyVariable('{server}')">{server}</span>
-                    <span class="variable-tag" onclick="copyVariable('{user}')">{user}</span>
-                    <span class="variable-tag" onclick="copyVariable('{reason}')">{reason}</span>
-                    <span class="variable-tag" onclick="copyVariable('{moderator}')">{moderator}</span>
-                </div>
-                <small class="text-muted mt-2 d-block">Click on a variable to copy it</small>
+        <div class="info-card">
+            <h3>ℹ️ Available Variables</h3>
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">Click on a variable to copy it to your clipboard:</p>
+            <div>
+                <span class="variable-tag" onclick="copyVariable('{server}')">{server}</span>
+                <span class="variable-tag" onclick="copyVariable('{user}')">{user}</span>
+                <span class="variable-tag" onclick="copyVariable('{reason}')">{reason}</span>
+                <span class="variable-tag" onclick="copyVariable('{moderator}')">{moderator}</span>
             </div>
         </div>
 
         <!-- Commands Accordion -->
-        <div class="accordion" id="commandsAccordion">
-            <% customizableCommands.forEach((cmd, index) => { %>
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="heading<%= index %>">
-                        <button class="accordion-button <%= index !== 0 ? 'collapsed' : '' %>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse<%= index %>">
-                            <i class="fas fa-terminal me-2"></i>
-                            <strong><%= cmd.name %></strong>
-                            <span class="badge bg-info ms-2"><%= cmd.category %></span>
-                            <% if (commandSettings[cmd.name]) { %>
-                                <span class="badge bg-success ms-2">
-                                    <i class="fas fa-check"></i> Customized
-                                </span>
-                            <% } %>
-                        </button>
-                    </h2>
-                    <div id="collapse<%= index %>" class="accordion-collapse collapse <%= index === 0 ? 'show' : '' %>">
-                        <div class="accordion-body">
-                            <p class="text-muted"><%= cmd.description %></p>
+        <% customizableCommands.forEach((cmd, index) => { %>
+            <div class="command-accordion">
+                <div class="accordion-header" onclick="toggleAccordion(<%= index %>)">
+                    <div class="accordion-title">
+                        <h3><%= cmd.name %></h3>
+                        <span class="command-badge"><%= cmd.category %></span>
+                        <% if (commandSettings[cmd.name]) { %>
+                            <span class="customized-badge">✓ Customized</span>
+                        <% } %>
+                    </div>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-body" id="accordion-<%= index %>">
+                    <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem;"><%= cmd.description %></p>
 
-                            <!-- DM Settings -->
-                            <div class="form-check form-switch mb-3">
-                                <input class="form-check-input" type="checkbox" id="dmUser_<%= cmd.name %>" 
-                                    <%= commandSettings[cmd.name]?.dmUser !== false ? 'checked' : '' %>
-                                    onchange="updateDMSetting('<%= cmd.name %>', this.checked)">
-                                <label class="form-check-label" for="dmUser_<%= cmd.name %>">
-                                    <i class="fas fa-envelope"></i> Send DM to user
-                                </label>
+                    <!-- DM Toggle -->
+                    <div class="toggle-switch">
+                        <label class="switch">
+                            <input type="checkbox" id="dmUser_<%= cmd.name %>" 
+                                <%= commandSettings[cmd.name]?.dmUser !== false ? 'checked' : '' %>
+                                onchange="updateDMSetting('<%= cmd.name %>', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                        <label for="dmUser_<%= cmd.name %>" style="color: #fff; cursor: pointer;">
+                            📧 Send DM to user when this command is used
+                        </label>
+                    </div>
+
+                    <!-- Message Tabs -->
+                    <div class="message-tabs">
+                        <button class="message-tab active" onclick="switchTab(<%= index %>, 'dmMessage')">DM Message</button>
+                        <button class="message-tab" onclick="switchTab(<%= index %>, 'noPermission')">No Permission</button>
+                        <button class="message-tab" onclick="switchTab(<%= index %>, 'noTarget')">No Target</button>
+                        <button class="message-tab" onclick="switchTab(<%= index %>, 'error')">Error</button>
+                    </div>
+
+                    <!-- DM Message -->
+                    <div class="message-content active" id="tab-<%= index %>-dmMessage">
+                        <div class="form-group">
+                            <label>Custom DM Message</label>
+                            <textarea id="msg_dmMessage_<%= cmd.name %>" 
+                                placeholder="You have been <%= cmd.name %>ed from {server}. Reason: {reason}"><%= commandSettings[cmd.name]?.messages?.dmMessage || '' %></textarea>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" onclick="saveMessage('<%= cmd.name %>', 'dmMessage')">
+                                    💾 Save
+                                </button>
+                                <button class="btn btn-secondary" onclick="resetMessage('<%= cmd.name %>', 'dmMessage')">
+                                    ↺ Reset
+                                </button>
                             </div>
-
-                            <!-- Message Types Tabs -->
-                            <ul class="nav nav-tabs mb-3" role="tablist">
-                                <li class="nav-item">
-                                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dmMessage_<%= cmd.name %>">
-                                        DM Message
-                                    </button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#noPermission_<%= cmd.name %>">
-                                        No Permission
-                                    </button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#noTarget_<%= cmd.name %>">
-                                        No Target
-                                    </button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#error_<%= cmd.name %>">
-                                        Error
-                                    </button>
-                                </li>
-                            </ul>
-
-                            <div class="tab-content">
-                                <!-- DM Message -->
-                                <div class="tab-pane fade show active" id="dmMessage_<%= cmd.name %>">
-                                    <label class="form-label">Custom DM Message</label>
-                                    <textarea class="form-control mb-2" rows="3" id="msg_dmMessage_<%= cmd.name %>" 
-                                        placeholder="You have been <%= cmd.name %>ed from {server}. Reason: {reason}"><%= commandSettings[cmd.name]?.messages?.dmMessage || '' %></textarea>
-                                    <button class="btn btn-primary btn-sm" onclick="saveMessage('<%= cmd.name %>', 'dmMessage')">
-                                        <i class="fas fa-save"></i> Save
-                                    </button>
-                                    <button class="btn btn-secondary btn-sm" onclick="resetMessage('<%= cmd.name %>', 'dmMessage')">
-                                        <i class="fas fa-undo"></i> Reset
-                                    </button>
-                                </div>
-
-                                <!-- No Permission -->
-                                <div class="tab-pane fade" id="noPermission_<%= cmd.name %>">
-                                    <label class="form-label">No Permission Message</label>
-                                    <textarea class="form-control mb-2" rows="3" id="msg_noPermission_<%= cmd.name %>" 
-                                        placeholder="❌ You need **<%= cmd.name.charAt(0).toUpperCase() + cmd.name.slice(1) %> Members** permission!"><%= commandSettings[cmd.name]?.messages?.noPermission || '' %></textarea>
-                                    <button class="btn btn-primary btn-sm" onclick="saveMessage('<%= cmd.name %>', 'noPermission')">
-                                        <i class="fas fa-save"></i> Save
-                                    </button>
-                                    <button class="btn btn-secondary btn-sm" onclick="resetMessage('<%= cmd.name %>', 'noPermission')">
-                                        <i class="fas fa-undo"></i> Reset
-                                    </button>
-                                </div>
-
-                                <!-- No Target -->
-                                <div class="tab-pane fade" id="noTarget_<%= cmd.name %>">
-                                    <label class="form-label">No Target Message</label>
-                                    <textarea class="form-control mb-2" rows="3" id="msg_noTarget_<%= cmd.name %>" 
-                                        placeholder="❌ Please mention a user to <%= cmd.name %>!"><%= commandSettings[cmd.name]?.messages?.noTarget || '' %></textarea>
-                                    <button class="btn btn-primary btn-sm" onclick="saveMessage('<%= cmd.name %>', 'noTarget')">
-                                        <i class="fas fa-save"></i> Save
-                                    </button>
-                                    <button class="btn btn-secondary btn-sm" onclick="resetMessage('<%= cmd.name %>', 'noTarget')">
-                                        <i class="fas fa-undo"></i> Reset
-                                    </button>
-                                </div>
-
-                                <!-- Error -->
-                                <div class="tab-pane fade" id="error_<%= cmd.name %>">
-                                    <label class="form-label">Error Message</label>
-                                    <textarea class="form-control mb-2" rows="3" id="msg_error_<%= cmd.name %>" 
-                                        placeholder="❌ Failed to <%= cmd.name %> user!"><%= commandSettings[cmd.name]?.messages?.error || '' %></textarea>
-                                    <button class="btn btn-primary btn-sm" onclick="saveMessage('<%= cmd.name %>', 'error')">
-                                        <i class="fas fa-save"></i> Save
-                                    </button>
-                                    <button class="btn btn-secondary btn-sm" onclick="resetMessage('<%= cmd.name %>', 'error')">
-                                        <i class="fas fa-undo"></i> Reset
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Reset All Button -->
-                            <hr>
-                            <button class="btn btn-danger btn-sm" onclick="resetCommand('<%= cmd.name %>')">
-                                <i class="fas fa-trash"></i> Reset All Settings for this Command
-                            </button>
                         </div>
                     </div>
+
+                    <!-- No Permission -->
+                    <div class="message-content" id="tab-<%= index %>-noPermission">
+                        <div class="form-group">
+                            <label>No Permission Message</label>
+                            <textarea id="msg_noPermission_<%= cmd.name %>" 
+                                placeholder="❌ You need **<%= cmd.name.charAt(0).toUpperCase() + cmd.name.slice(1) %> Members** permission!"><%= commandSettings[cmd.name]?.messages?.noPermission || '' %></textarea>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" onclick="saveMessage('<%= cmd.name %>', 'noPermission')">
+                                    💾 Save
+                                </button>
+                                <button class="btn btn-secondary" onclick="resetMessage('<%= cmd.name %>', 'noPermission')">
+                                    ↺ Reset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- No Target -->
+                    <div class="message-content" id="tab-<%= index %>-noTarget">
+                        <div class="form-group">
+                            <label>No Target Message</label>
+                            <textarea id="msg_noTarget_<%= cmd.name %>" 
+                                placeholder="❌ Please mention a user to <%= cmd.name %>!"><%= commandSettings[cmd.name]?.messages?.noTarget || '' %></textarea>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" onclick="saveMessage('<%= cmd.name %>', 'noTarget')">
+                                    💾 Save
+                                </button>
+                                <button class="btn btn-secondary" onclick="resetMessage('<%= cmd.name %>', 'noTarget')">
+                                    ↺ Reset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Error -->
+                    <div class="message-content" id="tab-<%= index %>-error">
+                        <div class="form-group">
+                            <label>Error Message</label>
+                            <textarea id="msg_error_<%= cmd.name %>" 
+                                placeholder="❌ Failed to <%= cmd.name %> user!"><%= commandSettings[cmd.name]?.messages?.error || '' %></textarea>
+                            <div class="btn-group">
+                                <button class="btn btn-primary" onclick="saveMessage('<%= cmd.name %>', 'error')">
+                                    💾 Save
+                                </button>
+                                <button class="btn btn-secondary" onclick="resetMessage('<%= cmd.name %>', 'error')">
+                                    ↺ Reset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reset All Button -->
+                    <div class="reset-all">
+                        <button class="btn btn-danger" onclick="resetCommand('<%= cmd.name %>')">
+                            🗑️ Reset All Settings for this Command
+                        </button>
+                    </div>
                 </div>
-            <% }) %>
-        </div>
+            </div>
+        <% }) %>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        function toggleAccordion(index) {
+            const header = document.querySelectorAll('.accordion-header')[index];
+            const body = document.getElementById(`accordion-${index}`);
+            
+            header.classList.toggle('active');
+            body.classList.toggle('active');
+        }
+
+        function switchTab(accordionIndex, tabName) {
+            const tabs = document.querySelectorAll(`#accordion-${accordionIndex} .message-tab`);
+            const contents = document.querySelectorAll(`#accordion-${accordionIndex} .message-content`);
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${accordionIndex}-${tabName}`).classList.add('active');
+        }
+
         function showAlert(message, type = 'success') {
             const alertHtml = `
-                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <div class="alert alert-${type}">
+                    <span>${type === 'success' ? '✅' : '❌'}</span>
+                    <span>${message}</span>
                 </div>
             `;
             document.getElementById('alertContainer').innerHTML = alertHtml;
@@ -352,7 +647,7 @@
 
         function copyVariable(variable) {
             navigator.clipboard.writeText(variable);
-            showAlert(`Copied ${variable} to clipboard!`, 'info');
+            showAlert(`Copied ${variable} to clipboard!`);
         }
 
         async function updateDMSetting(command, enabled) {
@@ -370,11 +665,11 @@
                 if (data.success) {
                     showAlert(`DM setting for ${command} updated!`, 'success');
                 } else {
-                    showAlert('Failed to update DM setting', 'danger');
+                    showAlert('Failed to update DM setting', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showAlert('Error updating DM setting', 'danger');
+                showAlert('Error updating DM setting', 'error');
             }
         }
 
@@ -400,11 +695,11 @@
                 if (data.success) {
                     showAlert(`Custom ${messageType} message saved for ${command}!`, 'success');
                 } else {
-                    showAlert('Failed to save message', 'danger');
+                    showAlert('Failed to save message', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showAlert('Error saving message', 'danger');
+                showAlert('Error saving message', 'error');
             }
         }
 
@@ -434,11 +729,11 @@
                     showAlert(`All settings reset for ${command}!`, 'success');
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showAlert('Failed to reset command', 'danger');
+                    showAlert('Failed to reset command', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showAlert('Error resetting command', 'danger');
+                showAlert('Error resetting command', 'error');
             }
         }
     </script>
