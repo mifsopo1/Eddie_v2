@@ -1227,7 +1227,6 @@ this.app.post('/commands/edit/:id', this.requireAdmin.bind(this), async (req, re
                 res.json({ success: false, error: error.message });
             }
         });
-    }
 
     // ============================================
 // APPEALS SYSTEM
@@ -1589,63 +1588,28 @@ this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res
     }
 });
 
-// Helper function for stats
-// ADD THIS METHOD RIGHT AFTER getModerationStats:
-async getAppealsStats() {
-    try {
-        const [pending, approved, denied, reviewing] = await Promise.all([
-            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'pending' }),
-            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'approved' }),
-            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'denied' }),
-            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'reviewing' })
-        ]);
-        
-        return { 
-            pending, 
-            approved, 
-            denied, 
-            reviewing, 
-            total: pending + approved + denied + reviewing 
-        };
-    } catch (error) {
-        console.error('Error getting appeals stats:', error);
-        return { pending: 0, approved: 0, denied: 0, reviewing: 0, total: 0 };
-    }
-}
+    } // Close setupRoutes() method
 
-    // ============================================
-    // HELPER METHODS
-    // ============================================
-    
-    async getInviteLeaderboard() {
+    // Helper method - OUTSIDE of setupRoutes()
+    async getAppealsStats() {
         try {
-            return await this.mongoLogger.db.collection('members').aggregate([
-                { 
-                    $match: { 
-                        eventType: 'join',
-                        'inviteData.inviterId': { $exists: true }
-                    }
-                },
-                {
-                    $group: {
-                        _id: '$inviteData.inviterId',
-                        inviter: { $first: '$inviteData.inviter' },
-                        totalInvites: { $sum: 1 },
-                        members: { 
-                            $push: { 
-                                userId: '$userId', 
-                                userName: '$userName',
-                                timestamp: '$timestamp' 
-                            } 
-                        }
-                    }
-                },
-                { $sort: { totalInvites: -1 } },
-                { $limit: 50 }
-            ]).toArray();
+            const [pending, approved, denied, reviewing] = await Promise.all([
+                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'pending' }),
+                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'approved' }),
+                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'denied' }),
+                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'reviewing' })
+            ]);
+            
+            return { 
+                pending, 
+                approved, 
+                denied, 
+                reviewing, 
+                total: pending + approved + denied + reviewing 
+            };
         } catch (error) {
-            console.error('Error getting invite leaderboard:', error);
-            return [];
+            console.error('Error getting appeals stats:', error);
+            return { pending: 0, approved: 0, denied: 0, reviewing: 0, total: 0 };
         }
     }
 
