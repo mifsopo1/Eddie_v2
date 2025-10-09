@@ -924,33 +924,51 @@ this.app.post('/commands/toggle/:id', this.requireAdmin.bind(this), async (req, 
 });
 
         this.app.post('/commands/create', this.requireAdmin.bind(this), async (req, res) => {
-            try {
-                const triggers = req.body.trigger.split(',').map(t => t.trim().toLowerCase());
-                
-                const command = {
-                    name: req.body.name,
-                    category: req.body.category || 'general',
-                    description: req.body.description || '',
-                    triggerType: req.body.triggerType || 'command',
-                    trigger: triggers.length === 1 ? triggers[0] : triggers,
-                    responseType: req.body.responseType || 'text',
-                    response: req.body.response || '',
-                    enabled: req.body.enabled === 'on',
-                    deleteTrigger: req.body.deleteTrigger === 'on',
-                    createdBy: req.user?.id || 'admin',
-                    createdAt: new Date(),
-                    uses: 0
-                };
-                
-                await this.mongoLogger.db.collection('customCommands').insertOne(command);
-                req.flash('success', `Command "${req.body.name}" created!`);
-                res.redirect('/commands');
-            } catch (error) {
-                console.error('Create command error:', error);
-                req.flash('error', 'Error creating command');
-                res.redirect('/commands');
-            }
-        });
+    try {
+        const triggers = req.body.trigger.split(',').map(t => t.trim().toLowerCase());
+        
+        // Get role arrays from form
+        let requiredRoles = [];
+        let exemptRoles = [];
+        
+        if (req.body.requiredRoles) {
+            requiredRoles = Array.isArray(req.body.requiredRoles) 
+                ? req.body.requiredRoles 
+                : [req.body.requiredRoles];
+        }
+        
+        if (req.body.exemptRoles) {
+            exemptRoles = Array.isArray(req.body.exemptRoles) 
+                ? req.body.exemptRoles 
+                : [req.body.exemptRoles];
+        }
+        
+        const command = {
+            name: req.body.name,
+            category: req.body.category || 'general',
+            description: req.body.description || '',
+            triggerType: req.body.triggerType || 'command',
+            trigger: triggers.length === 1 ? triggers[0] : triggers,
+            responseType: req.body.responseType || 'text',
+            response: req.body.response || '',
+            enabled: req.body.enabled === 'on',
+            deleteTrigger: req.body.deleteTrigger === 'on',
+            requiredRoles: requiredRoles,
+            exemptRoles: exemptRoles,
+            createdBy: req.user?.id || 'admin',
+            createdAt: new Date(),
+            uses: 0
+        };
+        
+        await this.mongoLogger.db.collection('customCommands').insertOne(command);
+        req.flash('success', `Command "${req.body.name}" created!`);
+        res.redirect('/commands');
+    } catch (error) {
+        console.error('Create command error:', error);
+        req.flash('error', 'Error creating command');
+        res.redirect('/commands');
+    }
+});
 
         // Get single command (API) - FIXED
 this.app.get('/api/commands/:id', async (req, res) => {

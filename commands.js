@@ -2,30 +2,55 @@ const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs');
 
 class CommandHandler {
-    constructor(client, config, mongoLogger) {  // Add mongoLogger parameter
-    this.client = client;
-    this.config = config;
-    this.mongoLogger = mongoLogger;  // Now it's defined
-    this.prefix = config.prefix || '!';
-    this.commands = new Map();
-    this.warnings = new Map();
-    this.afkUsers = new Map();
-    this.reminders = new Map();
-    this.logChannels = {};
-    this.commandSettings = new Map();
-    
-    this.loadWarnings();
-    this.loadCommandSettings();
-    this.registerCommands();
-    
-    console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
-}
+    constructor(client, config, mongoLogger) {
+        this.client = client;
+        this.config = config;
+        this.mongoLogger = mongoLogger;
+        this.prefix = config.prefix || '!';
+        this.commands = new Map();
+        this.warnings = new Map();
+        this.afkUsers = new Map();
+        this.reminders = new Map();
+        this.logChannels = {};
+        this.commandSettings = new Map();
+        
+        this.loadWarnings();
+        this.loadCommandSettings();
+        this.registerCommands();
+        
+        console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
+    }
+
+    // Add this method AFTER the constructor
+    checkRolePermissions(member, command) {
+        // If no role requirements, allow everyone
+        if (!command.requiredRoles || command.requiredRoles.length === 0) {
+            return true;
+        }
+        
+        // Check if user has an exempt role (bypass all requirements)
+        if (command.exemptRoles && command.exemptRoles.length > 0) {
+            const hasExemptRole = member.roles.cache.some(role => 
+                command.exemptRoles.includes(role.id)
+            );
+            if (hasExemptRole) return true;
+        }
+        
+        // Check if user has at least one required role
+        const hasRequiredRole = member.roles.cache.some(role => 
+            command.requiredRoles.includes(role.id)
+        );
+        
+        return hasRequiredRole;
+    }
 
     // Add method to set log channels from index.js
     setLogChannels(logChannels) {
         this.logChannels = logChannels;
         console.log('✅ Log channels linked to command handler');
     }
+
+    // ... rest of your methods continue here
 
     // Helper method to log moderation actions
     async logModerationAction(embed) {

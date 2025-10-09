@@ -183,90 +183,108 @@
         </div>
 
         <!-- Create Command Form (Hidden by default) -->
-        <div class="section" id="createCommandSection" style="display: none;">
-            <h2 class="section-title">📝 Create New Command</h2>
-            <form method="POST" action="/commands/create">
-                <div class="form-grid">
-                    <!-- Left Column -->
-                    <div>
-                        <div class="form-group">
-                            <label>Command Name *</label>
-                            <input type="text" name="name" placeholder="My Command" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Category</label>
-                            <select name="category">
-                                <option value="general">General</option>
-                                <option value="fun">Fun</option>
-                                <option value="moderation">Moderation</option>
-                                <option value="info">Info</option>
-                                <option value="utility">Utility</option>
-                                <option value="custom">Custom</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Description</label>
-                            <textarea name="description" rows="2" placeholder="What does this command do?"></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Trigger Type</label>
-                            <select name="triggerType">
-                                <option value="command">Command (!hello)</option>
-                                <option value="exact">Exact Match</option>
-                                <option value="contains">Contains Text</option>
-                                <option value="startswith">Starts With</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Trigger Text *</label>
-                            <input type="text" name="trigger" placeholder="hello, hi, hey" required>
-                            <small>Separate multiple triggers with commas</small>
-                        </div>
-                    </div>
-
-                    <!-- Right Column -->
-                    <div>
-                        <div class="form-group">
-                            <label>Response Type</label>
-                            <select name="responseType">
-                                <option value="text">Text Message</option>
-                                <option value="embed">Embed</option>
-                                <option value="react">Reaction Only</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Message Content</label>
-                            <textarea name="response" rows="4" placeholder="Hello {user}! Welcome to {server}"></textarea>
-                            <small>Variables: {user}, {channel}, {server}, {membercount}</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" name="enabled" checked>
-                                Enabled
-                            </label>
-                        </div>
-
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" name="deleteTrigger">
-                                Delete Trigger Message
-                            </label>
-                        </div>
-                    </div>
+<div class="section" id="createCommandSection" style="display: none;">
+    <h2 class="section-title">📝 Create New Command</h2>
+    <form method="POST" action="/commands/create">
+        <div class="form-grid">
+            <!-- Left Column -->
+            <div>
+                <div class="form-group">
+                    <label>Command Name *</label>
+                    <input type="text" name="name" placeholder="My Command" required>
                 </div>
                 
-                <div class="form-actions">
-                    <button type="button" onclick="toggleCreateForm()" class="btn btn-secondary">Cancel</button>
-                    <button type="submit" class="btn btn-primary btn-large">💾 Create Command</button>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select name="category">
+                        <option value="general">General</option>
+                        <option value="fun">Fun</option>
+                        <option value="moderation">Moderation</option>
+                        <option value="info">Info</option>
+                        <option value="utility">Utility</option>
+                        <option value="custom">Custom</option>
+                    </select>
                 </div>
-            </form>
+                
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" rows="2" placeholder="What does this command do?"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Trigger Type</label>
+                    <select name="triggerType">
+                        <option value="command">Command (!hello)</option>
+                        <option value="exact">Exact Match</option>
+                        <option value="contains">Contains Text</option>
+                        <option value="startswith">Starts With</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Trigger Text *</label>
+                    <input type="text" name="trigger" placeholder="hello, hi, hey" required>
+                    <small>Separate multiple triggers with commas</small>
+                </div>
+
+                <!-- Role Requirements -->
+                <div class="form-group">
+                    <label>Required Roles <span style="color: rgba(255,255,255,0.5);">(optional)</span></label>
+                    <select name="requiredRoles" id="requiredRolesSelect" multiple style="height: 120px;">
+                        <!-- Roles will be loaded via JavaScript -->
+                    </select>
+                    <small>User must have at least ONE of these roles to use the command</small>
+                </div>
+
+                <!-- Role Exemptions -->
+                <div class="form-group">
+                    <label>Exempt Roles <span style="color: rgba(255,255,255,0.5);">(optional)</span></label>
+                    <select name="exemptRoles" id="exemptRolesSelect" multiple style="height: 120px;">
+                        <!-- Roles will be loaded via JavaScript -->
+                    </select>
+                    <small>Users with these roles can use the command regardless of requirements</small>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div>
+                <div class="form-group">
+                    <label>Response Type</label>
+                    <select name="responseType">
+                        <option value="text">Text Message</option>
+                        <option value="embed">Embed</option>
+                        <option value="react">Reaction Only</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Message Content</label>
+                    <textarea name="response" rows="4" placeholder="Hello {user}! Welcome to {server}"></textarea>
+                    <small>Variables: {user}, {channel}, {server}, {membercount}</small>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="enabled" checked>
+                        Enabled
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="deleteTrigger">
+                        Delete Trigger Message
+                    </label>
+                </div>
+            </div>
         </div>
+        
+        <div class="form-actions">
+            <button type="button" onclick="toggleCreateForm()" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-large">💾 Create Command</button>
+        </div>
+    </form>
+</div>
 
         <!-- Existing Commands -->
         <div class="section">
@@ -469,6 +487,40 @@
             form.style.display = form.style.display === 'none' ? 'block' : 'none';
         }
 
+        // Load roles for the create form
+async function loadRolesForCreate() {
+    try {
+        const response = await fetch('/api/roles');
+        const result = await response.json();
+        
+        if (result.success) {
+            const requiredSelect = document.getElementById('requiredRolesSelect');
+            const exemptSelect = document.getElementById('exemptRolesSelect');
+            
+            result.roles.forEach(role => {
+                // Add to required roles
+                const option1 = document.createElement('option');
+                option1.value = role.id;
+                option1.textContent = role.name;
+                option1.style.color = role.color;
+                requiredSelect.appendChild(option1);
+                
+                // Add to exempt roles
+                const option2 = document.createElement('option');
+                option2.value = role.id;
+                option2.textContent = role.name;
+                option2.style.color = role.color;
+                exemptSelect.appendChild(option2);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading roles:', error);
+    }
+}
+
+// Load roles when page loads
+window.addEventListener('DOMContentLoaded', loadRolesForCreate);
+        
         // Filter commands by category
         function filterCommands(category) {
             const commands = document.querySelectorAll('.command-card');
