@@ -18,13 +18,13 @@ const client = new Client({
     ]
 });
 
-// Create command handler
-const CommandHandler = require('./commands');
-const commandHandler = new CommandHandler(client, config, mongoLogger);
-
-// MongoDB and Dashboard
+// MongoDB and Dashboard - INITIALIZE FIRST
 let mongoLogger = null;
 let dashboard = null;
+
+// Command handler - DECLARE BUT DON'T INITIALIZE YET
+const CommandHandler = require('./commands');
+let commandHandler = null;  // Changed from const to let, set to null
 
 // Store log channels
 const logChannels = {};
@@ -590,6 +590,10 @@ client.once('ready', async () => {
         if (connected) {
             console.log('✅ MongoDB initialized successfully');
             
+            // Initialize CommandHandler AFTER mongoLogger is connected
+            commandHandler = new CommandHandler(client, config, mongoLogger);
+            console.log('✅ Command handler initialized');
+            
             // Start Dashboard
             if (config.dashboard && config.dashboard.enabled) {
                 dashboard = new Dashboard(client, mongoLogger, config);
@@ -603,8 +607,10 @@ client.once('ready', async () => {
     loadMemberInvites();
     
     // Link log channels to command handler
-    commandHandler.setLogChannels(logChannels);
-    console.log('✅ Log channels linked to command handler');
+    if (commandHandler) {
+        commandHandler.setLogChannels(logChannels);
+        console.log('✅ Log channels linked to command handler');
+    }
     
     console.log('\n📋 Loading log channels...');
     for (const [key, channelId] of Object.entries(config.logChannels)) {
