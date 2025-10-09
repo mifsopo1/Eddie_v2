@@ -800,1002 +800,1018 @@
     </div>
 
     <script>
-        // ============================================
-        // COMMANDS APP - ALL FUNCTIONS IN ONE NAMESPACE
-        // ============================================
-        (function() {
-            'use strict';
+    // ============================================
+    // COMMANDS APP - INITIALIZE IMMEDIATELY
+    // ============================================
+    
+    // Create global app object FIRST
+    window.commandsApp = {
+        rolesData: <%- JSON.stringify(roles || []) %>,
+        selectedRequiredRoles: new Set(),
+        selectedExemptRoles: new Set(),
+        
+        // Initialize app
+        init: function() {
+            console.log('✅ Commands App initialized');
+            this.initializeRoleDropdowns();
+            this.loadRoleNames();
+            this.setupEventListeners();
+        },
+        
+        // Setup event listeners
+        setupEventListeners: function() {
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', (event) => {
+                if (!event.target.closest('.role-selector')) {
+                    document.querySelectorAll('.role-dropdown').forEach(dropdown => {
+                        dropdown.classList.remove('active');
+                    });
+                }
+            });
             
-            // Global app object
-            const CommandsApp = {
-                rolesData: <%- JSON.stringify(roles || []) %>,
-                selectedRequiredRoles: new Set(),
-                selectedExemptRoles: new Set(),
-                
-                // Initialize app
-                init: function() {
-                    console.log('✅ Commands App initialized');
-                    this.initializeRoleDropdowns();
-                    this.loadRoleNames();
-                    this.setupEventListeners();
-                },
-                
-                // Setup event listeners
-                setupEventListeners: function() {
-                    // Close dropdowns when clicking outside
-                    document.addEventListener('click', (event) => {
-                        if (!event.target.closest('.role-selector')) {
-                            document.querySelectorAll('.role-dropdown').forEach(dropdown => {
-                                dropdown.classList.remove('active');
-                            });
-                        }
-                    });
-                    
-                    // Close modals when clicking outside
-                    window.onclick = (event) => {
-                        if (event.target.classList.contains('modal')) {
-                            event.target.style.display = 'none';
-                        }
-                    };
-                },
-                
-                // Role selector functions
-                initializeRoleDropdowns: function() {
-                    const requiredDropdown = document.getElementById('requiredRoleDropdown');
-                    const exemptDropdown = document.getElementById('exemptRoleDropdown');
-                    
-                    if (requiredDropdown && exemptDropdown) {
-                        this.rolesData.forEach(role => {
-                            const requiredOption = this.createRoleOption(role, 'required');
-                            const exemptOption = this.createRoleOption(role, 'exempt');
-                            requiredDropdown.appendChild(requiredOption);
-                            exemptDropdown.appendChild(exemptOption);
-                        });
-                    }
-                },
-                
-                createRoleOption: function(role, type) {
-                    const option = document.createElement('div');
-                    option.className = 'role-option';
-                    option.textContent = role.name;
-                    option.onclick = () => this.toggleRole(role.id, role.name, type);
-                    return option;
-                },
-                
-                toggleRoleDropdown: function(type) {
-                    const dropdown = document.getElementById(`${type}RoleDropdown`);
-                    if (dropdown) {
-                        dropdown.classList.toggle('active');
-                        
-                        const otherType = type === 'required' ? 'exempt' : 'required';
-                        const otherDropdown = document.getElementById(`${otherType}RoleDropdown`);
-                        if (otherDropdown) {
-                            otherDropdown.classList.remove('active');
-                        }
-                    }
-                },
-                
-                toggleRole: function(roleId, roleName, type) {
-                    const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
-                    
-                    if (selectedSet.has(roleId)) {
-                        selectedSet.delete(roleId);
-                    } else {
-                        selectedSet.add(roleId);
-                    }
-                    
-                    this.updateRoleTags(type);
-                    this.updateRoleInput(type);
-                },
-                
-                updateRoleTags: function(type) {
-                    const tagsContainer = document.getElementById(`${type}RoleTags`);
-                    const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
-                    
-                    if (!tagsContainer) return;
-                    
-                    if (selectedSet.size === 0) {
-                        tagsContainer.innerHTML = '<span style="color: rgba(255,255,255,0.5);">Click to select roles...</span>';
-                        return;
-                    }
-                    
-                    tagsContainer.innerHTML = '';
-                    selectedSet.forEach(roleId => {
-                        const role = this.rolesData.find(r => r.id === roleId);
-                        if (role) {
-                            const tag = document.createElement('div');
-                            tag.className = 'role-tag';
-                            tag.innerHTML = `
-                                ${role.name}
-                                <span class="role-tag-remove" onclick="event.stopPropagation(); window.commandsApp.removeRole('${roleId}', '${type}')">×</span>
-                            `;tagsContainer.appendChild(tag);
-                        }
-                    });
-                },
-                
-                removeRole: function(roleId, type) {
-                    const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
-                    selectedSet.delete(roleId);
-                    this.updateRoleTags(type);
-                    this.updateRoleInput(type);
-                },
-                
-                updateRoleInput: function(type) {
-                    const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
-                    const input = document.getElementById(`${type}RolesInput`);
-                    if (input) {
-                        input.value = Array.from(selectedSet).join(',');
-                    }
-                },
-                
-                loadRoleNames: function() {
-                    document.querySelectorAll('.role-badge[data-role-id]').forEach(badge => {
-                        const roleId = badge.dataset.roleId;
-                        const role = this.rolesData.find(r => r.id === roleId);
-                        if (role) {
-                            const icon = badge.classList.contains('exempt') ? '✅' : '🔒';
-                            badge.textContent = `${icon} ${role.name}`;
-                        }
-                    });
-                },
-                
-                // Tab switching
-                switchMainTab: function(tabName, event) {
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    document.querySelectorAll('.tab-nav-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    const targetTab = document.getElementById(`tab-${tabName}`);
-    if (targetTab) {
-        targetTab.classList.add('active');
-    }
-    
-    if (event && event.target) {
-        event.target.classList.add('active');
-    }
-    
-    // Load data when switching to specific tabs
-    if (tabName === 'sticky') {
-        this.loadStickyMessages();
-    } else if (tabName === 'rulesets') {  // ADD THIS
-        this.loadRulesets();
-    }
-},
-                
-                // Command filtering
-                filterCommands: function(category, event) {
-                    document.querySelectorAll('.tab').forEach(tab => {
-                        tab.classList.remove('active');
-                    });
-                    if (event && event.target) {
-                        event.target.classList.add('active');
-                    }
-                    
-                    const cards = document.querySelectorAll('.command-card');
-                    cards.forEach(card => {
-                        if (category === 'all' || card.dataset.category === category) {
-                            card.style.display = 'block';
-                        } else {
-                            card.style.display = 'none';
-                        }
-                    });
-                },
-                
-                // Toggle create form
-                toggleCreateForm: function() {
-                    const section = document.getElementById('createCommandSection');
-                    if (section) {
-                        section.style.display = section.style.display === 'none' ? 'block' : 'none';
-                    }
-                },
-                
-                // Toggle command enabled/disabled
-                toggleCommand: async function(commandId, type) {
-                    try {
-                        const response = await fetch(`/commands/toggle/${commandId}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ type })
-                        });
-                        
-                        if (response.ok) {
-                            location.reload();
-                        } else {
-                            alert('Failed to toggle command');
-                        }
-                    } catch (error) {
-                        console.error('Error toggling command:', error);
-                        alert('Error toggling command');
-                    }
-                },
-                
-                // Edit command modal
-                editCommand: function(commandId) {
-                    fetch(`/api/commands/${commandId}`)
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.success && data.command) {
-                                const cmd = data.command;
-                                document.getElementById('editCommandId').value = cmd._id;
-                                document.getElementById('editName').value = cmd.name;
-                                document.getElementById('editCategory').value = cmd.category || 'general';
-                                document.getElementById('editTrigger').value = Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger;
-                                document.getElementById('editResponse').value = cmd.response || '';
-                                document.getElementById('editResponseType').value = cmd.responseType || 'text';
-                                document.getElementById('editEnabled').checked = cmd.enabled;
-                                
-                                document.getElementById('editModal').style.display = 'block';
-                            } else {
-                                alert('Failed to load command data');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error loading command:', error);
-                            alert('Failed to load command data');
-                        });
-                },
-                
-                closeEditModal: function() {
-                    const modal = document.getElementById('editModal');
-                    if (modal) {
-                        modal.style.display = 'none';
-                    }
-                },
-                
-                // Bulk actions
-                bulkToggleCommands: async function(enable) {
-                    if (!confirm(`Are you sure you want to ${enable ? 'enable' : 'disable'} all commands?`)) return;
-                    
-                    try {
-                        const response = await fetch('/commands/bulk/toggle', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ enable })
-                        });
-                        
-                        if (response.ok) {
-                            location.reload();
-                        } else {
-                            alert('Failed to update commands');
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        alert('Error updating commands');
-                    }
-                },
-                
-                bulkCategoryAction: function() {
-                    const category = document.getElementById('bulkCategory').value;
-                    if (!category) {
-                        alert('Please select a category');
-                        return;
-                    }
-                    alert(`Bulk action for ${category} category - feature coming soon!`);
-                },
-                
-                bulkDelete: async function() {
-                    try {
-                        const response = await fetch('/commands/bulk/delete-disabled', {
-                            method: 'POST'
-                        });
-                        
-                        if (response.ok) {
-                            location.reload();
-                        } else {
-                            alert('Failed to delete commands');
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        alert('Error deleting commands');
-                    }
-                },
-                
-                // Sticky Messages
-                openStickyModal: async function() {
-                    document.getElementById('stickyModal').style.display = 'block';
-                    await this.loadChannelsForSticky();
-                },
-                
-                closeStickyModal: function() {
-                    document.getElementById('stickyModal').style.display = 'none';
-                },
-                
-                loadChannelsForSticky: async function() {
-                    try {
-                        const response = await fetch('/api/channels');
-                        const data = await response.json();
-                        
-                        if (data.success && data.channels) {
-                            const select = document.getElementById('stickyChannelId');
-                            if (select) {
-                                select.innerHTML = '<option value="">Select Channel...</option>';
-                                
-                                data.channels.forEach(channel => {
-                                    const option = document.createElement('option');
-                                    option.value = channel.id;
-                                    option.textContent = `#${channel.name}`;
-                                    select.appendChild(option);
-                                });
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error loading channels:', error);
-                    }
-                },
-                
-                submitStickyForm: async function() {
-                    const form = document.getElementById('stickyMessageForm');
-                    const formData = new FormData(form);
-                    
-                    const data = {
-                        channelId: formData.get('channelId'),
-                        message: formData.get('message'),
-                        threshold: parseInt(formData.get('threshold')) || 10,
-                        enabled: formData.get('enabled') === 'on'
-                    };
-                    
-                    if (!data.channelId) {
-                        alert('Please select a channel');
-                        return;
-                    }
-                    
-                    if (!data.message || data.message.trim() === '') {
-                        alert('Please enter a message');
-                        return;
-                    }
-                    
-                    try {
-                        const response = await fetch('/commands/sticky/create', {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify(data)
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            alert('✅ Sticky message created successfully!');
-                            this.closeStickyModal();
-                            this.loadStickyMessages();
-                        } else {
-                            alert('❌ Error: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('Error creating sticky:', error);
-                        alert('Failed to save sticky message: ' + error.message);
-                    }
-                },
-                
-                loadStickyMessages: async function() {
-                    try {
-                        const response = await fetch('/commands/sticky/list');
-                        const data = await response.json();
-                        
-                        const container = document.getElementById('stickyMessagesList');
-                        if (!container) return;
-                        
-                        if (data.success && data.stickyMessages && data.stickyMessages.length > 0) {
-                            container.innerHTML = '';
-                            
-                            data.stickyMessages.forEach(sticky => {
-                                const card = document.createElement('div');
-                                card.className = 'sticky-card';
-                                card.innerHTML = `
-                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                                        <div>
-                                            <span class="sticky-indicator">${sticky.enabled ? '🔥 Active' : '⏸️ Disabled'}</span>
-                                            <h3 style="color: #fff; margin: 0.5rem 0;">#${sticky.channelName || 'Unknown Channel'}</h3>
-                                        </div>
-                                        <div style="display: flex; gap: 0.5rem;">
-                                            <button class="btn-icon" onclick="window.commandsApp.editSticky('${sticky._id}')" title="Edit">✏️</button>
-                                            <button class="btn-icon toggle" onclick="window.commandsApp.toggleSticky('${sticky._id}')" title="Toggle">
-                                                ${sticky.enabled ? '⏸️' : '▶️'}
-                                            </button>
-                                            <button class="btn-icon delete" onclick="window.commandsApp.deleteSticky('${sticky._id}')" title="Delete">🗑️</button>
-                                        </div>
-                                    </div>
-                                    <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">${sticky.message.length > 100 ? sticky.message.substring(0, 100) + '...' : sticky.message}</p>
-                                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
-                                        <span>📍 Channel: #${sticky.channelName || sticky.channelId}</span>
-                                        <span>💬 Threshold: ${sticky.threshold} messages</span>
-                                        <span>🔄 Reposts: ${sticky.repostCount || 0}</span>
-                                    </div>
-                                `;
-                                container.appendChild(card);
-                            });
-                        } else {
-                            container.innerHTML = `
-                                <div class="empty-state">
-                                    <div class="empty-state-icon">📌</div>
-                                    <div class="empty-state-text">No sticky messages yet</div>
-                                    <div class="empty-state-subtext">Create sticky messages to keep important info visible</div>
-                                </div>
-                            `;
-                        }
-                    } catch (error) {
-                        console.error('Error loading sticky messages:', error);
-                        const container = document.getElementById('stickyMessagesList');
-                        if (container) {
-                            container.innerHTML = `
-                                <div style="text-align: center; padding: 2rem; color: #ed4245;">
-                                    <strong>Error loading sticky messages</strong><br>
-                                    <small>${error.message}</small>
-                                </div>
-                            `;
-                        }
-                    }
-                },
-                
-                toggleSticky: async function(stickyId) {
-                    try {
-                        const response = await fetch(`/commands/sticky/toggle/${stickyId}`, {
-                            method: 'POST'
-                        });
-                        
-                        const result = await response.json();
-                        if (result.success) {
-                            this.loadStickyMessages();
-                        } else {
-                            alert('Failed to toggle sticky message');
-                        }
-                    } catch (error) {
-                        console.error('Error toggling sticky:', error);
-                        alert('Error toggling sticky message');
-                    }
-                },
-                
-                deleteSticky: async function(stickyId) {
-                    if (!confirm('Are you sure you want to delete this sticky message?')) return;
-                    
-                    try {
-                        const response = await fetch(`/commands/sticky/${stickyId}`, {
-                            method: 'DELETE'
-                        });
-                        
-                        const result = await response.json();
-                        if (result.success) {
-                            this.loadStickyMessages();
-                        } else {
-                            alert('Failed to delete sticky message');
-                        }
-                    } catch (error) {
-                        console.error('Error deleting sticky:', error);
-                        alert('Error deleting sticky message');
-                    }
-                },
-                
-                editSticky: async function(stickyId) {
-                    try {
-                        const response = await fetch(`/commands/sticky/get/${stickyId}`);
-                        const data = await response.json();
-                        
-                        if (data.success && data.sticky) {
-                            const sticky = data.sticky;
-                            
-                            document.getElementById('editStickyId').value = sticky._id;
-                            document.getElementById('editStickyMessage').value = sticky.message;
-                            document.getElementById('editStickyThreshold').value = sticky.threshold;
-                            document.getElementById('editStickyEnabled').checked = sticky.enabled;
-                            
-                            // Load channels
-                            const channelsResponse = await fetch('/api/channels');
-                            const channelsData = await channelsResponse.json();
-                            
-                            if (channelsData.success && channelsData.channels) {
-                                const select = document.getElementById('editStickyChannelId');
-                                select.innerHTML = '<option value="">Select Channel...</option>';
-                                
-                                channelsData.channels.forEach(channel => {
-                                    const option = document.createElement('option');
-                                    option.value = channel.id;
-                                    option.textContent = `#${channel.name}`;
-                                    if (channel.id === sticky.channelId) {
-                                        option.selected = true;
-                                    }
-                                    select.appendChild(option);
-                                });
-                            }
-                            
-                            document.getElementById('editStickyModal').style.display = 'block';
-                        } else {
-                            alert('Failed to load sticky message');
-                        }
-                    } catch (error) {
-                        console.error('Error loading sticky for edit:', error);
-                        alert('Failed to load sticky message');
-                    }
-                },
-                
-                closeEditStickyModal: function() {
-                    document.getElementById('editStickyModal').style.display = 'none';
-                },
-                
-                submitEditStickyForm: async function() {
-                    const form = document.getElementById('editStickyMessageForm');
-                    const formData = new FormData(form);
-                    
-                    const data = {
-                        channelId: formData.get('channelId'),
-                        message: formData.get('message'),
-                        threshold: parseInt(formData.get('threshold')) || 10,
-                        enabled: formData.get('enabled') === 'on'
-                    };
-                    
-                    if (!data.channelId || !data.message) {
-                        alert('Please fill in all required fields');
-                        return;
-                    }
-                    
-                    try {
-                        const stickyId = document.getElementById('editStickyId').value;
-                        const response = await fetch(`/commands/sticky/edit/${stickyId}`, {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify(data)
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            alert('✅ Sticky message updated!');
-                            this.closeEditStickyModal();
-                            this.loadStickyMessages();
-                        } else {
-                            alert('❌ Error: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('Error updating sticky:', error);
-                        alert('Failed to update sticky message');
-                    }
-                },
-                
-                // Rulesets
-                openRulesetModal: function() {
-                    document.getElementById('rulesetModal').style.display = 'block';
-                    this.updateRulesetTriggerFields();
-                    this.updateRulesetActionFields();
-                },
-                
-                closeRulesetModal: function() {
-                    document.getElementById('rulesetModal').style.display = 'none';
-                },
-                
-                updateRulesetTriggerFields: function() {
-                    const triggerType = document.getElementById('rulesetTriggerType')?.value;
-                    const container = document.getElementById('triggerConfigFields');
-                    
-                    if (!container) return;
-                    
-                    let html = '';
-                    
-                    switch(triggerType) {
-                        case 'spam':
-                            html = `
-                                <div class="form-group">
-                                    <label>Message Count</label>
-                                    <input type="number" name="messageCount" value="5" min="2" max="20">
-                                    <small>Number of messages</small>
-                                </div>
-                                <div class="form-group">
-                                    <label>Time Window (seconds)</label>
-                                    <input type="number" name="timeWindow" value="3" min="1" max="60">
-                                    <small>Within this time period</small>
-                                </div>
-                            `;
-                            break;
-                            
-                        case 'links':
-                            html = `
-                                <div class="form-group">
-                                    <label><input type="checkbox" name="blockDiscordInvites" checked> Block Discord Invites</label>
-                                </div>
-                                <div class="form-group">
-                                    <label><input type="checkbox" name="blockAllUrls"> Block All URLs</label>
-                                </div>
-                                <div class="form-group">
-                                    <label>Whitelisted Domains (comma-separated)</label>
-                                    <input type="text" name="whitelistedDomains" placeholder="youtube.com, twitter.com">
-                                    <small>These domains will be allowed</small>
-                                </div>
-                            `;
-                            break;
-                            
-                        case 'words':
-                            html = `
-                                <div class="form-group">
-                                    <label>Banned Words (one per line)</label>
-                                    <textarea name="bannedWords" rows="5" placeholder="word1&#10;word2&#10;word3"></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <label><input type="checkbox" name="caseSensitive"> Case Sensitive</label>
-                                </div>
-                            `;
-                            break;
-                            
-                        case 'mentions':
-                            html = `
-                                <div class="form-group">
-                                    <label>Max Mentions</label>
-                                    <input type="number" name="maxMentions" value="5" min="1" max="20">
-                                    <small>Maximum user/role mentions per message</small>
-                                </div>
-                            `;
-                            break;
-                            
-                        case 'caps':
-                            html = `
-                                <div class="form-group">
-                                    <label>Caps Percentage</label>
-                                    <input type="number" name="capsPercentage" value="70" min="50" max="100">
-                                    <small>% of message in CAPS</small>
-                                </div>
-                                <div class="form-group">
-                                    <label>Minimum Length</label>
-                                    <input type="number" name="minLength" value="10" min="5" max="50">
-                                    <small>Minimum message length to check</small>
-                                </div>
-                            `;
-                            break;
-                            
-                        case 'attachments':
-                            html = `
-                                <div class="form-group">
-                                    <label>Max Attachments</label>
-                                    <input type="number" name="maxAttachments" value="3" min="1" max="10">
-                                    <small>Maximum attachments per message</small>
-                                </div>
-                            `;
-                            break;
-                            
-                        default:
-                            html = '<p style="color: rgba(255,255,255,0.6);">Select a trigger type</p>';
-                    }
-                    
-                    container.innerHTML = html;
-                },
-                
-                updateRulesetActionFields: function() {
-                    const actionType = document.getElementById('rulesetActionType')?.value;
-                    const container = document.getElementById('actionConfigFields');
-                    
-                    if (!container) return;
-                    
-                    let html = '';
-                    
-                    switch(actionType) {
-                        case 'delete':
-                            html = `
-                                <div class="form-group">
-                                    <label><input type="checkbox" name="notifyUser" checked> Notify User</label>
-                                </div>
-                            `;
-                            break;
-                            
-                        case 'warn':
-                            html = `
-                                <div class="form-group">
-                                    <label>Warning Message</label>
-                                    <textarea name="warnMessage" rows="3" placeholder="You have been warned for..."></textarea>
-                                </div>
-                            `;
-                            break;
-                            
-                        case 'timeout':
-                            html = `
-                                <div class="form-group">
-                                    <label>Timeout Duration</label>
-                                    <select name="timeoutDuration">
-                                        <option value="60">1 minute</option>
-                                        <option value="300" selected>5 minutes</option>
-                                        <option value="600">10 minutes</option>
-                                        <option value="1800">30 minutes</option>
-                                        <option value="3600">1 hour</option>
-                                    </select>
-                                </div>
-                            `;
-                            break;
-                            
-                        case 'kick':
-                            html = `
-                                <div class="form-group">
-                                    <label>Kick Reason</label>
-                                    <textarea name="kickReason" rows="2" placeholder="Kicked for violating rules"></textarea>
-                                </div>
-                            `;
-                            break;
-                            
-                        case 'ban':
-                            html = `
-                                <div class="form-group">
-                                    <label>Ban Reason</label>
-                                    <textarea name="banReason" rows="2" placeholder="Banned for violating rules"></textarea>
-                                </div>
-                            `;
-                            break;
-                            
-                        default:
-                            html = '<p style="color: rgba(255,255,255,0.6);">Select an action type</p>';
-                    }
-                    
-                    container.innerHTML = html;
-                },
-                
-                saveRuleset: async function(event) {
-                    event.preventDefault();
-                    
-                    const form = event.target;
-                    const formData = new FormData(form);
-                    
-                    const triggerType = formData.get('triggerType');
-                    const triggerConfig = {};
-                    
-                    switch(triggerType) {
-                        case 'spam':
-                            triggerConfig.messageCount = parseInt(formData.get('messageCount'));
-                            triggerConfig.timeWindow = parseInt(formData.get('timeWindow'));
-                            break;
-                        case 'links':
-                            triggerConfig.blockDiscordInvites = formData.get('blockDiscordInvites') === 'on';
-                            triggerConfig.blockAllUrls = formData.get('blockAllUrls') === 'on';
-                            break;
-                        case 'words':
-                            triggerConfig.bannedWords = formData.get('bannedWords')?.split('\n').filter(w => w.trim());
-                            triggerConfig.caseSensitive = formData.get('caseSensitive') === 'on';
-                            break;
-                        case 'mentions':
-                            triggerConfig.maxMentions = parseInt(formData.get('maxMentions'));
-                            break;
-                        case 'caps':
-                            triggerConfig.capsPercentage = parseInt(formData.get('capsPercentage'));
-                            triggerConfig.minLength = parseInt(formData.get('minLength'));
-                            break;
-                        case 'attachments':
-                            triggerConfig.maxAttachments = parseInt(formData.get('maxAttachments'));
-                            break;
-                    }
-                    
-                    const actionType = formData.get('actionType');
-                    const actionConfig = {};
-                    
-                    switch(actionType) {
-                        case 'delete':
-                            actionConfig.notifyUser = formData.get('notifyUser') === 'on';
-                            break;
-                        case 'warn':
-                            actionConfig.warnMessage = formData.get('warnMessage');
-                            break;
-                        case 'timeout':
-                            actionConfig.duration = parseInt(formData.get('timeoutDuration'));
-                            break;
-                        case 'kick':
-                            actionConfig.reason = formData.get('kickReason');
-                            break;
-                        case 'ban':
-                            actionConfig.reason = formData.get('banReason');
-                            break;
-                    }
-                    
-                    const data = {
-                        name: formData.get('name'),
-                        description: formData.get('description'),
-                        triggerType: triggerType,
-                        triggerConfig: triggerConfig,
-                        actionType: actionType,
-                        actionConfig: actionConfig,
-                        priority: formData.get('priority'),
-                        excludedRoles: formData.get('excludedRoles')?.split(',').filter(r => r.trim()) || [],
-                        excludedChannels: formData.get('excludedChannels')?.split(',').filter(c => c.trim()) || [],
-                        whitelistedDomains: formData.get('whitelistedDomains')?.split(',').map(d => d.trim()) || []
-                    };
-                    
-                    try {
-                        const response = await fetch('/commands/ruleset/create', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(data)
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            alert('✅ Ruleset created successfully!');
-                            this.closeRulesetModal();
-                            this.loadRulesets();
-                        } else {
-                            alert('Error: ' + result.error);
-                        }
-                    } catch (error) {
-                        console.error('Error saving ruleset:', error);
-                        alert('Failed to save ruleset');
-                    }
+            // Close modals when clicking outside
+            window.onclick = (event) => {
+                if (event.target.classList.contains('modal')) {
+                    event.target.style.display = 'none';
                 }
             };
-            // Add this inside the CommandsApp object, after the saveRuleset function
-
-loadRulesets: async function() {
-    try {
-        const response = await fetch('/commands/ruleset/list');
-        const data = await response.json();
+        },
         
-        const container = document.getElementById('rulesetsListContainer');
-        if (!container) return;
-        
-        if (data.success && data.rulesets && data.rulesets.length > 0) {
-            container.innerHTML = '';
+        // Role selector functions
+        initializeRoleDropdowns: function() {
+            const requiredDropdown = document.getElementById('requiredRoleDropdown');
+            const exemptDropdown = document.getElementById('exemptRoleDropdown');
             
-            data.rulesets.forEach(ruleset => {
-                const card = document.createElement('div');
-                card.className = 'ruleset-card';
-                
-                const priorityColors = {
-                    high: { bg: 'rgba(237,66,69,0.2)', color: '#ed4245', icon: '🔴' },
-                    medium: { bg: 'rgba(250,166,26,0.2)', color: '#faa61a', icon: '🟡' },
-                    low: { bg: 'rgba(67,181,129,0.2)', color: '#43b581', icon: '🟢' }
-                };
-                
-                const priority = priorityColors[ruleset.priority] || priorityColors.medium;
-                
-                card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                        <div style="flex: 1;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-                                <h3 style="color: #fff; margin: 0;">${ruleset.name}</h3>
-                                <span class="badge ${ruleset.enabled ? 'badge-enabled' : 'badge-disabled'}">
-                                    ${ruleset.enabled ? 'Enabled' : 'Disabled'}
-                                </span>
-                                <span class="badge" style="background: ${priority.bg}; color: ${priority.color};">
-                                    ${priority.icon} ${ruleset.priority.charAt(0).toUpperCase() + ruleset.priority.slice(1)} Priority
-                                </span>
-                            </div>
-                            <p style="color: rgba(255,255,255,0.6); margin: 0; font-size: 0.9rem;">
-                                ${ruleset.description || 'No description'}
-                            </p>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn-icon" onclick="window.commandsApp.editRuleset('${ruleset._id}')" title="Edit">✏️</button>
-                            <button class="btn-icon toggle" onclick="window.commandsApp.toggleRuleset('${ruleset._id}')" title="Toggle">
-                                ${ruleset.enabled ? '⏸️' : '▶️'}
-                            </button>
-                            <button class="btn-icon delete" onclick="window.commandsApp.deleteRuleset('${ruleset._id}')" title="Delete">🗑️</button>
-                        </div>
-                    </div>
-                    
-                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 0.75rem;">
-                            <div>
-                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">TRIGGER</strong>
-                                <span style="color: #fff; font-size: 0.9rem;">${this.getTriggerDescription(ruleset.trigger)}</span>
-                            </div>
-                            <div>
-                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">ACTION</strong>
-                                <span style="color: #ed4245; font-size: 0.9rem;">${this.getActionDescription(ruleset.action)}</span>
-                            </div>
-                        </div>
-                        
-                        ${ruleset.exclusions && (ruleset.exclusions.roles?.length > 0 || ruleset.exclusions.channels?.length > 0) ? `
-                            <div>
-                                <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">EXCLUSIONS</strong>
-                                <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem;">
-                                    ${ruleset.exclusions.roles?.map(roleId => 
-                                        `<span class="role-badge exempt">Role: ${roleId}</span>`
-                                    ).join('') || ''}
-                                    ${ruleset.exclusions.channels?.map(channelId => 
-                                        `<span class="badge" style="background: rgba(67,181,129,0.2); color: #43b581;">#${channelId}</span>`
-                                    ).join('') || ''}
-                                </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
-                        <span>🎯 Triggered: ${ruleset.stats?.triggered || 0} times</span>
-                        <span>⏰ ${ruleset.stats?.lastTriggered ? 
-                            'Last: ' + new Date(ruleset.stats.lastTriggered).toLocaleString() : 
-                            'Never triggered'}</span>
-                    </div>
-                `;
-                
-                container.appendChild(card);
-            });
-        } else {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 3rem; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🛡️</div>
-                    <div style="color: rgba(255,255,255,0.8); font-weight: 600; margin-bottom: 0.5rem;">No AutoMod Rulesets Yet</div>
-                    <div style="color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-bottom: 1.5rem;">Create rulesets to automatically moderate your server</div>
-                    <button onclick="window.commandsApp.openRulesetModal()" class="btn btn-primary">Create Your First Ruleset</button>
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Error loading rulesets:', error);
-        const container = document.getElementById('rulesetsListContainer');
-        if (container) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 2rem; color: #ed4245;">
-                    <strong>Error loading rulesets</strong><br>
-                    <small>${error.message}</small>
-                </div>
-            `;
-        }
-    }
-},
-
-getTriggerDescription: function(trigger) {
-    if (!trigger) return 'Unknown trigger';
-    
-    const descriptions = {
-        spam: `${trigger.config?.messageCount || 5} messages in ${trigger.config?.timeWindow || 3}s`,
-        links: 'Contains links or invites',
-        words: `Contains ${trigger.config?.bannedWords?.length || 0} banned words`,
-        mentions: `${trigger.config?.maxMentions || 5}+ mentions`,
-        caps: `${trigger.config?.capsPercentage || 70}% caps`,
-        attachments: `${trigger.config?.maxAttachments || 3}+ attachments`
-    };
-    
-    return descriptions[trigger.type] || trigger.type;
-},
-
-getActionDescription: function(action) {
-    if (!action) return 'Unknown action';
-    
-    const descriptions = {
-        delete: 'Delete message',
-        warn: 'Warn user',
-        timeout: `Timeout ${action.config?.duration ? Math.floor(action.config.duration / 60) + 'm' : '5m'}`,
-        kick: 'Kick user',
-        ban: 'Ban user'
-    };
-    
-    return descriptions[action.type] || action.type;
-},
-
-editRuleset: async function(rulesetId) {
-    alert('Edit ruleset feature coming soon!\n\nRuleset ID: ' + rulesetId);
-    // TODO: Implement edit functionality
-},
-
-toggleRuleset: async function(rulesetId) {
-    try {
-        const response = await fetch(`/commands/ruleset/toggle/${rulesetId}`, {
-            method: 'POST'
-        });
+            if (requiredDropdown && exemptDropdown) {
+                this.rolesData.forEach(role => {
+                    const requiredOption = this.createRoleOption(role, 'required');
+                    const exemptOption = this.createRoleOption(role, 'exempt');
+                    requiredDropdown.appendChild(requiredOption);
+                    exemptDropdown.appendChild(exemptOption);
+                });
+            }
+        },
         
-        const result = await response.json();
+        createRoleOption: function(role, type) {
+            const option = document.createElement('div');
+            option.className = 'role-option';
+            option.textContent = role.name;
+            option.onclick = () => this.toggleRole(role.id, role.name, type);
+            return option;
+        },
         
-        if (result.success) {
-            this.loadRulesets();
-        } else {
-            alert('Failed to toggle ruleset');
-        }
-    } catch (error) {
-        console.error('Error toggling ruleset:', error);
-        alert('Error toggling ruleset');
-    }
-},
-
-deleteR
+        toggleRoleDropdown: function(type) {
+            const dropdown = document.getElementById(`${type}RoleDropdown`);
+            if (dropdown) {
+                dropdown.classList.toggle('active');
+                
+                const otherType = type === 'required' ? 'exempt' : 'required';
+                const otherDropdown = document.getElementById(`${otherType}RoleDropdown`);
+                if (otherDropdown) {
+                    otherDropdown.classList.remove('active');
+                }
+            }
+        },
+        
+        toggleRole: function(roleId, roleName, type) {
+            const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
             
-            // Initialize when DOM is ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => CommandsApp.init());
+            if (selectedSet.has(roleId)) {
+                selectedSet.delete(roleId);
             } else {
-                CommandsApp.init();
+                selectedSet.add(roleId);
             }
             
-            // Expose to window for onclick handlers
-            window.commandsApp = CommandsApp;
+            this.updateRoleTags(type);
+            this.updateRoleInput(type);
+        },
+        
+        updateRoleTags: function(type) {
+            const tagsContainer = document.getElementById(`${type}RoleTags`);
+            const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
             
-        })();
-    </script>
+            if (!tagsContainer) return;
+            
+            if (selectedSet.size === 0) {
+                tagsContainer.innerHTML = '<span style="color: rgba(255,255,255,0.5);">Click to select roles...</span>';
+                return;
+            }
+            
+            tagsContainer.innerHTML = '';
+            selectedSet.forEach(roleId => {
+                const role = this.rolesData.find(r => r.id === roleId);
+                if (role) {
+                    const tag = document.createElement('div');
+                    tag.className = 'role-tag';
+                    tag.innerHTML = `
+                        ${role.name}
+                        <span class="role-tag-remove" onclick="event.stopPropagation(); window.commandsApp.removeRole('${roleId}', '${type}')">×</span>
+                    `;
+                    tagsContainer.appendChild(tag);
+                }
+            });
+        },
+        
+        removeRole: function(roleId, type) {
+            const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
+            selectedSet.delete(roleId);
+            this.updateRoleTags(type);
+            this.updateRoleInput(type);
+        },
+        
+        updateRoleInput: function(type) {
+            const selectedSet = type === 'required' ? this.selectedRequiredRoles : this.selectedExemptRoles;
+            const input = document.getElementById(`${type}RolesInput`);
+            if (input) {
+                input.value = Array.from(selectedSet).join(',');
+            }
+        },
+        
+        loadRoleNames: function() {
+            document.querySelectorAll('.role-badge[data-role-id]').forEach(badge => {
+                const roleId = badge.dataset.roleId;
+                const role = this.rolesData.find(r => r.id === roleId);
+                if (role) {
+                    const icon = badge.classList.contains('exempt') ? '✅' : '🔒';
+                    badge.textContent = `${icon} ${role.name}`;
+                }
+            });
+        },
+        
+        // Tab switching
+        switchMainTab: function(tabName, event) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            const targetTab = document.getElementById(`tab-${tabName}`);
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+            
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            
+            // Load data when switching to specific tabs
+            if (tabName === 'sticky') {
+                this.loadStickyMessages();
+            } else if (tabName === 'rulesets') {
+                this.loadRulesets();
+            }
+        },
+        
+        // Command filtering
+        filterCommands: function(category, event) {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            
+            const cards = document.querySelectorAll('.command-card');
+            cards.forEach(card => {
+                if (category === 'all' || card.dataset.category === category) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        },
+        
+        // Toggle create form
+        toggleCreateForm: function() {
+            const section = document.getElementById('createCommandSection');
+            if (section) {
+                section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            }
+        },
+        
+        // Toggle command enabled/disabled
+        toggleCommand: async function(commandId, type) {
+            try {
+                const response = await fetch(`/commands/toggle/${commandId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type })
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to toggle command');
+                }
+            } catch (error) {
+                console.error('Error toggling command:', error);
+                alert('Error toggling command');
+            }
+        },
+        
+        // Edit command modal
+        editCommand: function(commandId) {
+            fetch(`/api/commands/${commandId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.command) {
+                        const cmd = data.command;
+                        document.getElementById('editCommandId').value = cmd._id;
+                        document.getElementById('editName').value = cmd.name;
+                        document.getElementById('editCategory').value = cmd.category || 'general';
+                        document.getElementById('editTrigger').value = Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger;
+                        document.getElementById('editResponse').value = cmd.response || '';
+                        document.getElementById('editResponseType').value = cmd.responseType || 'text';
+                        document.getElementById('editEnabled').checked = cmd.enabled;
+                        
+                        document.getElementById('editModal').style.display = 'block';
+                    } else {
+                        alert('Failed to load command data');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading command:', error);
+                    alert('Failed to load command data');
+                });
+        },
+        
+        closeEditModal: function() {
+            const modal = document.getElementById('editModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        },
+        
+        // Bulk actions
+        bulkToggleCommands: async function(enable) {
+            if (!confirm(`Are you sure you want to ${enable ? 'enable' : 'disable'} all commands?`)) return;
+            
+            try {
+                const response = await fetch('/commands/bulk/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enable })
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to update commands');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error updating commands');
+            }
+        },
+        
+        bulkCategoryAction: function() {
+            const category = document.getElementById('bulkCategory').value;
+            if (!category) {
+                alert('Please select a category');
+                return;
+            }
+            alert(`Bulk action for ${category} category - feature coming soon!`);
+        },
+        
+        bulkDelete: async function() {
+            try {
+                const response = await fetch('/commands/bulk/delete-disabled', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to delete commands');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error deleting commands');
+            }
+        },
+        
+        // Sticky Messages
+        openStickyModal: async function() {
+            document.getElementById('stickyModal').style.display = 'block';
+            await this.loadChannelsForSticky();
+        },
+        
+        closeStickyModal: function() {
+            document.getElementById('stickyModal').style.display = 'none';
+        },
+        
+        loadChannelsForSticky: async function() {
+            try {
+                const response = await fetch('/api/channels');
+                const data = await response.json();
+                
+                if (data.success && data.channels) {
+                    const select = document.getElementById('stickyChannelId');
+                    if (select) {
+                        select.innerHTML = '<option value="">Select Channel...</option>';
+                        
+                        data.channels.forEach(channel => {
+                            const option = document.createElement('option');
+                            option.value = channel.id;
+                            option.textContent = `#${channel.name}`;
+                            select.appendChild(option);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading channels:', error);
+            }
+        },
+        
+        submitStickyForm: async function() {
+            const form = document.getElementById('stickyMessageForm');
+            const formData = new FormData(form);
+            
+            const data = {
+                channelId: formData.get('channelId'),
+                message: formData.get('message'),
+                threshold: parseInt(formData.get('threshold')) || 10,
+                enabled: formData.get('enabled') === 'on'
+            };
+            
+            if (!data.channelId) {
+                alert('Please select a channel');
+                return;
+            }
+            
+            if (!data.message || data.message.trim() === '') {
+                alert('Please enter a message');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/commands/sticky/create', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Sticky message created successfully!');
+                    this.closeStickyModal();
+                    this.loadStickyMessages();
+                } else {
+                    alert('❌ Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error creating sticky:', error);
+                alert('Failed to save sticky message: ' + error.message);
+            }
+        },
+        
+        loadStickyMessages: async function() {
+            try {
+                const response = await fetch('/commands/sticky/list');
+                const data = await response.json();
+                
+                const container = document.getElementById('stickyMessagesList');
+                if (!container) return;
+                
+                if (data.success && data.stickyMessages && data.stickyMessages.length > 0) {
+                    container.innerHTML = '';
+                    
+                    data.stickyMessages.forEach(sticky => {
+                        const card = document.createElement('div');
+                        card.className = 'sticky-card';
+                        card.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                                <div>
+                                    <span class="sticky-indicator">${sticky.enabled ? '🔥 Active' : '⏸️ Disabled'}</span>
+                                    <h3 style="color: #fff; margin: 0.5rem 0;">#${sticky.channelName || 'Unknown Channel'}</h3>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn-icon" onclick="window.commandsApp.editSticky('${sticky._id}')" title="Edit">✏️</button>
+                                    <button class="btn-icon toggle" onclick="window.commandsApp.toggleSticky('${sticky._id}')" title="Toggle">
+                                        ${sticky.enabled ? '⏸️' : '▶️'}
+                                    </button>
+                                    <button class="btn-icon delete" onclick="window.commandsApp.deleteSticky('${sticky._id}')" title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1rem;">${sticky.message.length > 100 ? sticky.message.substring(0, 100) + '...' : sticky.message}</p>
+                            <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                                <span>📍 Channel: #${sticky.channelName || sticky.channelId}</span>
+                                <span>💬 Threshold: ${sticky.threshold} messages</span>
+                                <span>🔄 Reposts: ${sticky.repostCount || 0}</span>
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    });
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📌</div>
+                            <div class="empty-state-text">No sticky messages yet</div>
+                            <div class="empty-state-subtext">Create sticky messages to keep important info visible</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading sticky messages:', error);
+                const container = document.getElementById('stickyMessagesList');
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: #ed4245;">
+                            <strong>Error loading sticky messages</strong><br>
+                            <small>${error.message}</small>
+                        </div>
+                    `;
+                }
+            }
+        },
+        
+        toggleSticky: async function(stickyId) {
+            try {
+                const response = await fetch(`/commands/sticky/toggle/${stickyId}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    this.loadStickyMessages();
+                } else {
+                    alert('Failed to toggle sticky message');
+                }
+            } catch (error) {
+                console.error('Error toggling sticky:', error);
+                alert('Error toggling sticky message');
+            }
+        },
+        
+        deleteSticky: async function(stickyId) {
+            if (!confirm('Are you sure you want to delete this sticky message?')) return;
+            
+            try {
+                const response = await fetch(`/commands/sticky/${stickyId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    this.loadStickyMessages();
+                } else {
+                    alert('Failed to delete sticky message');
+                }
+            } catch (error) {
+                console.error('Error deleting sticky:', error);
+                alert('Error deleting sticky message');
+            }
+        },
+        
+        editSticky: async function(stickyId) {
+            try {
+                const response = await fetch(`/commands/sticky/get/${stickyId}`);
+                const data = await response.json();
+                
+                if (data.success && data.sticky) {
+                    const sticky = data.sticky;
+                    
+                    document.getElementById('editStickyId').value = sticky._id;
+                    document.getElementById('editStickyMessage').value = sticky.message;
+                    document.getElementById('editStickyThreshold').value = sticky.threshold;
+                    document.getElementById('editStickyEnabled').checked = sticky.enabled;
+                    
+                    // Load channels
+                    const channelsResponse = await fetch('/api/channels');
+                    const channelsData = await channelsResponse.json();
+                    
+                    if (channelsData.success && channelsData.channels) {
+                        const select = document.getElementById('editStickyChannelId');
+                        select.innerHTML = '<option value="">Select Channel...</option>';
+                        
+                        channelsData.channels.forEach(channel => {
+                            const option = document.createElement('option');
+                            option.value = channel.id;
+                            option.textContent = `#${channel.name}`;
+                            if (channel.id === sticky.channelId) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                    }
+                    
+                    document.getElementById('editStickyModal').style.display = 'block';
+                } else {
+                    alert('Failed to load sticky message');
+                }
+            } catch (error) {
+                console.error('Error loading sticky for edit:', error);
+                alert('Failed to load sticky message');
+            }
+        },
+        
+        closeEditStickyModal: function() {
+            document.getElementById('editStickyModal').style.display = 'none';
+        },
+        
+        submitEditStickyForm: async function() {
+            const form = document.getElementById('editStickyMessageForm');
+            const formData = new FormData(form);
+            
+            const data = {
+                channelId: formData.get('channelId'),
+                message: formData.get('message'),
+                threshold: parseInt(formData.get('threshold')) || 10,
+                enabled: formData.get('enabled') === 'on'
+            };
+            
+            if (!data.channelId || !data.message) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            try {
+                const stickyId = document.getElementById('editStickyId').value;
+                const response = await fetch(`/commands/sticky/edit/${stickyId}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Sticky message updated!');
+                    this.closeEditStickyModal();
+                    this.loadStickyMessages();
+                } else {
+                    alert('❌ Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error updating sticky:', error);
+                alert('Failed to update sticky message');
+            }
+        },
+        
+        // Rulesets
+        openRulesetModal: function() {
+            document.getElementById('rulesetModal').style.display = 'block';
+            this.updateRulesetTriggerFields();
+            this.updateRulesetActionFields();
+        },
+        
+        closeRulesetModal: function() {
+            document.getElementById('rulesetModal').style.display = 'none';
+        },
+        
+        updateRulesetTriggerFields: function() {
+            const triggerType = document.getElementById('rulesetTriggerType')?.value;
+            const container = document.getElementById('triggerConfigFields');
+            
+            if (!container) return;
+            
+            let html = '';
+            
+            switch(triggerType) {
+                case 'spam':
+                    html = `
+                        <div class="form-group">
+                            <label>Message Count</label>
+                            <input type="number" name="messageCount" value="5" min="2" max="20">
+                            <small>Number of messages</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Time Window (seconds)</label>
+                            <input type="number" name="timeWindow" value="3" min="1" max="60">
+                            <small>Within this time period</small>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'links':
+                    html = `
+                        <div class="form-group">
+                            <label><input type="checkbox" name="blockDiscordInvites" checked> Block Discord Invites</label>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" name="blockAllUrls"> Block All URLs</label>
+                        </div>
+                        <div class="form-group">
+                            <label>Whitelisted Domains (comma-separated)</label>
+                            <input type="text" name="whitelistedDomains" placeholder="youtube.com, twitter.com">
+                            <small>These domains will be allowed</small>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'words':
+                    html = `
+                        <div class="form-group">
+                            <label>Banned Words (one per line)</label>
+                            <textarea name="bannedWords" rows="5" placeholder="word1&#10;word2&#10;word3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" name="caseSensitive"> Case Sensitive</label>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'mentions':
+                    html = `
+                        <div class="form-group">
+                            <label>Max Mentions</label>
+                            <input type="number" name="maxMentions" value="5" min="1" max="20">
+                            <small>Maximum user/role mentions per message</small>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'caps':
+                    html = `
+                        <div class="form-group">
+                            <label>Caps Percentage</label>
+                            <input type="number" name="capsPercentage" value="70" min="50" max="100">
+                            <small>% of message in CAPS</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Minimum Length</label>
+                            <input type="number" name="minLength" value="10" min="5" max="50">
+                            <small>Minimum message length to check</small>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'attachments':
+                    html = `
+                        <div class="form-group">
+                            <label>Max Attachments</label>
+                            <input type="number" name="maxAttachments" value="3" min="1" max="10">
+                            <small>Maximum attachments per message</small>
+                        </div>
+                    `;
+                    break;
+                    
+                default:
+                    html = '<p style="color: rgba(255,255,255,0.6);">Select a trigger type</p>';
+            }
+            
+            container.innerHTML = html;
+        },
+        
+        updateRulesetActionFields: function() {
+            const actionType = document.getElementById('rulesetActionType')?.value;
+            const container = document.getElementById('actionConfigFields');
+            
+            if (!container) return;
+            
+            let html = '';
+            
+            switch(actionType) {
+                case 'delete':
+                    html = `
+                        <div class="form-group">
+                            <label><input type="checkbox" name="notifyUser" checked> Notify User</label>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'warn':
+                    html = `
+                        <div class="form-group">
+                            <label>Warning Message</label>
+                            <textarea name="warnMessage" rows="3" placeholder="You have been warned for..."></textarea>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'timeout':
+                    html = `
+                        <div class="form-group">
+                            <label>Timeout Duration</label>
+                            <select name="timeoutDuration">
+                                <option value="60">1 minute</option>
+                                <option value="300" selected>5 minutes</option>
+                                <option value="600">10 minutes</option>
+                                <option value="1800">30 minutes</option>
+                                <option value="3600">1 hour</option>
+                            </select>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'kick':
+                    html = `
+                        <div class="form-group">
+                            <label>Kick Reason</label>
+                            <textarea name="kickReason" rows="2" placeholder="Kicked for violating rules"></textarea>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'ban':
+                    html = `
+                        <div class="form-group">
+                            <label>Ban Reason</label>
+                            <textarea name="banReason" rows="2" placeholder="Banned for violating rules"></textarea>
+                        </div>
+                    `;
+                    break;
+                    
+                default:
+                    html = '<p style="color: rgba(255,255,255,0.6);">Select an action type</p>';
+            }
+            
+            container.innerHTML = html;
+        },
+        
+        saveRuleset: async function(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            const triggerType = formData.get('triggerType');
+            const triggerConfig = {};
+            
+            switch(triggerType) {
+                case 'spam':
+                    triggerConfig.messageCount = parseInt(formData.get('messageCount'));
+                    triggerConfig.timeWindow = parseInt(formData.get('timeWindow'));
+                    break;
+                case 'links':
+                    triggerConfig.blockDiscordInvites = formData.get('blockDiscordInvites') === 'on';
+                    triggerConfig.blockAllUrls = formData.get('blockAllUrls') === 'on';
+                    break;
+                case 'words':
+                    triggerConfig.bannedWords = formData.get('bannedWords')?.split('\n').filter(w => w.trim());
+                    triggerConfig.caseSensitive = formData.get('caseSensitive') === 'on';
+                    break;
+                case 'mentions':
+                    triggerConfig.maxMentions = parseInt(formData.get('maxMentions'));
+                    break;
+                case 'caps':
+                    triggerConfig.capsPercentage = parseInt(formData.get('capsPercentage'));
+                    triggerConfig.minLength = parseInt(formData.get('minLength'));
+                    break;
+                case 'attachments':
+                    triggerConfig.maxAttachments = parseInt(formData.get('maxAttachments'));
+                    break;
+            }
+            
+            const actionType = formData.get('actionType');
+            const actionConfig = {};
+            
+            switch(actionType) {
+                case 'delete':
+                    actionConfig.notifyUser = formData.get('notifyUser') === 'on';
+                    break;
+                case 'warn':
+                    actionConfig.warnMessage = formData.get('warnMessage');
+                    break;
+                case 'timeout':
+                    actionConfig.duration = parseInt(formData.get('timeoutDuration'));
+                    break;
+                case 'kick':
+                    actionConfig.reason = formData.get('kickReason');
+                    break;
+                case 'ban':
+                    actionConfig.reason = formData.get('banReason');
+                    break;
+            }
+            
+            const data = {
+                name: formData.get('name'),
+                description: formData.get('description'),
+                triggerType: triggerType,
+                triggerConfig: triggerConfig,
+                actionType: actionType,
+                actionConfig: actionConfig,
+                priority: formData.get('priority'),
+                excludedRoles: formData.get('excludedRoles')?.split(',').filter(r => r.trim()) || [],
+                excludedChannels: formData.get('excludedChannels')?.split(',').filter(c => c.trim()) || [],
+                whitelistedDomains: formData.get('whitelistedDomains')?.split(',').map(d => d.trim()) || []
+            };
+            
+            try {
+                const response = await fetch('/commands/ruleset/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Ruleset created successfully!');
+                    this.closeRulesetModal();
+                    this.loadRulesets();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error saving ruleset:', error);
+                alert('Failed to save ruleset');
+            }
+        },
+        
+        loadRulesets: async function() {
+            try {const response = await fetch('/commands/ruleset/list');
+                const data = await response.json();
+                
+                const container = document.getElementById('rulesetsListContainer');
+                if (!container) return;
+                
+                if (data.success && data.rulesets && data.rulesets.length > 0) {
+                    container.innerHTML = '';
+                    
+                    data.rulesets.forEach(ruleset => {
+                        const card = document.createElement('div');
+                        card.className = 'ruleset-card';
+                        
+                        const priorityColors = {
+                            high: { bg: 'rgba(237,66,69,0.2)', color: '#ed4245', icon: '🔴' },
+                            medium: { bg: 'rgba(250,166,26,0.2)', color: '#faa61a', icon: '🟡' },
+                            low: { bg: 'rgba(67,181,129,0.2)', color: '#43b581', icon: '🟢' }
+                        };
+                        
+                        const priority = priorityColors[ruleset.priority] || priorityColors.medium;
+                        
+                        card.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                                <div style="flex: 1;">
+                                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                        <h3 style="color: #fff; margin: 0;">${ruleset.name}</h3>
+                                        <span class="badge ${ruleset.enabled ? 'badge-enabled' : 'badge-disabled'}">
+                                            ${ruleset.enabled ? 'Enabled' : 'Disabled'}
+                                        </span>
+                                        <span class="badge" style="background: ${priority.bg}; color: ${priority.color};">
+                                            ${priority.icon} ${ruleset.priority.charAt(0).toUpperCase() + ruleset.priority.slice(1)} Priority
+                                        </span>
+                                    </div>
+                                    <p style="color: rgba(255,255,255,0.6); margin: 0; font-size: 0.9rem;">
+                                        ${ruleset.description || 'No description'}
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn-icon" onclick="window.commandsApp.editRuleset('${ruleset._id}')" title="Edit">✏️</button>
+                                    <button class="btn-icon toggle" onclick="window.commandsApp.toggleRuleset('${ruleset._id}')" title="Toggle">
+                                        ${ruleset.enabled ? '⏸️' : '▶️'}
+                                    </button>
+                                    <button class="btn-icon delete" onclick="window.commandsApp.deleteRuleset('${ruleset._id}')" title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                            
+                            <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 0.75rem;">
+                                    <div>
+                                        <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">TRIGGER</strong>
+                                        <span style="color: #fff; font-size: 0.9rem;">${this.getTriggerDescription(ruleset.trigger)}</span>
+                                    </div>
+                                    <div>
+                                        <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">ACTION</strong>
+                                        <span style="color: #ed4245; font-size: 0.9rem;">${this.getActionDescription(ruleset.action)}</span>
+                                    </div>
+                                </div>
+                                
+                                ${ruleset.exclusions && (ruleset.exclusions.roles?.length > 0 || ruleset.exclusions.channels?.length > 0) ? `
+                                    <div>
+                                        <strong style="color: rgba(255,255,255,0.7); font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">EXCLUSIONS</strong>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem;">
+                                            ${ruleset.exclusions.roles?.map(roleId => 
+                                                `<span class="role-badge exempt">Role: ${roleId.substring(0, 8)}...</span>`
+                                            ).join('') || ''}
+                                            ${ruleset.exclusions.channels?.map(channelId => 
+                                                `<span class="badge" style="background: rgba(67,181,129,0.2); color: #43b581;">#${channelId.substring(0, 8)}...</span>`
+                                            ).join('') || ''}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            
+                            <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                                <span>🎯 Triggered: ${ruleset.stats?.triggered || 0} times</span>
+                                <span>⏰ ${ruleset.stats?.lastTriggered ? 
+                                    'Last: ' + new Date(ruleset.stats.lastTriggered).toLocaleString() : 
+                                    'Never triggered'}</span>
+                            </div>
+                        `;
+                        
+                        container.appendChild(card);
+                    });
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 3rem; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">🛡️</div>
+                            <div style="color: rgba(255,255,255,0.8); font-weight: 600; margin-bottom: 0.5rem;">No AutoMod Rulesets Yet</div>
+                            <div style="color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-bottom: 1.5rem;">Create rulesets to automatically moderate your server</div>
+                            <button onclick="window.commandsApp.openRulesetModal()" class="btn btn-primary">Create Your First Ruleset</button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading rulesets:', error);
+                const container = document.getElementById('rulesetsListContainer');
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: #ed4245;">
+                            <strong>Error loading rulesets</strong><br>
+                            <small>${error.message}</small>
+                        </div>
+                    `;
+                }
+            }
+        },
+        
+        getTriggerDescription: function(trigger) {
+            if (!trigger) return 'Unknown trigger';
+            
+            const descriptions = {
+                spam: `${trigger.config?.messageCount || 5} messages in ${trigger.config?.timeWindow || 3}s`,
+                links: 'Contains links or invites',
+                words: `Contains ${trigger.config?.bannedWords?.length || 0} banned words`,
+                mentions: `${trigger.config?.maxMentions || 5}+ mentions`,
+                caps: `${trigger.config?.capsPercentage || 70}% caps`,
+                attachments: `${trigger.config?.maxAttachments || 3}+ attachments`
+            };
+            
+            return descriptions[trigger.type] || trigger.type;
+        },
+        
+        getActionDescription: function(action) {
+            if (!action) return 'Unknown action';
+            
+            const descriptions = {
+                delete: 'Delete message',
+                warn: 'Warn user',
+                timeout: `Timeout ${action.config?.duration ? Math.floor(action.config.duration / 60) + 'm' : '5m'}`,
+                kick: 'Kick user',
+                ban: 'Ban user'
+            };
+            
+            return descriptions[action.type] || action.type;
+        },
+        
+        editRuleset: async function(rulesetId) {
+            alert('Edit ruleset feature coming soon!\n\nRuleset ID: ' + rulesetId);
+            // TODO: Implement edit functionality
+        },
+        
+        toggleRuleset: async function(rulesetId) {
+            try {
+                const response = await fetch(`/commands/ruleset/toggle/${rulesetId}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.loadRulesets();
+                } else {
+                    alert('Failed to toggle ruleset');
+                }
+            } catch (error) {
+                console.error('Error toggling ruleset:', error);
+                alert('Error toggling ruleset');
+            }
+        },
+        
+        deleteRuleset: async function(rulesetId) {
+            if (!confirm('Are you sure you want to delete this ruleset?')) return;
+            
+            try {
+                const response = await fetch(`/commands/ruleset/${rulesetId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Ruleset deleted!');
+                    this.loadRulesets();
+                } else {
+                    alert('Failed to delete ruleset');
+                }
+            } catch (error) {
+                console.error('Error deleting ruleset:', error);
+                alert('Error deleting ruleset');
+            }
+        }
+    };
+    
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            window.commandsApp.init();
+            console.log('✅ Commands app initialized on DOMContentLoaded');
+        });
+    } else {
+        window.commandsApp.init();
+        console.log('✅ Commands app initialized immediately');
+    }
+</script>
 </body>
 </html>
