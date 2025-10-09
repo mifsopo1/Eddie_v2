@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, AuditLogEvent, ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder, ActivityType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const config = require('./config.json');
@@ -672,6 +672,32 @@ client.once('ready', async () => {
         }
     }
 });
+
+// Status Rotation - Drug Dealer Simulator Theme
+    const statuses = [
+        { name: '👀 Watching the streets', type: ActivityType.Watching },
+        { name: '🎮 Competing in the game', type: ActivityType.Competing },
+        { name: '💰 Waiting on cash delivery', type: ActivityType.Playing },
+        { name: '🚗 Making deliveries', type: ActivityType.Playing },
+        { name: '📦 Counting the product', type: ActivityType.Playing },
+        { name: `💵 Managing ${totalUsers.toLocaleString()} clients`, type: ActivityType.Watching },
+        { name: '🏠 Expanding territory', type: ActivityType.Playing },
+        { name: '📊 Tracking profits', type: ActivityType.Watching }
+    ];
+    
+    let currentStatus = 0;
+    
+    const updateStatus = () => {
+        client.user.setPresence({
+            activities: [statuses[currentStatus]],
+            status: 'online'
+        });
+        currentStatus = (currentStatus + 1) % statuses.length;
+    };
+    
+    updateStatus(); // Set initial status
+    setInterval(updateStatus, 15000); // Rotate every 15 seconds
+    console.log('🔄 Status rotation started');
 
 // Message Create Event
 client.on('messageCreate', async message => {
