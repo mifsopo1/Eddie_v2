@@ -143,7 +143,11 @@ class Dashboard {
     
     // Public Appeal Submission Page
     this.app.get('/submit-appeal', async (req, res) => {
-        res.render('submit-appeal');
+        res.render('submit-appeal', {
+            client: this.client,
+            user: req.user || null,
+            page: 'submit-appeal'
+        });
     });
         // ============================================
         // AUTH ROUTES
