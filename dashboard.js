@@ -278,6 +278,7 @@ this.app.get('/commands/settings', this.requireAuth.bind(this), async (req, res)
             .sort((a, b) => a.name.localeCompare(b.name)) : [];
 
         res.render('command-settings', {
+            client: client,
             customizableCommands,
             commandSettings,
             serverSettings,
