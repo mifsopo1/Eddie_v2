@@ -593,44 +593,34 @@ this.app.post('/commands/server-settings', this.requireAuth.bind(this), express.
         // VOICE PAGE
         // ============================================
         
-        this.app.get('/voice', this.requireAuth.bind(this), async (req, res) => {
-            try {
-                const actionType = req.query.type || 'all';
-                const page = parseInt(req.query.page) || 1;
-                const limit = 50;
-                const skip = (page - 1) * limit;
-                
-                let query = {};
-                if (actionType !== 'all') {
-                    query.actionType = actionType;
-                }
-                
-                const [events, totalEvents] = await Promise.all([
-                    this.mongoLogger.db.collection('voice')
-                        .find(query)
-                        .sort({ timestamp: -1 })
-                        .skip(skip)
-                        .limit(limit)
-                        .toArray(),
-                    this.mongoLogger.db.collection('voice').countDocuments(query)
-                ]);
-                
-                const totalPages = Math.ceil(totalEvents / limit);
-                
-                res.render('voice', {
-                    client: this.client,
-                    events,
-                    actionType,
-                    currentPage: page,
-                    totalPages,
-                    page: 'voice'
-                });
-            } catch (error) {
-                console.error('Voice page error:', error);
-                req.flash('error', 'Error loading voice activity');
-                res.redirect('/');
-            }
+        app.get('/voice', async (req, res) => {
+    try {
+        const action = req.query.action || 'all'; // Get action from query or default to 'all'
+        
+        let filter = {};
+        
+        // Filter by action type if not 'all'
+        if (action !== 'all') {
+            filter.action = action.toUpperCase();
+        }
+        
+        const activities = await VoiceActivity.find(filter)
+            .sort({ timestamp: -1 })
+            .limit(100)
+            .lean();
+        
+        res.render('voice', {
+            page: 'voice',
+            client: client,
+            user: req.user,
+            activities: activities,
+            action: action // Pass action to the view
         });
+    } catch (error) {
+        console.error('Error loading voice activity:', error);
+        res.status(500).send('Error loading voice activity');
+    }
+});
 
         // ============================================
         // INVITES PAGE
