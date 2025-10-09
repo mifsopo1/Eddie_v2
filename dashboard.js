@@ -960,13 +960,11 @@ this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
             console.log('🔍 Commands Map size:', this.client.commandHandler.commands.size);
             
             for (const [name, cmd] of this.client.commandHandler.commands) {
-                // Normalize category names
                 let category = 'general';
                 if (cmd.category) {
                     category = cmd.category.toLowerCase();
                 }
                 
-                // Map common variations to standard categories
                 const categoryMap = {
                     'utilities': 'utility',
                     'information': 'info',
@@ -994,20 +992,27 @@ this.app.get('/commands', this.requireAdmin.bind(this), async (req, res) => {
 
         console.log('🔍 Built-in commands:', builtInCommands.length);
         
-        // Log categories for debugging
-        const categories = {};
-        builtInCommands.forEach(cmd => {
-            categories[cmd.category] = (categories[cmd.category] || 0) + 1;
-        });
-        console.log('📊 Categories:', categories);
-
         // Combine both arrays
         const allCommands = [...customCommands, ...builtInCommands];
 
+        // *** FIX: Get roles from Discord guild ***
+        const guild = this.client.guilds.cache.first();
+        const roles = guild ? Array.from(guild.roles.cache.values())
+            .filter(r => r.name !== '@everyone')
+            .map(role => ({
+                id: role.id,
+                name: role.name,
+                color: role.hexColor,
+                position: role.position
+            }))
+            .sort((a, b) => b.position - a.position) : [];
+
         console.log(`✅ Total commands to display: ${allCommands.length}`);
+        console.log(`✅ Total roles available: ${roles.length}`);
 
         res.render('commands', { 
             commands: allCommands,
+            roles: roles,  // *** ADD THIS LINE ***
             client: this.client,
             user: req.user,
             page: 'commands',
@@ -1182,6 +1187,359 @@ this.app.post('/commands/toggle-builtin/:name', this.requireAdmin.bind(this), as
         res.json({ success: true, message: `Command executed in #${channel.name}` });
     } catch (error) {
         console.error('Execute command error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+        // ============================================
+// STICKY MESSAGES ROUTES
+// ============================================
+
+this.app.post('/commands/sticky/create', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { channelId, message, threshold, enabled } = req.body;
+        
+        if (!channelId || !message) {
+            return res.json({ success: false, error: 'Channel and message are required' });
+        }
+        
+        const stickyMessage = {
+            channelId: channelId,
+            message: message,
+            threshold: parseInt(threshold) || 10,
+            enabled: enabled === 'on' || enabled === true,
+            messageId: null,
+            repostCount: 0,
+            createdAt: new Date(),
+            createdBy: req.user?.username || 'Admin'
+        };
+        
+        const result = await this.mongoLogger.db.collection('stickyMessages').insertOne(stickyMessage);
+        
+        req.flash('success', 'Sticky message created!');
+        res.json({ success: true, id: result.insertedId });
+    } catch (error) {
+        console.error('Create sticky message error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+this.app.get('/commands/sticky/list', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const stickyMessages = await this.mongoLogger.db.collection('stickyMessages')
+            .find({})
+            .sort({ createdAt: -1 })
+            .toArray();
+        
+        res.json({ success: true, stickyMessages });
+    } catch (error) {
+        console.error('Get sticky messages error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+this.app.post('/commands/sticky/toggle/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const sticky = await this.mongoLogger.db.collection('stickyMessages')
+            .findOne({ _id: new ObjectId(req.params.id) });
+        
+        await this.mongoLogger.db.collection('stickyMessages')
+            .updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: { enabled: !sticky.enabled } }
+            );
+        
+        res.json({ success: true, enabled: !sticky.enabled });
+    } catch (error) {
+        console.error('Toggle sticky error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+this.app.delete('/commands/sticky/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        await this.mongoLogger.db.collection('stickyMessages')
+            .deleteOne({ _id: new ObjectId(req.params.id) });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Delete sticky error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// ============================================
+// RULESETS ROUTES
+// ============================================
+
+this.app.post('/commands/ruleset/create', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { name, description, rules, commandTrigger } = req.body;
+        
+        if (!name || !rules || rules.length === 0) {
+            return res.json({ success: false, error: 'Name and rules are required' });
+        }
+        
+        // Parse rules if it's a string
+        let rulesList = Array.isArray(rules) ? rules : JSON.parse(rules);
+        
+        const ruleset = {
+            name: name,
+            description: description || '',
+            rules: rulesList,
+            commandTrigger: commandTrigger || name.toLowerCase().replace(/\s+/g, ''),
+            enabled: true,
+            createdAt: new Date(),
+            createdBy: req.user?.username || 'Admin',
+            uses: 0
+        };
+        
+        const result = await this.mongoLogger.db.collection('rulesets').insertOne(ruleset);
+        
+        req.flash('success', 'Ruleset created!');
+        res.json({ success: true, id: result.insertedId });
+    } catch (error) {
+        console.error('Create ruleset error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+this.app.get('/commands/ruleset/list', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const rulesets = await this.mongoLogger.db.collection('rulesets')
+            .find({})
+            .sort({ createdAt: -1 })
+            .toArray();
+        
+        res.json({ success: true, rulesets });
+    } catch (error) {
+        console.error('Get rulesets error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+this.app.post('/commands/ruleset/edit/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const { name, description, rules, commandTrigger } = req.body;
+        
+        let rulesList = Array.isArray(rules) ? rules : JSON.parse(rules);
+        
+        await this.mongoLogger.db.collection('rulesets')
+            .updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { 
+                    $set: { 
+                        name,
+                        description,
+                        rules: rulesList,
+                        commandTrigger,
+                        updatedAt: new Date()
+                    } 
+                }
+            );
+        
+        req.flash('success', 'Ruleset updated!');
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Update ruleset error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+this.app.delete('/commands/ruleset/:id', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        await this.mongoLogger.db.collection('rulesets')
+            .deleteOne({ _id: new ObjectId(req.params.id) });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Delete ruleset error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// ============================================
+// BULK ACTIONS ROUTES
+// ============================================
+
+this.app.post('/commands/bulk/toggle', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { enable, category } = req.body;
+        
+        let query = {};
+        if (category && category !== 'all') {
+            query.category = category;
+        }
+        
+        await this.mongoLogger.db.collection('customCommands')
+            .updateMany(query, { $set: { enabled: enable } });
+        
+        req.flash('success', `Commands ${enable ? 'enabled' : 'disabled'}!`);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Bulk toggle error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+this.app.post('/commands/bulk/delete-disabled', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const result = await this.mongoLogger.db.collection('customCommands')
+            .deleteMany({ enabled: false });
+        
+        req.flash('success', `Deleted ${result.deletedCount} disabled commands`);
+        res.json({ success: true, deleted: result.deletedCount });
+    } catch (error) {
+        console.error('Bulk delete error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+this.app.post('/commands/bulk/category', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { category, action, value } = req.body;
+        
+        if (!category) {
+            return res.json({ success: false, error: 'Category required' });
+        }
+        
+        let update = {};
+        if (action === 'enable') {
+            update = { $set: { enabled: true } };
+        } else if (action === 'disable') {
+            update = { $set: { enabled: false } };
+        } else if (action === 'delete') {
+            const result = await this.mongoLogger.db.collection('customCommands')
+                .deleteMany({ category });
+            return res.json({ success: true, deleted: result.deletedCount });
+        }
+        
+        const result = await this.mongoLogger.db.collection('customCommands')
+            .updateMany({ category }, update);
+        
+        res.json({ success: true, modified: result.modifiedCount });
+    } catch (error) {
+        console.error('Bulk category action error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+this.app.post('/commands/bulk/roles', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { commandIds, requiredRoles, exemptRoles, action } = req.body;
+        const { ObjectId } = require('mongodb');
+        
+        if (!commandIds || !Array.isArray(commandIds)) {
+            return res.json({ success: false, error: 'Command IDs array required' });
+        }
+        
+        const objectIds = commandIds.map(id => new ObjectId(id));
+        
+        let update = {};
+        if (action === 'add') {
+            if (requiredRoles) update.$addToSet = { requiredRoles: { $each: requiredRoles } };
+            if (exemptRoles) update.$addToSet = { ...update.$addToSet, exemptRoles: { $each: exemptRoles } };
+        } else if (action === 'set') {
+            if (requiredRoles !== undefined) update.$set = { requiredRoles };
+            if (exemptRoles !== undefined) update.$set = { ...update.$set, exemptRoles };
+        } else if (action === 'remove') {
+            if (requiredRoles) update.$pull = { requiredRoles: { $in: requiredRoles } };
+            if (exemptRoles) update.$pull = { ...update.$pull, exemptRoles: { $in: exemptRoles } };
+        }
+        
+        const result = await this.mongoLogger.db.collection('customCommands')
+            .updateMany({ _id: { $in: objectIds } }, update);
+        
+        res.json({ success: true, modified: result.modifiedCount });
+    } catch (error) {
+        console.error('Bulk roles error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// ============================================
+// PROTECTION SETTINGS ROUTES
+// ============================================
+
+this.app.get('/commands/protection/settings', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        let settings = await this.mongoLogger.db.collection('settings')
+            .findOne({ type: 'commandProtection' });
+        
+        if (!settings) {
+            settings = {
+                type: 'commandProtection',
+                rateLimit: {
+                    enabled: true,
+                    commandsPerMinute: 5,
+                    cooldownSeconds: 3
+                },
+                spamPrevention: {
+                    enabled: true,
+                    autoTimeout: true,
+                    logAbuse: true
+                }
+            };
+        }
+        
+        res.json({ success: true, settings });
+    } catch (error) {
+        console.error('Get protection settings error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+this.app.post('/commands/protection/settings', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { rateLimit, spamPrevention } = req.body;
+        
+        await this.mongoLogger.db.collection('settings')
+            .updateOne(
+                { type: 'commandProtection' },
+                { 
+                    $set: { 
+                        rateLimit,
+                        spamPrevention,
+                        updatedAt: new Date()
+                    } 
+                },
+                { upsert: true }
+            );
+        
+        req.flash('success', 'Protection settings saved!');
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Save protection settings error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// ============================================
+// CHANNEL-SPECIFIC RESPONSES ROUTES
+// ============================================
+
+this.app.post('/commands/channel-response/create', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { commandId, channelId, response } = req.body;
+        const { ObjectId } = require('mongodb');
+        
+        await this.mongoLogger.db.collection('customCommands')
+            .updateOne(
+                { _id: new ObjectId(commandId) },
+                { 
+                    $set: { 
+                        [`channelResponses.${channelId}`]: response 
+                    } 
+                }
+            );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Create channel response error:', error);
         res.json({ success: false, error: error.message });
     }
 });
