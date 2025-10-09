@@ -5,24 +5,319 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>All Commands - Discord Logger</title>
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* Match your existing navbar styles */
+        .navbar {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.75rem 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        .nav-brand { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+        .bot-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(88, 101, 242, 0.5); box-shadow: 0 0 12px rgba(88, 101, 242, 0.3); }
+        .bot-info { display: flex; flex-direction: column; gap: 0.15rem; }
+        .bot-info h2 { color: #fff; font-size: 1.1rem; margin: 0; font-weight: 600; line-height: 1; }
+        .bot-status { color: #43b581; font-size: 0.7rem; font-weight: 500; line-height: 1; }
+        .nav-center { flex: 1; display: flex; justify-content: center; overflow-x: auto; }
+        .nav-links { display: flex; gap: 0.35rem; flex-wrap: nowrap; justify-content: center; }
+        .nav-links a { color: var(--text-secondary); text-decoration: none; padding: 0.5rem 0.85rem; border-radius: 6px; transition: all 0.2s ease; font-weight: 500; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+        .nav-icon { font-size: 0.95rem; }
+        .nav-links a:hover { background: rgba(255, 255, 255, 0.1); color: #fff; transform: translateY(-1px); }
+        .nav-links a.active { background: rgba(88, 101, 242, 0.25); color: var(--primary); box-shadow: 0 2px 8px rgba(88, 101, 242, 0.3); }
+        .nav-user { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+        .user-profile { display: flex; align-items: center; gap: 0.6rem; background: rgba(0, 0, 0, 0.3); padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s ease; }
+        .user-profile:hover { background: rgba(0, 0, 0, 0.4); border-color: rgba(88, 101, 242, 0.5); }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.2); }
+        .user-avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: rgba(88, 101, 242, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; border: 2px solid rgba(255, 255, 255, 0.2); }
+        .user-details { display: flex; flex-direction: column; gap: 0.15rem; }
+        .user-name { color: #fff; font-weight: 600; font-size: 0.85rem; line-height: 1; }
+        .user-badge { font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px; width: fit-content; line-height: 1; }
+        .user-badge.admin { background: rgba(88, 101, 242, 0.3); color: #5865f2; }
+        .user-badge.password { background: rgba(250, 166, 26, 0.3); color: #faa61a; }
+        .logout-btn { background: rgba(237, 66, 69, 0.2); color: var(--danger); padding: 0.5rem; border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; text-decoration: none; border: 1px solid rgba(237, 66, 69, 0.3); width: 36px; height: 36px; }
+        .logout-btn:hover { background: rgba(237, 66, 69, 0.3); transform: scale(1.08); }
+
+        /* Page Specific Styles */
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-header h1 {
+            color: #fff;
+            font-size: 2rem;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .page-subtitle {
+            color: rgba(255, 255, 255, 0.6);
+            margin: 0;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .command-section {
+            margin-bottom: 3rem;
+        }
+
+        .section-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .section-header h2 {
+            color: #fff;
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .commands-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .command-row {
+            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .command-row:hover {
+            border-color: rgba(88, 101, 242, 0.6);
+            box-shadow: 0 4px 20px rgba(88, 101, 242, 0.25);
+            transform: translateY(-2px);
+        }
+
+        .command-row.disabled {
+            opacity: 0.5;
+            border-color: rgba(153, 170, 181, 0.3);
+        }
+
+        .command-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .command-info {
+            flex: 1;
+        }
+
+        .command-name-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .command-name-row h3 {
+            color: #fff;
+            font-size: 1.2rem;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .command-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .command-badge.fun { background: rgba(250, 166, 26, 0.2); color: #faa61a; }
+        .command-badge.info { background: rgba(67, 181, 129, 0.2); color: #43b581; }
+        .command-badge.utility { background: rgba(0, 176, 244, 0.2); color: #00b0f4; }
+        .command-badge.moderation { background: rgba(237, 66, 69, 0.2); color: #ed4245; }
+        .command-badge.general { background: rgba(153, 170, 181, 0.2); color: #99aab5; }
+
+        .badge-builtin {
+            background: rgba(88, 101, 242, 0.2);
+            color: #5865f2;
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-custom {
+            background: rgba(153, 170, 181, 0.2);
+            color: #99aab5;
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .command-status {
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .command-status.enabled {
+            background: rgba(67, 181, 129, 0.2);
+            color: #43b581;
+        }
+
+        .command-status.disabled {
+            background: rgba(237, 66, 69, 0.2);
+            color: #ed4245;
+        }
+
+        .command-desc {
+            color: rgba(255, 255, 255, 0.7);
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .command-actions-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .btn-icon {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1.2rem;
+        }
+
+        .btn-icon:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 768px) {
+            .page-header {
+                flex-direction: column;
+            }
+
+            .command-main {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .command-name-row {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
 </head>
 <body>
+    <!-- Navbar -->
     <nav class="navbar">
         <div class="nav-brand">
-            <h2>🤖 <%= client.user.tag %></h2>
+            <img src="<%= client.user.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
+            <div class="bot-info">
+                <h2>Eddie's Logger</h2>
+                <span class="bot-status">Online • Monitoring</span>
+            </div>
         </div>
-        <div class="nav-links">
-            <a href="/">Dashboard</a>
-            <a href="/messages">Messages</a>
-            <a href="/deleted">Deleted</a>
-            <a href="/members">Members</a>
-            <a href="/moderation">Moderation</a>
-            <a href="/attachments">Attachments</a>
-            <a href="/voice">Voice</a>
-            <a href="/invites">Invites</a>
-            <a href="/commands" class="active">Commands</a>
-            <a href="/analytics">Analytics</a>
-            <a href="/logout" class="logout">Logout</a>
+        
+        <div class="nav-center">
+            <div class="nav-links">
+                <a href="/">
+                    <span class="nav-icon">📊</span> <span>Dashboard</span>
+                </a>
+                <a href="/messages">
+                    <span class="nav-icon">💬</span> <span>Messages</span>
+                </a>
+                <a href="/deleted">
+                    <span class="nav-icon">🗑️</span> <span>Deleted</span>
+                </a>
+                <a href="/members">
+                    <span class="nav-icon">👥</span> <span>Members</span>
+                </a>
+                <a href="/moderation">
+                    <span class="nav-icon">🔨</span> <span>Moderation</span>
+                </a>
+                <a href="/attachments">
+                    <span class="nav-icon">📎</span> <span>Attachments</span>
+                </a>
+                <a href="/voice">
+                    <span class="nav-icon">🔊</span> <span>Voice</span>
+                </a>
+                <a href="/invites">
+                    <span class="nav-icon">🎫</span> <span>Invites</span>
+                </a>
+                <a href="/commands" class="active">
+                    <span class="nav-icon">⚙️</span> <span>Commands</span>
+                </a>
+                <a href="/analytics">
+                    <span class="nav-icon">📈</span> <span>Analytics</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-user">
+            <div class="user-profile">
+                <div class="user-avatar-placeholder">👤</div>
+                <div class="user-details">
+                    <span class="user-name">Admin</span>
+                    <span class="user-badge password">Password Auth</span>
+                </div>
+            </div>
+            
+            <a href="/logout" class="logout-btn" title="Logout">
+                <span class="nav-icon">🚪</span>
+            </a>
         </div>
     </nav>
     
@@ -32,9 +327,7 @@
                 <h1>⚙️ All Commands Manager</h1>
                 <p class="page-subtitle">Enable/disable all bot commands including built-in ones</p>
             </div>
-            <div style="display: flex; gap: 1rem;">
-                <a href="/commands" class="btn btn-secondary">← Back to Custom Commands</a>
-            </div>
+            <a href="/commands" class="btn btn-secondary">← Back to Custom Commands</a>
         </div>
         
         <!-- Fun Commands -->
@@ -69,7 +362,7 @@
                                 <button class="btn-icon toggle" 
                                         onclick="toggleCommand('<%= command.type %>', '<%= command.type === 'custom' ? command._id : command.name %>')" 
                                         title="Toggle">
-                                    <%= command.enabled ? '👁️' : '👁️‍🗨️' %>
+                                    <%= command.enabled ? '⏸️' : '▶️' %>
                                 </button>
                             </div>
                         </div>
@@ -111,7 +404,7 @@
                                 <button class="btn-icon toggle" 
                                         onclick="toggleCommand('<%= command.type %>', '<%= command.type === 'custom' ? command._id : command.name %>')" 
                                         title="Toggle">
-                                    <%= command.enabled ? '👁️' : '👁️‍🗨️' %>
+                                    <%= command.enabled ? '⏸️' : '▶️' %>
                                 </button>
                             </div>
                         </div>
@@ -153,7 +446,7 @@
                                 <button class="btn-icon toggle" 
                                         onclick="toggleCommand('<%= command.type %>', '<%= command.type === 'custom' ? command._id : command.name %>')" 
                                         title="Toggle">
-                                    <%= command.enabled ? '👁️' : '👁️‍🗨️' %>
+                                    <%= command.enabled ? '⏸️' : '▶️' %>
                                 </button>
                             </div>
                         </div>
@@ -195,7 +488,7 @@
                                 <button class="btn-icon toggle" 
                                         onclick="toggleCommand('<%= command.type %>', '<%= command.type === 'custom' ? command._id : command.name %>')" 
                                         title="Toggle">
-                                    <%= command.enabled ? '👁️' : '👁️‍🗨️' %>
+                                    <%= command.enabled ? '⏸️' : '▶️' %>
                                 </button>
                             </div>
                         </div>
@@ -237,7 +530,7 @@
                                 <button class="btn-icon toggle" 
                                         onclick="toggleCommand('<%= command.type %>', '<%= command.type === 'custom' ? command._id : command.name %>')" 
                                         title="Toggle">
-                                    <%= command.enabled ? '👁️' : '👁️‍🗨️' %>
+                                    <%= command.enabled ? '⏸️' : '▶️' %>
                                 </button>
                             </div>
                         </div>
@@ -268,44 +561,5 @@
             }
         }
     </script>
-    
-    <style>
-        .badge-builtin {
-            background: rgba(88, 101, 242, 0.2);
-            color: var(--primary);
-            padding: 0.25rem 0.75rem;
-            border-radius: 6px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        
-        .badge-custom {
-            background: rgba(153, 170, 181, 0.2);
-            color: #99aab5;
-            padding: 0.25rem 0.75rem;
-            border-radius: 6px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 2rem;
-        }
-        
-        .command-section {
-            margin-bottom: 3rem;
-        }
-        
-        .commands-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-    </style>
 </body>
 </html>
