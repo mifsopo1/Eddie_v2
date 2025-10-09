@@ -681,6 +681,73 @@ this.app.get('/commands', this.requireAuth.bind(this), async (req, res) => {
     }
 });
 
+// Command Settings Route
+app.get('/commands/settings', async (req, res) => {
+    try {
+        // Load command settings from file
+        let commandSettings = {};
+        if (fs.existsSync('command-settings.json')) {
+            commandSettings = JSON.parse(fs.readFileSync('command-settings.json', 'utf8'));
+        }
+
+        // List of commands that support customization
+        const customizableCommands = [
+            { name: 'kick', description: 'Kick a member from the server', category: 'Moderation' },
+            { name: 'ban', description: 'Ban a member from the server', category: 'Moderation' },
+            { name: 'mute', description: 'Mute a member', category: 'Moderation' },
+            { name: 'unmute', description: 'Unmute a member', category: 'Moderation' },
+            { name: 'warn', description: 'Warn a member', category: 'Moderation' },
+            { name: 'unban', description: 'Unban a user', category: 'Moderation' }
+        ];
+
+        res.render('command-settings', {
+            customizableCommands,
+            commandSettings,
+            bot: this.client.user,
+            guilds: this.client.guilds.cache.map(g => ({
+                id: g.id,
+                name: g.name,
+                icon: g.iconURL()
+            }))
+        });
+    } catch (error) {
+        console.error('Error loading command settings:', error);
+        res.status(500).send('Error loading command settings');
+    }
+});
+
+// Save Command Settings Route
+app.post('/commands/settings', express.json(), async (req, res) => {
+    try {
+        const { command, settings } = req.body;
+
+        // Load existing settings
+        let commandSettings = {};
+        if (fs.existsSync('command-settings.json')) {
+            commandSettings = JSON.parse(fs.readFileSync('command-settings.json', 'utf8'));
+        }
+
+        // Update settings for the command
+        if (settings === null) {
+            // Reset command to defaults
+            delete commandSettings[command];
+        } else {
+            commandSettings[command] = {
+                ...commandSettings[command],
+                ...settings
+            };
+        }
+
+        // Save to file
+        fs.writeFileSync('command-settings.json', JSON.stringify(commandSettings, null, 2));
+
+        res.json({ success: true, message: 'Settings saved successfully!' });
+    } catch (error) {
+        console.error('Error saving command settings:', error);
+        res.status(500).json({ success: false, message: 'Failed to save settings' });
+    }
+});
+
 // Toggle built-in command
 this.app.post('/commands/toggle-builtin/:name', this.requireAdmin.bind(this), async (req, res) => {
     try {
