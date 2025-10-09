@@ -706,9 +706,21 @@ client.once('ready', async () => {
 // ============================================
 // AUTOMOD RULESET CHECKER
 // ============================================
+// ============================================
+// AUTOMOD RULESET CHECKER
+// ============================================
 async function checkAutoModRules(message) {
     if (!mongoLogger || !mongoLogger.connected) return;
     if (message.author.bot) return;
+    
+    // ✅ BYPASS FOR ADMINS AND MODERATORS
+    if (message.member) {
+        if (message.member.permissions.has('Administrator') || 
+            message.member.permissions.has('ModerateMembers') ||
+            message.member.permissions.has('ManageMessages')) {
+            return; // Skip AutoMod for staff
+        }
+    }
     
     try {
         // Get all enabled rulesets
@@ -817,11 +829,33 @@ async function checkRuleTrigger(message, trigger, whitelist) {
             
         case 'caps':
             const minLength = config.minLength || 10;
-            if (content.length < minLength) return false;
+            const capsPercentage = config.capsPercentage || 70;
             
-            const capsCount = (content.match(/[A-Z]/g) || []).length;
-            const percentage = (capsCount / content.length) * 100;
-            return percentage >= (config.capsPercentage || 70);
+            // ✅ IMPROVED CAPS DETECTION
+            // Remove spaces and count only letters
+            const lettersOnly = content.replace(/[^a-zA-Z]/g, '');
+            
+            console.log(`🔍 Caps check: "${content}" | Letters only: "${lettersOnly}" | Length: ${lettersOnly.length}`);
+            
+            // Need minimum number of letters
+            if (lettersOnly.length < minLength) {
+                console.log(`⏭️ Skipping caps check - too short (${lettersOnly.length} < ${minLength})`);
+                return false;
+            }
+            
+            // Count uppercase letters
+            const capsCount = (lettersOnly.match(/[A-Z]/g) || []).length;
+            const actualPercentage = (capsCount / lettersOnly.length) * 100;
+            
+            console.log(`📊 Caps: ${capsCount}/${lettersOnly.length} = ${actualPercentage.toFixed(1)}% (threshold: ${capsPercentage}%)`);
+            
+            const triggered = actualPercentage >= capsPercentage;
+            
+            if (triggered) {
+                console.log(`✅ CAPS RULE TRIGGERED!`);
+            }
+            
+            return triggered;
             
         case 'attachments':
             const maxAttachments = config.maxAttachments || 3;
