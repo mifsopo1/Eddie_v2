@@ -2284,14 +2284,28 @@ class CommandHandler {
     });
     
     // ========== CHECK CUSTOM COMMANDS FIRST ==========
+    console.log('🔍 Checking custom commands for message:', message.content);
+    
     try {
-        const customCommands = await this.client.mongoLogger.db.collection('customCommands')
+        if (!this.mongoLogger || !this.mongoLogger.db) {
+            console.log('❌ MongoDB not available for custom commands');
+            return;
+        }
+
+        const customCommands = await this.mongoLogger.db.collection('customCommands')
             .find({ enabled: true })
             .toArray();
+        
+        console.log(`📋 Found ${customCommands.length} enabled custom commands`);
+        customCommands.forEach(cmd => {
+            console.log(`  - ${cmd.name} (${cmd.triggerType}): ${Array.isArray(cmd.trigger) ? cmd.trigger.join(', ') : cmd.trigger}`);
+        });
         
         for (const cmd of customCommands) {
             let triggered = false;
             const content = message.content.toLowerCase();
+            
+            console.log(`🔍 Testing command: ${cmd.name} (${cmd.triggerType})`);
             
             // Handle different trigger types
             if (cmd.triggerType === 'command') {
@@ -2300,36 +2314,44 @@ class CommandHandler {
                 triggered = triggers.some(trigger => 
                     content.startsWith(this.prefix + trigger.toLowerCase())
                 );
+                console.log(`  Command check: ${triggered}`);
             } else if (cmd.triggerType === 'exact') {
                 // Exact match
                 const triggers = Array.isArray(cmd.trigger) ? cmd.trigger : [cmd.trigger];
                 triggered = triggers.some(trigger => 
                     content === trigger.toLowerCase()
                 );
+                console.log(`  Exact check: ${triggered}`);
             } else if (cmd.triggerType === 'contains') {
                 // Contains word/phrase
                 const triggers = Array.isArray(cmd.trigger) ? cmd.trigger : [cmd.trigger];
-                triggered = triggers.some(trigger => 
-                    content.includes(trigger.toLowerCase())
-                );
+                console.log(`  Checking if "${content}" contains any of: ${triggers.join(', ')}`);
+                triggered = triggers.some(trigger => {
+                    const match = content.includes(trigger.toLowerCase());
+                    console.log(`    "${trigger.toLowerCase()}" → ${match}`);
+                    return match;
+                });
+                console.log(`  Contains check result: ${triggered}`);
             } else if (cmd.triggerType === 'startswith') {
                 // Starts with
                 const triggers = Array.isArray(cmd.trigger) ? cmd.trigger : [cmd.trigger];
                 triggered = triggers.some(trigger => 
                     content.startsWith(trigger.toLowerCase())
                 );
+                console.log(`  Startswith check: ${triggered}`);
             } else if (cmd.triggerType === 'regex') {
                 // Regex pattern
                 try {
                     const regex = new RegExp(cmd.trigger, 'i');
                     triggered = regex.test(content);
+                    console.log(`  Regex check: ${triggered}`);
                 } catch (e) {
                     console.error('Invalid regex:', cmd.trigger);
                 }
             }
             
             if (triggered) {
-                console.log(`🎯 Custom command triggered: ${cmd.name}`);
+                console.log(`🎯 ✅ Custom command triggered: ${cmd.name}`);
                 
                 // Delete trigger message if enabled
                 if (cmd.deleteTrigger) {
@@ -2343,6 +2365,8 @@ class CommandHandler {
                 response = response.replace(/{channel}/g, message.channel.name);
                 response = response.replace(/{server}/g, message.guild.name);
                 response = response.replace(/{membercount}/g, message.guild.memberCount);
+                
+                console.log(`📤 Sending response: ${response.substring(0, 50)}...`);
                 
                 // Handle different response types
                 if (cmd.responseType === 'text') {
@@ -2377,17 +2401,21 @@ class CommandHandler {
                 }
                 
                 // Increment usage counter
-                await this.client.mongoLogger.db.collection('customCommands')
+                await this.mongoLogger.db.collection('customCommands')
                     .updateOne(
                         { _id: cmd._id },
                         { $inc: { uses: 1 } }
                     );
                 
+                console.log(`✅ Custom command executed successfully`);
                 return; // Stop processing after first match
             }
         }
+        
+        console.log('❌ No custom commands matched');
+        
     } catch (error) {
-        console.error('Error checking custom commands:', error);
+        console.error('❌ Error checking custom commands:', error);
     }
     
     // ========== HANDLE BUILT-IN COMMANDS ==========
