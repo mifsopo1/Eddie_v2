@@ -1611,3 +1611,192 @@ textarea {
 .command-form {
     padding: 2rem; /* Overall form padding */
 }
+
+/* Clickable Stat Cards */
+.stat-card.clickable {
+    text-decoration: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card.clickable::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(88, 101, 242, 0.1), rgba(88, 101, 242, 0.2));
+    transition: width 0.3s ease;
+    z-index: 0;
+}
+
+.stat-card.clickable:hover::before {
+    width: 100%;
+}
+
+.stat-card.clickable:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(88, 101, 242, 0.3);
+    border-color: rgba(88, 101, 242, 0.5);
+}
+
+.stat-card.clickable:active {
+    transform: translateY(-2px) scale(1.01);
+}
+
+.stat-card.clickable .stat-icon,
+.stat-card.clickable .stat-info {
+    position: relative;
+    z-index: 1;
+}
+
+.stat-card.clickable .stat-value,
+.stat-card.clickable .stat-label {
+    transition: color 0.2s ease;
+}
+
+.stat-card.clickable:hover .stat-value {
+    color: #fff;
+}
+
+.stat-card.clickable:hover .stat-label {
+    color: #dcddde;
+}
+
+/* Add click ripple effect */
+.stat-card.clickable::after {
+    content: '→';
+    position: absolute;
+    top: 50%;
+    right: 1rem;
+    transform: translateY(-50%);
+    font-size: 1.5rem;
+    color: var(--primary);
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 1;
+}
+
+.stat-card.clickable:hover::after {
+    opacity: 1;
+    right: 1.5rem;
+}
+
+/* Specific hover colors for different stat types */
+.stat-card.clickable:nth-child(1):hover {
+    border-color: rgba(52, 152, 219, 0.5);
+    box-shadow: 0 12px 32px rgba(52, 152, 219, 0.3);
+}
+
+.stat-card.clickable:nth-child(2):hover {
+    border-color: rgba(46, 204, 113, 0.5);
+    box-shadow: 0 12px 32px rgba(46, 204, 113, 0.3);
+}
+
+.stat-card.clickable:nth-child(3):hover {
+    border-color: rgba(231, 76, 60, 0.5);
+    box-shadow: 0 12px 32px rgba(231, 76, 60, 0.3);
+}
+
+.stat-card.clickable:nth-child(4):hover {
+    border-color: rgba(255, 107, 107, 0.5);
+    box-shadow: 0 12px 32px rgba(255, 107, 107, 0.3);
+}
+
+.stat-card.clickable:nth-child(5):hover {
+    border-color: rgba(155, 89, 182, 0.5);
+    box-shadow: 0 12px 32px rgba(155, 89, 182, 0.3);
+}
+
+.stat-card.clickable:nth-child(6):hover {
+    border-color: rgba(241, 196, 15, 0.5);
+    box-shadow: 0 12px 32px rgba(241, 196, 15, 0.3);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .stat-card.clickable::after {
+        display: none;
+    }
+    
+    .stat-card.clickable:hover {
+        transform: translateY(-3px) scale(1.01);
+    }
+}
+
+/* Message Channel Link (in header) */
+.message-channel-link {
+    color: #7289da;
+    text-decoration: none;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.message-channel-link:hover {
+    background: rgba(114, 137, 218, 0.2);
+    color: #fff;
+    text-decoration: none;
+}
+
+.message-channel-link::before {
+    content: '🔗';
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.message-channel-link:hover::before {
+    opacity: 1;
+}
+
+/* Message Jump Link (in meta section) */
+.message-jump-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.message-jump-link:hover {
+    background: rgba(88, 101, 242, 0.2);
+    color: #fff;
+    text-decoration: none;
+}
+
+/* Message Meta Section */
+.message-meta {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.message-meta a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.message-meta a:hover {
+    text-decoration: underline;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .message-channel-link::before {
+        opacity: 1; /* Always show icon on mobile */
+    }
+}
+

@@ -806,16 +806,51 @@ this.app.get('/invites', this.requireAuth.bind(this), async (req, res) => {
         let timeline = [];
         let attachmentStats = {};
         let newAccounts = [];
-        let diskSpace = null;  // ← Add this
+        let diskSpace = null;
         
-        try { analytics = await this.mongoLogger.getServerAnalytics() || {}; } catch (e) {}
-        try { topUsers = await this.mongoLogger.getTopUsers(7, 15) || []; } catch (e) {}
-        try { inviteStats = await this.mongoLogger.getInviteStats() || []; } catch (e) {}
-        try { timeline = await this.mongoLogger.getMessageTimeline(14) || []; } catch (e) {}
-        try { attachmentStats = await this.mongoLogger.getAttachmentStats() || {}; } catch (e) {}
-        try { newAccounts = await this.mongoLogger.getNewAccountJoins(7) || []; } catch (e) {}
+        try { 
+            analytics = await this.mongoLogger.getServerAnalytics() || {}; 
+            console.log('📊 Analytics:', analytics);
+        } catch (e) {
+            console.error('Error getting analytics:', e);
+        }
         
-        // ← Add this entire block
+        try { 
+            topUsers = await this.mongoLogger.getTopUsers(7, 15) || []; 
+            console.log('👥 Top users:', topUsers.length);
+        } catch (e) {
+            console.error('Error getting top users:', e);
+        }
+        
+        try { 
+            inviteStats = await this.mongoLogger.getInviteStats() || []; 
+            console.log('🎫 Invite stats:', inviteStats.length);
+        } catch (e) {
+            console.error('Error getting invite stats:', e);
+        }
+        
+        try { 
+            timeline = await this.mongoLogger.getMessageTimeline(14) || []; 
+            console.log('📈 Timeline:', timeline.length, 'days');
+        } catch (e) {
+            console.error('Error getting timeline:', e);
+        }
+        
+        try { 
+            attachmentStats = await this.getAttachmentStats() || {}; 
+            console.log('📎 Attachment stats:', attachmentStats);
+        } catch (e) {
+            console.error('Error getting attachment stats:', e);
+        }
+        
+        try { 
+            newAccounts = await this.mongoLogger.getNewAccountJoins(7) || []; 
+            console.log('⚠️ New accounts:', newAccounts.length);
+        } catch (e) {
+            console.error('Error getting new accounts:', e);
+        }
+        
+        // Get disk space
         try {
             const { execSync } = require('child_process');
             const output = execSync('df -h /var/lib/jenkins/discord-logger-bot | tail -1').toString();
@@ -826,7 +861,7 @@ this.app.get('/invites', this.requireAuth.bind(this), async (req, res) => {
                 available: parts[3],
                 percentage: parts[4]
             };
-            console.log('💾 Disk space:', diskSpace);  // Debug log
+            console.log('💾 Disk space:', diskSpace);
         } catch (error) {
             console.error('Error getting disk space:', error);
         }
@@ -838,7 +873,7 @@ this.app.get('/invites', this.requireAuth.bind(this), async (req, res) => {
             timeline,
             attachmentStats,
             newAccounts,
-            diskSpace,  // ← Make sure this is here!
+            diskSpace,
             client: this.client,
             page: 'analytics'
         });
@@ -2435,30 +2470,73 @@ this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res
     }
 
     async getAttachmentStats() {
-        try {
-            const [statsArray] = await Promise.all([
-                this.mongoLogger.db.collection('attachments').aggregate([
-                    {
-                        $group: {
-                            _id: null,
-                            totalAttachments: { $sum: 1 },
-                            totalSize: { $sum: '$size' },
-                            imageCount: {
-                                $sum: {
-                                    $cond: [{ $regexMatch: { input: '$contentType', regex: /^image\// } }, 1, 0]
-                                }
-                            }
-                        }
-                    }
-                ]).toArray()
-            ]);
-            
-            return statsArray[0] || { totalAttachments: 0, totalSize: 0, imageCount: 0 };
-        } catch (error) {
-            console.error('Error getting attachment stats:', error);
-            return { totalAttachments: 0, totalSize: 0, imageCount: 0 };
-        }
+    try {
+        console.log('📎 Fetching attachment stats...');
+        
+        // Get total count
+        const totalAttachments = await this.mongoLogger.db.collection('attachments').countDocuments();
+        console.log('   Total attachments:', totalAttachments);
+        
+        // Get total size
+        const sizeResult = await this.mongoLogger.db.collection('attachments').aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalSize: { $sum: '$size' }
+                }
+            }
+        ]).toArray();
+        
+        const totalSize = sizeResult.length > 0 ? sizeResult[0].totalSize : 0;
+        console.log('   Total size:', (totalSize / 1024 / 1024).toFixed(2), 'MB');
+        
+        // Get count by type
+        const byType = await this.mongoLogger.db.collection('attachments').aggregate([
+            {
+                $group: {
+                    _id: '$contentType',
+                    count: { $sum: 1 },
+                    totalSize: { $sum: '$size' }
+                }
+            },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]).toArray();
+        
+        console.log('   Types:', byType.length);
+        
+        // Get top uploaders
+        const topUploaders = await this.mongoLogger.db.collection('attachments').aggregate([
+            {
+                $group: {
+                    _id: '$userId',
+                    userName: { $first: '$userName' },
+                    count: { $sum: 1 },
+                    totalSize: { $sum: '$size' }
+                }
+            },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]).toArray();
+        
+        console.log('   Top uploaders:', topUploaders.length);
+        
+        return {
+            total: totalAttachments,
+            totalSize: totalSize,
+            byType: byType,
+            topUploaders: topUploaders
+        };
+    } catch (error) {
+        console.error('❌ Error getting attachment stats:', error);
+        return {
+            total: 0,
+            totalSize: 0,
+            byType: [],
+            topUploaders: []
+        };
     }
+}
 
     start() {
         this.app.listen(this.port, () => {

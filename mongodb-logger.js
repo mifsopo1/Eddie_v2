@@ -447,127 +447,131 @@ class MongoDBLogger {
         // ===== ANALYTICS METHODS =====
     
     async getServerAnalytics() {
-        if (!this.connected) return null;
+    if (!this.connected) return null;
+    
+    try {
+        console.log('📊 Getting server analytics...');
         
-        try {
-            const now = new Date();
-            const last24h = new Date(now - 86400000);
-            const last7d = new Date(now - 7 * 86400000);
-            const last30d = new Date(now - 30 * 86400000);
+        const now = new Date();
+        const last24h = new Date(now - 86400000);
+        const last7d = new Date(now - 7 * 86400000);
+        const last30d = new Date(now - 30 * 86400000);
+        
+        const [
+            // Message stats
+            totalMessages,
+            messages24h,
+            messages7d,
+            messages30d,
             
-            const [
-                // Message stats
-                totalMessages,
-                messages24h,
-                messages7d,
-                messages30d,
-                
-                // Member stats
-                totalJoins,
-                joins24h,
-                joins7d,
-                leaves7d,
-                
-                // Activity stats
-                activeUsers24h,
-                activeUsers7d,
-                
-                // Channel stats
-                channelActivity,
-                
-                // Attachment stats
-                totalAttachments,
-                attachments24h,
-                imageAttachments,
-                
-                // Voice stats
-                voiceActivity24h,
-                
-                // Moderation stats
-                totalBans,
-                totalMutes,
-                recentModerationActions
-                
-            ] = await Promise.all([
-                // Messages
-                this.db.collection('messages').countDocuments({ eventType: 'create' }),
-                this.db.collection('messages').countDocuments({ eventType: 'create', timestamp: { $gte: last24h } }),
-                this.db.collection('messages').countDocuments({ eventType: 'create', timestamp: { $gte: last7d } }),
-                this.db.collection('messages').countDocuments({ eventType: 'create', timestamp: { $gte: last30d } }),
-                
-                // Members
-                this.db.collection('members').countDocuments({ eventType: 'join' }),
-                this.db.collection('members').countDocuments({ eventType: 'join', timestamp: { $gte: last24h } }),
-                this.db.collection('members').countDocuments({ eventType: 'join', timestamp: { $gte: last7d } }),
-                this.db.collection('members').countDocuments({ eventType: 'leave', timestamp: { $gte: last7d } }),
-                
-                // Activity
-                this.db.collection('messages').distinct('userId', { eventType: 'create', timestamp: { $gte: last24h } }),
-                this.db.collection('messages').distinct('userId', { eventType: 'create', timestamp: { $gte: last7d } }),
-                
-                // Channels
-                this.db.collection('messages').aggregate([
-                    { $match: { eventType: 'create', timestamp: { $gte: last7d } } },
-                    { $group: { _id: '$channelId', channelName: { $first: '$channelName' }, count: { $sum: 1 } } },
-                    { $sort: { count: -1 } },
-                    { $limit: 10 }
-                ]).toArray(),
-                
-                // Attachments
-                this.db.collection('attachments').countDocuments(),
-                this.db.collection('attachments').countDocuments({ timestamp: { $gte: last24h } }),
-                this.db.collection('attachments').countDocuments({ contentType: /^image\// }),
-                
-                // Voice
-                this.db.collection('voice').countDocuments({ timestamp: { $gte: last24h } }),
-                
-                // Moderation
-                this.db.collection('moderation').countDocuments({ actionType: 'ban' }),
-                this.db.collection('moderation').countDocuments({ actionType: { $in: ['mute', 'timeout'] } }),
-                this.db.collection('moderation').countDocuments({ timestamp: { $gte: last7d } })
-            ]);
+            // Member stats
+            totalJoins,
+            joins24h,
+            joins7d,
+            leaves7d,
             
-            return {
-                messages: {
-                    total: totalMessages,
-                    last24h: messages24h,
-                    last7d: messages7d,
-                    last30d: messages30d,
-                    avgPerDay: Math.round(messages30d / 30)
-                },
-                members: {
-                    totalJoins: totalJoins,
-                    joins24h: joins24h,
-                    joins7d: joins7d,
-                    leaves7d: leaves7d,
-                    netGrowth7d: joins7d - leaves7d
-                },
-                activity: {
-                    activeUsers24h: activeUsers24h.length,
-                    activeUsers7d: activeUsers7d.length
-                },
-                channels: {
-                    topChannels: channelActivity
-                },
-                attachments: {
-                    total: totalAttachments,
-                    last24h: attachments24h,
-                    images: imageAttachments
-                },
-                voice: {
-                    activity24h: voiceActivity24h
-                },
-                moderation: {
-                    totalBans: totalBans,
-                    totalMutes: totalMutes,
-                    recent7d: recentModerationActions
-                }
-            };
-        } catch (error) {
-            console.error('Error getting server analytics:', error);
-            return null;
-        }
+            // Activity stats
+            activeUsers24h,
+            activeUsers7d,
+            
+            // Channel stats
+            channelActivity,
+            
+            // Attachment stats
+            totalAttachments,
+            attachments24h,
+            
+            // Voice stats
+            voiceActivity24h,
+            
+            // Moderation stats
+            totalBans,
+            totalMutes,
+            recentModerationActions
+            
+        ] = await Promise.all([
+            // Messages
+            this.db.collection('messages').countDocuments({ eventType: 'create' }),
+            this.db.collection('messages').countDocuments({ eventType: 'create', timestamp: { $gte: last24h } }),
+            this.db.collection('messages').countDocuments({ eventType: 'create', timestamp: { $gte: last7d } }),
+            this.db.collection('messages').countDocuments({ eventType: 'create', timestamp: { $gte: last30d } }),
+            
+            // Members
+            this.db.collection('members').countDocuments({ eventType: 'join' }),
+            this.db.collection('members').countDocuments({ eventType: 'join', timestamp: { $gte: last24h } }),
+            this.db.collection('members').countDocuments({ eventType: 'join', timestamp: { $gte: last7d } }),
+            this.db.collection('members').countDocuments({ eventType: 'leave', timestamp: { $gte: last7d } }),
+            
+            // Activity
+            this.db.collection('messages').distinct('userId', { eventType: 'create', timestamp: { $gte: last24h } }),
+            this.db.collection('messages').distinct('userId', { eventType: 'create', timestamp: { $gte: last7d } }),
+            
+            // Channels
+            this.db.collection('messages').aggregate([
+                { $match: { eventType: 'create', timestamp: { $gte: last7d } } },
+                { $group: { _id: '$channelId', channelName: { $first: '$channelName' }, count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 10 }
+            ]).toArray(),
+            
+            // Attachments
+            this.db.collection('attachments').countDocuments(),
+            this.db.collection('attachments').countDocuments({ timestamp: { $gte: last24h } }),
+            
+            // Voice
+            this.db.collection('voice').countDocuments({ timestamp: { $gte: last24h } }),
+            
+            // Moderation
+            this.db.collection('moderation').countDocuments({ actionType: 'ban' }),
+            this.db.collection('moderation').countDocuments({ actionType: { $in: ['mute', 'timeout'] } }),
+            this.db.collection('moderation').countDocuments({ timestamp: { $gte: last7d } })
+        ]);
+        
+        console.log('   Messages:', totalMessages);
+        console.log('   Members:', totalJoins);
+        console.log('   Active users (24h):', activeUsers24h.length);
+        console.log('   Attachments:', totalAttachments);
+        
+        return {
+            messages: {
+                total: totalMessages,
+                last24h: messages24h,
+                last7d: messages7d,
+                last30d: messages30d,
+                avgPerDay: Math.round(messages30d / 30)
+            },
+            members: {
+                totalJoins: totalJoins,
+                joins24h: joins24h,
+                joins7d: joins7d,
+                leaves7d: leaves7d,
+                netGrowth7d: joins7d - leaves7d
+            },
+            activity: {
+                activeUsers24h: activeUsers24h.length,
+                activeUsers7d: activeUsers7d.length
+            },
+            channels: {
+                topChannels: channelActivity
+            },
+            attachments: {
+                total: totalAttachments,
+                last24h: attachments24h
+            },
+            voice: {
+                activity24h: voiceActivity24h
+            },
+            moderation: {
+                totalBans: totalBans,
+                totalMutes: totalMutes,
+                recent7d: recentModerationActions
+            }
+        };
+    } catch (error) {
+        console.error('Error getting server analytics:', error);
+        return null;
     }
+}
     
     async getTopUsers(timeframe = 7, limit = 10) {
         if (!this.connected) return [];
@@ -643,35 +647,56 @@ class MongoDBLogger {
     }
     
     async getMessageTimeline(days = 7) {
-        if (!this.connected) return [];
+    if (!this.connected) return [];
+    
+    try {
+        const daysAgo = new Date(Date.now() - (days * 86400000));
         
-        try {
-            const daysAgo = new Date(Date.now() - (days * 86400000));
+        console.log(`📈 Getting message timeline for last ${days} days...`);
+        
+        const timeline = await this.db.collection('messages').aggregate([
+            { 
+                $match: { 
+                    eventType: 'create',
+                    timestamp: { $gte: daysAgo }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: { format: '%Y-%m-%d', date: '$timestamp' }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]).toArray();
+        
+        console.log(`   Found ${timeline.length} days with data`);
+        
+        // Fill in missing days with 0
+        const result = [];
+        const startDate = new Date(daysAgo);
+        
+        for (let i = 0; i < days; i++) {
+            const currentDate = new Date(startDate);
+            currentDate.setDate(startDate.getDate() + i);
+            const dateStr = currentDate.toISOString().split('T')[0];
             
-            const timeline = await this.db.collection('messages').aggregate([
-                { 
-                    $match: { 
-                        eventType: 'create',
-                        timestamp: { $gte: daysAgo }
-                    }
-                },
-                {
-                    $group: {
-                        _id: {
-                            $dateToString: { format: '%Y-%m-%d', date: '$timestamp' }
-                        },
-                        count: { $sum: 1 }
-                    }
-                },
-                { $sort: { _id: 1 } }
-            ]).toArray();
-            
-            return timeline;
-        } catch (error) {
-            console.error('Error getting message timeline:', error);
-            return [];
+            const existing = timeline.find(t => t._id === dateStr);
+            result.push({
+                _id: dateStr,
+                count: existing ? existing.count : 0
+            });
         }
+        
+        console.log(`   Returning ${result.length} days (with gaps filled)`);
+        return result;
+    } catch (error) {
+        console.error('Error getting message timeline:', error);
+        return [];
     }
+}
     
     async getAttachmentStats() {
         if (!this.connected) return null;
@@ -746,6 +771,19 @@ class MongoDBLogger {
             console.error('Error getting new account joins:', error);
             return [];
         }
+    }
+}
+
+// Add this method to MongoDBLogger class
+async getUserAvatar(userId) {
+    try {
+        const user = await this.client.users.fetch(userId).catch(() => null);
+        if (user) {
+            return user.displayAvatarURL();
+        }
+        return `https://cdn.discordapp.com/embed/avatars/${parseInt(userId) % 5}.png`;
+    } catch (error) {
+        return `https://cdn.discordapp.com/embed/avatars/${parseInt(userId) % 5}.png`;
     }
 }
 

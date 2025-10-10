@@ -232,5 +232,14 @@
     "maxUses": 0,
     "timestamp": 1760043134985,
     "guildId": "585075311209611264"
+  },
+  "626338351405989898": {
+    "code": "unknown",
+    "inviter": "Unknown",
+    "inviterId": "Unknown",
+    "uses": 0,
+    "maxUses": 0,
+    "timestamp": 1760087876771,
+    "guildId": "585075311209611264"
   }
 }

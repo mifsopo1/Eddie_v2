@@ -182,7 +182,7 @@
     </style>
 </head>
 <body>
-    <nav class="navbar">
+        <nav class="navbar">
         <div class="nav-brand">
             <img src="<%= client.user.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
             <div class="bot-info">
@@ -224,7 +224,7 @@
                     <span class="nav-icon">📈</span> <span>Analytics</span>
                 </a>
                 <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
-                <span class="nav-icon">🎫</span> <span>Appeals</span>
+                    <span class="nav-icon">🎫</span> <span>Appeals</span>
                 </a>
             </div>
         </div>
@@ -257,128 +257,137 @@
     <div class="container">
         <h1>💬 All Messages</h1>
         
-        <div class="filter-controls">
-            <div class="filter-box">
-                <label>Filter messages:</label>
-                <div class="filter-inputs">
-                    <select id="channelFilter" onchange="applyFilters()">
-                        <option value="">All Channels</option>
-                        <% if (typeof channels !== 'undefined' && channels) { %>
-                            <% channels.forEach(channel => { %>
-                                <option value="<%= channel.id %>" <%= selectedChannel === channel.id ? 'selected' : '' %>>
-                                    #<%= channel.name %>
-                                </option>
-                            <% }); %>
-                        <% } %>
-                    </select>
-                    
-                    <select id="userFilter" onchange="applyFilters()">
-                        <option value="">All Users</option>
-                        <% if (typeof users !== 'undefined' && users) { %>
-                            <% users.forEach(user => { %>
-                                <option value="<%= user.id %>" <%= selectedUser === user.id ? 'selected' : '' %>>
-                                    <%= user.username %>
-                                </option>
-                            <% }); %>
-                        <% } %>
-                    </select>
-                    
-                    <button onclick="clearFilters()" class="btn-clear">Clear Filters</button>
-                </div>
-            </div>
+        <div class="filter-box">
+            <label>Filter by Channel:</label>
+            <select onchange="window.location='/messages?channel=' + this.value + (new URLSearchParams(window.location.search).get('message') ? '&message=' + new URLSearchParams(window.location.search).get('message') : '') + window.location.hash">
+                <option value="">All Channels</option>
+                <% channels.forEach(ch => { %>
+                    <option value="<%= ch.id %>" <%= selectedChannel === ch.id ? 'selected' : '' %>>
+                        #<%= ch.name %>
+                    </option>
+                <% }); %>
+            </select>
+            
+            <label style="margin-left: 2rem;">Filter by User:</label>
+            <select onchange="window.location='/messages?user=' + this.value + (new URLSearchParams(window.location.search).get('channel') ? '&channel=' + new URLSearchParams(window.location.search).get('channel') : '') + (new URLSearchParams(window.location.search).get('message') ? '&message=' + new URLSearchParams(window.location.search).get('message') : '') + window.location.hash">
+                <option value="">All Users</option>
+                <% users.forEach(u => { %>
+                    <option value="<%= u.id %>" <%= selectedUser === u.id ? 'selected' : '' %>>
+                        <%= u.username %>
+                    </option>
+                <% }); %>
+            </select>
+            
             <% if (selectedChannel || selectedUser) { %>
-                <p class="filter-status">
-                    Filtering: 
-                    <% if (selectedChannel) { %>
-                        <span class="filter-tag">Channel: #<%= channelName || selectedChannel %></span>
-                    <% } %>
-                    <% if (selectedUser) { %>
-                        <span class="filter-tag">User: <%= userName || selectedUser %></span>
-                    <% } %>
-                </p>
+                <a href="/messages" class="btn btn-secondary" style="margin-left: auto;">Clear Filters</a>
             <% } %>
         </div>
         
+        <% if (selectedChannel && channelName) { %>
+            <div class="filter-tags">
+                <span class="filter-tag">
+                    📢 Channel: <strong>#<%= channelName %></strong>
+                    <a href="/messages<%= selectedUser ? '?user=' + selectedUser : '' %>" class="remove-filter">✕</a>
+                </span>
+            </div>
+        <% } %>
+        
+        <% if (selectedUser && userName) { %>
+            <div class="filter-tags">
+                <span class="filter-tag">
+                    👤 User: <strong><%= userName %></strong>
+                    <a href="/messages<%= selectedChannel ? '?channel=' + selectedChannel : '' %>" class="remove-filter">✕</a>
+                </span>
+            </div>
+        <% } %>
+        
         <div class="messages-container">
-            <% if (messages && messages.length > 0) { %>
-                <% messages.forEach(msg => { %>
-                    <div class="message-item <%= msg.eventType %>" id="msg-<%= msg.messageId || msg.id %>">
-                        <div class="message-header">
-                            <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+            <% messages.forEach(msg => { %>
+                <div class="message-item <%= msg.eventType %>" id="msg-<%= msg.messageId %>" data-message-id="<%= msg.messageId %>">
+                    <div class="message-header">
+                        <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+                        
+                        <!-- User with Avatar -->
+                        <span class="message-user">
                             <% if (msg.userAvatar) { %>
                                 <img src="<%= msg.userAvatar %>" alt="Avatar" class="user-avatar-inline">
                             <% } %>
-                            <span class="message-user">
-                                <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
-                            </span>
-                            <span class="message-channel">#<%= msg.channelName %></span>
-                            <span class="message-time"><%= new Date(msg.timestamp || msg.deletedTimestamp).toLocaleString() %></span>
-                        </div>
-                        <div class="message-content">
-                            <% if (msg.eventType === 'edit') { %>
-                                <div class="edit-before"><strong>Before:</strong> <%= msg.contentBefore || '[No content]' %></div>
-                                <div class="edit-after"><strong>After:</strong> <%= msg.contentAfter || '[No content]' %></div>
-                            <% } else if (msg.eventType === 'delete') { %>
-                                <%= msg.content || '[Content not cached]' %>
-                            <% } else { %>
-                                <%= msg.content || '[No text content]' %>
-                            <% } %>
-                            <% if (msg.attachmentCount > 0) { %>
-                                <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
-                            <% } %>
-                            <% if (msg.embedCount > 0) { %>
-                                <span class="attachment-badge">📋 <%= msg.embedCount %> embed(s)</span>
-                            <% } %>
-                        </div>
-                        <% if (msg.messageUrl) { %>
-                            <div class="message-meta">
-                                <a href="<%= msg.messageUrl %>" target="_blank">Jump to Message →</a>
-                            </div>
+                            <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
+                        </span>
+                        
+                        <span class="message-channel">#<%= msg.channelName %></span>
+                        <span class="message-time"><%= new Date(msg.timestamp || msg.deletedTimestamp).toLocaleString() %></span>
+                    </div>
+                    <div class="message-content">
+                        <% if (msg.eventType === 'edit') { %>
+                            <div class="edit-before">Before: <%= msg.contentBefore || '[No content]' %></div>
+                            <div class="edit-after">After: <%= msg.contentAfter || '[No content]' %></div>
+                        <% } else { %>
+                            <%= msg.content || '[No content]' %>
+                        <% } %>
+                        <% if (msg.attachmentCount > 0) { %>
+                            <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
                         <% } %>
                     </div>
-                <% }); %>
-            <% } else { %>
-                <p class="text-muted">No messages found</p>
-            <% } %>
+                    
+                    <% if (msg.eventType === 'create' && msg.messageId && msg.channelId) { %>
+                        <div class="message-meta">
+                            <a href="https://discord.com/channels/<%= msg.guildId %>/<%= msg.channelId %>/<%= msg.messageId %>" 
+                               target="_blank"
+                               class="message-jump-link">
+                                🔗 Jump to Message in Discord
+                            </a>
+                        </div>
+                    <% } %>
+                    
+                    <% if (msg.eventType === 'edit' && msg.messageUrl) { %>
+                        <div class="message-meta">
+                            <a href="<%= msg.messageUrl %>" 
+                               target="_blank"
+                               class="message-jump-link">
+                                🔗 Jump to Edited Message
+                            </a>
+                        </div>
+                    <% } %>
+                    
+                    <% if (msg.eventType === 'delete' && msg.originalTimestamp) { %>
+                        <div class="message-meta">
+                            Originally sent: <%= new Date(msg.originalTimestamp).toLocaleString() %>
+                        </div>
+                    <% } %>
+                </div>
+            <% }); %>
         </div>
         
         <div class="pagination">
             <% if (currentPage > 1) { %>
-                <a href="?page=<%= currentPage - 1 %>" class="btn">← Previous</a>
+                <a href="?page=<%= currentPage - 1 %><%= selectedChannel ? '&channel=' + selectedChannel : '' %><%= selectedUser ? '&user=' + selectedUser : '' %>" class="btn">← Previous</a>
             <% } %>
             <span>Page <%= currentPage %> of <%= totalPages %></span>
             <% if (currentPage < totalPages) { %>
-                <a href="?page=<%= currentPage + 1 %>" class="btn">Next →</a>
+                <a href="?page=<%= currentPage + 1 %><%= selectedChannel ? '&channel=' + selectedChannel : '' %><%= selectedUser ? '&user=' + selectedUser : '' %>" class="btn">Next →</a>
             <% } %>
         </div>
     </div>
-
+    
     <script>
-        // Filter functions
-        function applyFilters() {
-            const channelId = document.getElementById('channelFilter').value;
-            const userId = document.getElementById('userFilter').value;
-            
-            let url = '/messages?page=1';
-            if (channelId) url += `&channel=${channelId}`;
-            if (userId) url += `&user=${userId}`;
-            
-            window.location.href = url;
-        }
-
-        function clearFilters() {
-            window.location.href = '/messages?page=1';
-        }
-
-        // Auto-scroll and highlight message if coming from attachments page
+        // Highlight message if URL has hash anchor (#msg-123)
         document.addEventListener('DOMContentLoaded', function() {
-            const hash = window.location.hash;
-            if (hash && hash.startsWith('#msg-')) {
-                const messageElement = document.querySelector(hash);
-                if (messageElement) {
+            // Check if there's a hash in the URL
+            if (window.location.hash) {
+                const targetId = window.location.hash.substring(1); // Remove the #
+                const targetElement = document.getElementById(targetId);
+                
+                if (targetElement) {
+                    // Small delay to ensure page is fully loaded
                     setTimeout(() => {
-                        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        messageElement.classList.add('highlight');
+                        // Add highlight class
+                        targetElement.classList.add('message-highlighted');
+                        
+                        // Remove highlight after 3 seconds
+                        setTimeout(() => {
+                            targetElement.classList.remove('message-highlighted');
+                        }, 3000);
                     }, 100);
                 }
             }

@@ -356,71 +356,77 @@
         </div>
     </nav>
 
-    <div class="voice-container">
-        <div class="page-header">
-            <h1>🔊 Voice Activity Log</h1>
-        </div>
-
-        <div class="filter-section">
-            <div class="filter-row">
-                <label>Action Type:</label>
-                <select onchange="window.location='?action=' + this.value">
-                    <option value="all" <%= action === 'all' ? 'selected' : '' %>>All Actions</option>
-                    <option value="join" <%= action === 'join' ? 'selected' : '' %>>Joins</option>
-                    <option value="leave" <%= action === 'leave' ? 'selected' : '' %>>Leaves</option>
-                    <option value="move" <%= action === 'move' ? 'selected' : '' %>>Moves</option>
-                </select>
-            </div>
-            <p class="results-count">Found <%= activities.length %> events</p>
-        </div>
-
-        <div class="activity-list">
-            <% if (activities.length === 0) { %>
-                <div class="empty-state">
-                    <div class="empty-state-icon">🔊</div>
-                    <h3>No Voice Activity</h3>
-                    <p>There are no voice activities matching your filter.</p>
-                </div>
-            <% } else { %>
-                <% activities.forEach(activity => { %>
-                    <div class="activity-card <%= activity.action.toLowerCase() %>">
-                        <div class="activity-header">
-                            <span class="action-badge <%= activity.action.toLowerCase() %>">
-                                <%= activity.action.toUpperCase() %>
-                            </span>
-                            <span class="timestamp">
-                                📅 <%= new Date(activity.timestamp).toLocaleString() %>
-                            </span>
-                        </div>
-
-                        <div class="user-info-row">
-                            <img src="https://cdn.discordapp.com/avatars/<%= activity.userId %>/<%= activity.userAvatar %>.png" 
-                                 class="user-avatar-small"
-                                 onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
-                            <a href="/user/<%= activity.userId %>" class="user-name-link">
-                                <%= activity.userName %>
-                            </a>
-                        </div>
-
-                        <div class="channel-info">
-                            <span class="channel-icon">🔊</span>
-                            <span>Channel:</span>
-                            <span class="channel-name"><%= activity.channelName %></span>
-                        </div>
-
-                        <% if (activity.oldChannel) { %>
-                            <div class="channel-info">
-                                <span class="channel-icon">➡️</span>
-                                <span>From:</span>
-                                <span class="channel-name"><%= activity.oldChannelName %></span>
-                                <span>→</span>
-                                <span class="channel-name"><%= activity.newChannelName %></span>
-                            </div>
-                        <% } %>
-                    </div>
-                <% }); %>
+    <div class="container">
+        <h1>🔊 Voice Activity</h1>
+        
+        <!-- Filter -->
+        <div class="filter-box">
+            <label>Filter by Action:</label>
+            <select onchange="window.location='?action=' + this.value">
+                <option value="all" <%= action === 'all' ? 'selected' : '' %>>All Actions</option>
+                <option value="join" <%= action === 'join' ? 'selected' : '' %>>Joins</option>
+                <option value="leave" <%= action === 'leave' ? 'selected' : '' %>>Leaves</option>
+                <option value="switch" <%= action === 'switch' ? 'selected' : '' %>>Channel Switches</option>
+            </select>
+            
+            <% if (action !== 'all') { %>
+                <a href="/voice" class="btn btn-secondary" style="margin-left: auto;">Clear Filter</a>
             <% } %>
         </div>
+        
+        <!-- Voice Activities -->
+        <div class="member-events">
+            <% activities.forEach(activity => { %>
+                <div class="member-event voice-<%= activity.action || activity.actionType %>">
+                    <div class="event-header">
+                        <% 
+                        let actionType = activity.action || activity.actionType;
+                        let actionLabel = actionType.toUpperCase();
+                        let actionIcon = '🔊';
+                        
+                        if (actionType === 'join') {
+                            actionIcon = '🟢';
+                            actionLabel = 'JOINED';
+                        } else if (actionType === 'leave') {
+                            actionIcon = '🔴';
+                            actionLabel = 'LEFT';
+                        } else if (actionType === 'switch') {
+                            actionIcon = '↔️';
+                            actionLabel = 'SWITCHED';
+                        }
+                        %>
+                        <span class="event-type voice-<%= actionType %>"><%= actionIcon %> <%= actionLabel %></span>
+                        
+                        <!-- User with Avatar -->
+                        <div class="event-user">
+                            <% if (activity.userAvatar) { %>
+                                <img src="<%= activity.userAvatar %>" alt="Avatar" class="user-avatar-inline">
+                            <% } %>
+                            <a href="/user/<%= activity.userId %>"><%= activity.userName %></a>
+                        </div>
+                        
+                        <span class="event-time"><%= new Date(activity.timestamp).toLocaleString() %></span>
+                    </div>
+                    
+                    <div class="event-details">
+                        <% if (actionType === 'join') { %>
+                            <p>📢 Joined voice channel: <strong><%= activity.channelName %></strong></p>
+                        <% } else if (actionType === 'leave') { %>
+                            <p>📢 Left voice channel: <strong><%= activity.oldChannelName || activity.channelName %></strong></p>
+                        <% } else if (actionType === 'switch') { %>
+                            <p>📢 Switched from <strong><%= activity.oldChannelName %></strong> to <strong><%= activity.newChannelName %></strong></p>
+                        <% } %>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+        
+        <% if (activities.length === 0) { %>
+            <div class="empty-state">
+                <div class="empty-icon">🔇</div>
+                <p>No voice activity found</p>
+            </div>
+        <% } %>
     </div>
 </body>
 </html>

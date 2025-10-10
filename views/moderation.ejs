@@ -145,60 +145,71 @@
     <div class="container">
         <h1>🔨 Moderation Log</h1>
         
-        <!-- Stats Cards -->
-<div class="stats-grid">
-    <a href="/moderation?type=ban" class="stat-card" style="text-decoration: none; cursor: pointer;">
-        <div class="stat-icon">🔨</div>
-        <div class="stat-info">
-            <div class="stat-value"><%= stats.totalBans || 0 %></div>
-            <div class="stat-label">Total Bans</div>
-            <div class="stat-change">Click to filter</div>
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🔨</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.totalBans %></div>
+                    <div class="stat-label">Total Bans</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">🔇</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.totalMutes %></div>
+                    <div class="stat-label">Total Mutes</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= stats.recentActions %></div>
+                    <div class="stat-label">Actions (7 days)</div>
+                </div>
+            </div>
         </div>
-    </a>
-    
-    <a href="/moderation?type=mute" class="stat-card" style="text-decoration: none; cursor: pointer;">
-        <div class="stat-icon">🔇</div>
-        <div class="stat-info">
-            <div class="stat-value"><%= stats.totalMutes || 0 %></div>
-            <div class="stat-label">Total Mutes</div>
-            <div class="stat-change">Click to filter</div>
-        </div>
-    </a>
-    
-    <a href="/moderation?type=all&days=7" class="stat-card" style="text-decoration: none; cursor: pointer;">
-        <div class="stat-icon">📊</div>
-        <div class="stat-info">
-            <div class="stat-value"><%= stats.recentActions || 0 %></div>
-            <div class="stat-label">Actions (7 Days)</div>
-            <div class="stat-change">Click to filter</div>
-        </div>
-    </a>
-</div>
         
+        <!-- Filter -->
         <div class="filter-box">
-            <label>Action Type:</label>
+            <label>Filter by Type:</label>
             <select onchange="window.location='?type=' + this.value">
                 <option value="all" <%= actionType === 'all' ? 'selected' : '' %>>All Actions</option>
                 <option value="ban" <%= actionType === 'ban' ? 'selected' : '' %>>Bans</option>
                 <option value="unban" <%= actionType === 'unban' ? 'selected' : '' %>>Unbans</option>
                 <option value="mute" <%= actionType === 'mute' ? 'selected' : '' %>>Mutes</option>
+                <option value="timeout" <%= actionType === 'timeout' ? 'selected' : '' %>>Timeouts</option>
                 <option value="unmute" <%= actionType === 'unmute' ? 'selected' : '' %>>Unmutes</option>
+                <option value="kick" <%= actionType === 'kick' ? 'selected' : '' %>>Kicks</option>
+                <option value="warn" <%= actionType === 'warn' ? 'selected' : '' %>>Warnings</option>
             </select>
+            
+            <% if (actionType !== 'all') { %>
+                <a href="/moderation" class="btn btn-secondary" style="margin-left: auto;">Clear Filter</a>
+            <% } %>
         </div>
         
-        <p class="result-count">Found <%= actions.length %> actions</p>
-        
+        <!-- Moderation Actions -->
         <div class="mod-actions">
             <% actions.forEach(action => { %>
                 <div class="mod-action <%= action.actionType %>">
                     <div class="mod-header">
                         <span class="mod-type"><%= action.actionType.toUpperCase() %></span>
+                        
+                        <!-- User with Avatar -->
+                        <div class="event-user">
+                            <% if (action.targetUserAvatar) { %>
+                                <img src="<%= action.targetUserAvatar %>" alt="Avatar" class="user-avatar-inline">
+                            <% } %>
+                            <a href="/user/<%= action.targetUserId %>"><%= action.targetUserName %></a>
+                        </div>
+                        
                         <span class="mod-time"><%= new Date(action.timestamp).toLocaleString() %></span>
                     </div>
+                    
                     <div class="mod-details">
-                        <p><strong>Target:</strong> 
-                            <a href="/user/<%= action.targetUserId %>"><%= action.targetUserName %></a>
-                        </p>
                         <% if (action.moderatorName) { %>
                             <p><strong>Moderator:</strong> <%= action.moderatorName %></p>
                         <% } %>
@@ -216,13 +227,21 @@
             <% }); %>
         </div>
         
+        <% if (actions.length === 0) { %>
+            <div class="empty-state">
+                <div class="empty-icon">🔍</div>
+                <p>No moderation actions found</p>
+            </div>
+        <% } %>
+        
+        <!-- Pagination -->
         <div class="pagination">
             <% if (currentPage > 1) { %>
-                <a href="?type=<%= actionType %>&page=<%= currentPage - 1 %>" class="btn">← Previous</a>
+                <a href="?page=<%= currentPage - 1 %><%= actionType !== 'all' ? '&type=' + actionType : '' %>" class="btn">← Previous</a>
             <% } %>
             <span>Page <%= currentPage %> of <%= totalPages %></span>
             <% if (currentPage < totalPages) { %>
-                <a href="?type=<%= actionType %>&page=<%= currentPage + 1 %>" class="btn">Next →</a>
+                <a href="?page=<%= currentPage + 1 %><%= actionType !== 'all' ? '&type=' + actionType : '' %>" class="btn">Next →</a>
             <% } %>
         </div>
     </div>

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Discord Logger</title>
     <link rel="stylesheet" href="/css/style.css">
-    
     <style>
         /* Inline Navbar Styles */
         .navbar {
@@ -111,7 +110,7 @@
                     <span class="nav-icon">📈</span> <span>Analytics</span>
                 </a>
                 <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
-                <span class="nav-icon">🎫</span> <span>Appeals</span>
+                    <span class="nav-icon">🎫</span> <span>Appeals</span>
                 </a>
             </div>
         </div>
@@ -140,94 +139,137 @@
             </a>
         </div>
     </nav>
-
-    
     
     <div class="container">
         <h1>📊 Dashboard Overview</h1>
         
+        <!-- Clickable Stats Grid -->
         <div class="stats-grid">
-            <div class="stat-card">
+            <a href="/messages" class="stat-card clickable">
                 <div class="stat-icon">💬</div>
                 <div class="stat-info">
                     <div class="stat-value"><%= stats.totalMessages.toLocaleString() %></div>
                     <div class="stat-label">Total Messages</div>
                     <div class="stat-change">+<%= stats.last24h.messages %> today</div>
                 </div>
-            </div>
+            </a>
             
-            <div class="stat-card">
+            <a href="/members" class="stat-card clickable">
                 <div class="stat-icon">👥</div>
                 <div class="stat-info">
                     <div class="stat-value"><%= stats.totalMembers.toLocaleString() %></div>
                     <div class="stat-label">Total Members Joined</div>
                     <div class="stat-change">+<%= stats.last24h.joins %> today</div>
                 </div>
-            </div>
+            </a>
             
-            <div class="stat-card">
+            <a href="/moderation" class="stat-card clickable">
                 <div class="stat-icon">🔨</div>
                 <div class="stat-info">
                     <div class="stat-value"><%= stats.totalModActions.toLocaleString() %></div>
                     <div class="stat-label">Moderation Actions</div>
                 </div>
-            </div>
+            </a>
             
-            <div class="stat-card">
+            <a href="/deleted?hours=24" class="stat-card clickable">
                 <div class="stat-icon">🗑️</div>
                 <div class="stat-info">
                     <div class="stat-value"><%= stats.last24h.deletes.toLocaleString() %></div>
                     <div class="stat-label">Deleted Messages (24h)</div>
                 </div>
-            </div>
+            </a>
             
-            <div class="stat-card">
+            <% if (diskSpace) { %>
+            <a href="/analytics" class="stat-card clickable">
                 <div class="stat-icon">💾</div>
                 <div class="stat-info">
-                    <% if (diskSpace) { %>
-                        <div class="stat-value"><%= diskSpace.available %></div>
-                        <div class="stat-label">Disk Space Available</div>
-                        <div class="stat-change"><%= diskSpace.used %> / <%= diskSpace.total %> used (<%= diskSpace.percentage %>)</div>
-                    <% } else { %>
-                        <div class="stat-value">N/A</div>
-                        <div class="stat-label">Disk Space</div>
-                    <% } %>
+                    <div class="stat-value"><%= diskSpace.percentage %></div>
+                    <div class="stat-label">Disk Space Used</div>
+                    <div class="stat-change"><%= diskSpace.available %> free</div>
                 </div>
-            </div>
+            </a>
+            <% } %>
+            
+            <a href="/attachments" class="stat-card clickable">
+                <div class="stat-icon">📎</div>
+                <div class="stat-info">
+                    <div class="stat-value">Saved</div>
+                    <div class="stat-label">Attachments Storage</div>
+                    <div class="stat-change">View all files →</div>
+                </div>
+            </a>
         </div>
         
         <h2>📝 Recent Messages</h2>
         <div class="messages-container">
-            <% if (recentMessages && recentMessages.length > 0) { %>
-                <% recentMessages.forEach(msg => { %>
-                    <div class="message-item <%= msg.eventType %>">
-                        <div class="message-header">
-                            <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+            <% recentMessages.forEach(msg => { %>
+                <div class="message-item <%= msg.eventType %>">
+                    <div class="message-header">
+                        <span class="message-type <%= msg.eventType %>"><%= msg.eventType.toUpperCase() %></span>
+                        
+                        <!-- User with Avatar -->
+                        <span class="message-user">
                             <% if (msg.userAvatar) { %>
                                 <img src="<%= msg.userAvatar %>" alt="Avatar" class="user-avatar-inline">
                             <% } %>
-                            <span class="message-user">
-                                <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
-                            </span>
+                            <a href="/user/<%= msg.userId %>"><%= msg.userName %></a>
+                        </span>
+                        
+                        <% if (msg.eventType === 'create' && msg.messageId && msg.channelId) { %>
+                            <!-- Clickable channel that goes to messages tab and highlights (using hash anchor) -->
+                            <a href="/messages?channel=<%= msg.channelId %>&message=<%= msg.messageId %>#msg-<%= msg.messageId %>" 
+                               class="message-channel-link"
+                               title="View in Messages tab">
+                                #<%= msg.channelName %>
+                            </a>
+                        <% } else { %>
+                            <!-- Non-clickable for deleted/edited messages -->
                             <span class="message-channel">#<%= msg.channelName %></span>
-                            <span class="message-time"><%= new Date(msg.timestamp).toLocaleString() %></span>
-                        </div>
-                        <div class="message-content">
-                            <% if (msg.eventType === 'edit') { %>
-                                <div class="edit-before"><strong>Before:</strong> <%= msg.contentBefore %></div>
-                                <div class="edit-after"><strong>After:</strong> <%= msg.contentAfter %></div>
-                            <% } else { %>
-                                <%= msg.content || msg.contentAfter || '[No content]' %>
-                            <% } %>
-                            <% if (msg.attachmentCount > 0) { %>
-                                <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
-                            <% } %>
-                        </div>
+                        <% } %>
+                        <span class="message-time"><%= new Date(msg.timestamp || msg.deletedTimestamp).toLocaleString() %></span>
                     </div>
-                <% }); %>
-            <% } else { %>
-                <p class="text-muted">No messages logged yet</p>
-            <% } %>
+                    <div class="message-content">
+                        <% if (msg.eventType === 'edit') { %>
+                            <div class="edit-before">Before: <%= msg.contentBefore || '[No content]' %></div>
+                            <div class="edit-after">After: <%= msg.contentAfter || '[No content]' %></div>
+                        <% } else { %>
+                            <%= msg.content || '[No content]' %>
+                        <% } %>
+                        <% if (msg.attachmentCount > 0) { %>
+                            <span class="attachment-badge">📎 <%= msg.attachmentCount %></span>
+                        <% } %>
+                    </div>
+                    
+                    <!-- Show Discord jump link in meta section -->
+                    <% if (msg.eventType === 'create' && msg.messageId && msg.channelId) { %>
+                        <div class="message-meta">
+                            <a href="https://discord.com/channels/<%= msg.guildId %>/<%= msg.channelId %>/<%= msg.messageId %>" 
+                               target="_blank"
+                               class="message-jump-link">
+                                🔗 Jump to Message in Discord
+                            </a>
+                        </div>
+                    <% } %>
+                    
+                    <!-- Show edit info for edited messages -->
+                    <% if (msg.eventType === 'edit' && msg.messageUrl) { %>
+                        <div class="message-meta">
+                            <a href="<%= msg.messageUrl %>" 
+                               target="_blank"
+                               class="message-jump-link">
+                                🔗 Jump to Edited Message
+                            </a>
+                        </div>
+                    <% } %>
+                    
+                    <!-- Show deleted message info -->
+                    <% if (msg.eventType === 'delete' && msg.originalTimestamp) { %>
+                        <div class="message-meta">
+                            Originally sent: <%= new Date(msg.originalTimestamp).toLocaleString() %>
+                        </div>
+                    <% } %>
+                </div>
+            <% }); %>
         </div>
         
         <div class="view-more">

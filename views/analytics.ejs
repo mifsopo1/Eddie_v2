@@ -653,297 +653,300 @@
         </div>
     </nav>
 
-    <div class="container">
-        <div class="analytics-header">
-            <h1>📊 Server Analytics</h1>
-        </div>
+    <div class="container-fluid">
+        <h1>📊 Server Analytics</h1>
+        <p class="page-subtitle">Comprehensive insights and statistics</p>
         
-        <!-- Overview Stats -->
+        <!-- Main Stats Grid -->
         <div class="stats-grid">
-    <% if (diskSpace) { %>
-    <div class="stat-card">
-        <div class="stat-icon">💾</div>
-        <div class="stat-info">
-            <div class="stat-value"><%= diskSpace.used %></div>
-            <div class="stat-label">Server Storage Used</div>
-            <div class="stat-change">
-                <%= diskSpace.percentage %> of <%= diskSpace.total %> 
-                (<%= diskSpace.available %> available)
-            </div>
-            <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; margin-top: 0.75rem; overflow: hidden;">
-                <div style="background: linear-gradient(90deg, #5865f2, #7289da); height: 100%; width: <%= diskSpace.percentage %>; transition: width 0.3s ease;"></div>
-            </div>
-        </div>
-    </div>
-    <% } %>
-    
-    <div class="stat-card">
-        <div class="stat-icon">📎</div>
-        <div class="stat-info">
-            <div class="stat-value"><%= (attachmentStats.totalSize / 1024 / 1024 / 1024).toFixed(2) %> GB</div>
-            <div class="stat-label">Attachment Storage</div>
-            <div class="stat-change">
-                <%= attachmentStats.byType ? attachmentStats.byType.length : 0 %> file types
-            </div>
-        </div>
-    </div>
-</div>
+            <!-- Messages Stats -->
+            <a href="/messages" class="stat-card clickable">
+                <div class="stat-icon">💬</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= analytics.messages?.total.toLocaleString() || 0 %></div>
+                    <div class="stat-label">Total Messages</div>
+                    <div class="stat-change">+<%= analytics.messages?.last24h.toLocaleString() || 0 %> today</div>
+                </div>
+            </a>
             
-            <div class="stat-card">
+            <!-- Members Stats -->
+            <a href="/members" class="stat-card clickable">
                 <div class="stat-icon">👥</div>
                 <div class="stat-info">
-                    <div class="stat-value"><%= analytics.activity?.activeUsers7d || 0 %></div>
-                    <div class="stat-label">Active Users (7d)</div>
-                    <div class="stat-change">
-                        <%= analytics.activity?.activeUsers24h || 0 %> active today
-                    </div>
+                    <div class="stat-value"><%= analytics.members?.totalJoins.toLocaleString() || 0 %></div>
+                    <div class="stat-label">Total Members Joined</div>
+                    <div class="stat-change">+<%= analytics.members?.joins7d || 0 %> this week</div>
                 </div>
-            </div>
+            </a>
             
-            <div class="stat-card">
-                <div class="stat-icon">📎</div>
+            <!-- Active Users (24h) - Clickable to Messages -->
+            <a href="/messages" class="stat-card clickable">
+                <div class="stat-icon">🔥</div>
                 <div class="stat-info">
-                    <div class="stat-value"><%= analytics.attachments?.total.toLocaleString() || 0 %></div>
-                    <div class="stat-label">Total Attachments</div>
-                    <div class="stat-change">
-                        <%= analytics.attachments?.images.toLocaleString() || 0 %> images
-                    </div>
+                    <div class="stat-value"><%= analytics.activity?.activeUsers24h || 0 %></div>
+                    <div class="stat-label">Active Users (24h)</div>
+                    <div class="stat-change">Sent messages today</div>
                 </div>
-            </div>
+            </a>
             
-            <div class="stat-card">
+            <!-- Active Users (7d) - Clickable to Messages -->
+            <a href="/messages" class="stat-card clickable">
                 <div class="stat-icon">📈</div>
                 <div class="stat-info">
-                    <div class="stat-value <%= analytics.members?.netGrowth7d >= 0 ? 'positive' : 'negative' %>">
-                        <%= analytics.members?.netGrowth7d >= 0 ? '+' : '' %><%= analytics.members?.netGrowth7d || 0 %>
-                    </div>
-                    <div class="stat-label">Member Growth (7d)</div>
-                    <div class="stat-change">
-                        <%= analytics.members?.joins7d || 0 %> joins | 
-                        <%= analytics.members?.leaves7d || 0 %> leaves
-                    </div>
+                    <div class="stat-value"><%= analytics.activity?.activeUsers7d || 0 %></div>
+                    <div class="stat-label">Active Users (7 days)</div>
+                    <div class="stat-change">Sent messages this week</div>
                 </div>
-            </div>
+            </a>
+            
+            <!-- Attachments Total - Clickable -->
+            <a href="/attachments" class="stat-card clickable">
+                <div class="stat-icon">📎</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= attachmentStats.total?.toLocaleString() || 0 %></div>
+                    <div class="stat-label">Total Attachments</div>
+                    <div class="stat-change">Click to view all files</div>
+                </div>
+            </a>
+            
+            <!-- Attachments Size - Clickable -->
+            <a href="/attachments" class="stat-card clickable">
+                <div class="stat-icon">💾</div>
+                <div class="stat-info">
+                    <div class="stat-value"><%= ((attachmentStats.totalSize || 0) / 1024 / 1024).toFixed(2) %> MB</div>
+                    <div class="stat-label">Attachments Size</div>
+                    <% if (diskSpace) { %>
+                        <div class="stat-change"><%= diskSpace.available %> disk free</div>
+                    <% } %>
+                </div>
+            </a>
         </div>
         
         <!-- Message Timeline Chart -->
-        <div class="chart-container">
-            <h2>📈 Message Activity (14 Days)</h2>
-            <canvas id="messageChart"></canvas>
+        <% if (timeline && timeline.length > 0) { %>
+        <div class="section">
+            <h2>📈 Message Activity Timeline (14 Days)</h2>
+            <canvas id="messageChart" style="max-height: 300px;"></canvas>
         </div>
-        
-        <!-- Top Users Leaderboard -->
-        <div class="section-header">
-            <h2>🏆 Top Users (Last 7 Days)</h2>
-        </div>
-        <div class="leaderboard">
-            <% topUsers.forEach((user, index) => { %>
-                <div class="leaderboard-item rank-<%= index + 1 %>">
-                    <div class="rank-badge">#<%= index + 1 %></div>
-                    <% if (user.userAvatar) { %>
-                        <img src="<%= user.userAvatar %>" alt="<%= user.userName %>" class="leaderboard-avatar">
-                    <% } %>
-                    <div class="leaderboard-info">
-                        <a href="/user/<%= user.userId %>" class="leaderboard-name"><%= user.userName %></a>
-                        <div class="leaderboard-stats">
-                            <span><%= user.messageCount %> messages
-                                </span>
-                        </div>
-                    </div>
-                </div>
-            <% }); %>
-        </div>
-        
-        <!-- Top Channels -->
-        <div class="section-header" style="margin-top: 2rem;">
-            <h2>📺 Most Active Channels (Last 7 Days)</h2>
-        </div>
-        <div class="channels-grid">
-            <% if (analytics.channels?.topChannels) { %>
-                <% analytics.channels.topChannels.forEach(channel => { %>
-                    <div class="channel-card">
-                        <div class="channel-name">#<%= channel.channelName %></div>
-                        <div class="channel-count"><%= channel.count.toLocaleString() %> messages</div>
-                        <div class="channel-bar" style="width: <%= (channel.count / analytics.channels.topChannels[0].count * 100) %>%"></div>
-                    </div>
-                <% }); %>
-            <% } %>
-        </div>
-        
-        <!-- Invite Stats -->
-        <div class="section-header" style="margin-top: 2rem;">
-            <h2>🎫 Top Invite Codes</h2>
-        </div>
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Code</th>
-                        <th>Inviter</th>
-                        <th>Uses</th>
-                        <th>Recent Joins</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% inviteStats.forEach(invite => { %>
-                        <tr>
-                            <td><code><%= invite._id %></code></td>
-                            <td><%= invite.inviter %></td>
-                            <td><strong><%= invite.uses %></strong></td>
-                            <td>
-                                <% if (invite.members && invite.members.length > 0) { %>
-                                    <%= invite.members.slice(-3).map(m => m.name).join(', ') %>
-                                <% } else { %>
-                                    -
-                                <% } %>
-                            </td>
-                        </tr>
-                    <% }); %>
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Attachment Stats -->
-        <% if (attachmentStats && attachmentStats.byType) { %> 
-            <div class="chart-container">
-                <h3>File Types</h3>
-                <div class="file-types">
-                    <% attachmentStats.byType.forEach(type => { %>
-                        <div class="file-type-item">
-                            <span class="file-type-name"><%= type._id || 'Unknown' %></span>
-                            <span class="file-type-count"><%= type.count.toLocaleString() %> files</span>
-                            <span class="file-type-size"><%= (type.totalSize / 1024 / 1024).toFixed(2) %> MB</span>
-                        </div>
-                    <% }); %>
-                </div>
-                
-                <h3>Top Uploaders</h3>
-                <div class="top-uploaders">
-                    <% attachmentStats.topUploaders.forEach((uploader, index) => { %>
-                        <div class="uploader-item">
-                            <span class="uploader-rank">#<%= index + 1 %></span>
-                            <a href="/user/<%= uploader._id %>" class="uploader-name"><%= uploader.userName %></a>
-                            <span class="uploader-count"><%= uploader.count %> files</span>
-                            <span class="uploader-size"><%= (uploader.totalSize / 1024 / 1024).toFixed(2) %> MB</span>
-                        </div>
-                    <% }); %>
-                </div>
-            </div>
         <% } %>
         
-        <!-- New Account Joins -->
-        <% if (newAccounts && newAccounts.length > 0) { %>
-            <div class="section-header" style="margin-top: 2rem;">
-                <h2>⚠️ New Account Joins (< 7 days old)</h2>
+        <!-- Two Column Layout -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+            
+            <!-- Top Active Users -->
+            <div class="section">
+                <h2>🔥 Most Active Users (7 Days)</h2>
+                <div class="leaderboard">
+                    <% topUsers.slice(0, 10).forEach((user, index) => { %>
+                        <a href="/user/<%= user.userId %>" class="leaderboard-item rank-<%= index + 1 %>" style="text-decoration: none;">
+                            <div class="rank-badge"><%= index + 1 %></div>
+                            <% 
+                            let userAvatar = `https://cdn.discordapp.com/embed/avatars/${parseInt(user.userId) % 5}.png`;
+                            if (user.userAvatar) {
+                                userAvatar = user.userAvatar;
+                            }
+                            %>
+                            <img src="<%= userAvatar %>" alt="Avatar" class="leaderboard-avatar">
+                            <div class="leaderboard-info">
+                                <div class="leaderboard-name"><%= user.userName %></div>
+                                <div class="leaderboard-stats">
+                                    <span>💬 <%= user.messageCount.toLocaleString() %> messages</span>
+                                    <span>📢 <%= user.channelCount %> channels</span>
+                                </div>
+                            </div>
+                        </a>
+                    <% }); %>
+                </div>
             </div>
-            <div class="new-accounts-list">
-                <% newAccounts.forEach(join => { %>
-                    <div class="new-account-item">
-                        <div class="account-info">
-                            <a href="/user/<%= join.userId %>"><%= join.userName %></a>
-                            <span class="account-age">Account: <%= join.accountAgeDays %> days old</span>
+            
+            <!-- Top Channels -->
+            <div class="section">
+                <h2>📊 Most Active Channels (7 Days)</h2>
+                <div class="leaderboard">
+                    <% if (analytics.channels && analytics.channels.topChannels) { %>
+                        <% analytics.channels.topChannels.slice(0, 10).forEach((ch, index) => { %>
+                            <a href="/messages?channel=<%= ch._id %>" class="leaderboard-item" style="text-decoration: none;">
+                                <div class="rank-badge"><%= index + 1 %></div>
+                                <div class="leaderboard-info">
+                                    <div class="leaderboard-name">#<%= ch.channelName %></div>
+                                    <div class="leaderboard-stats">
+                                        <span>💬 <%= ch.count.toLocaleString() %> messages</span>
+                                    </div>
+                                </div>
+                            </a>
+                        <% }); %>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Top Inviters -->
+        <% if (inviteStats && inviteStats.length > 0) { %>
+        <div class="section">
+            <h2>🎫 Top Inviters</h2>
+            <div class="leaderboard">
+                <% inviteStats.slice(0, 10).forEach((inv, index) => { %>
+                    <a href="/invites?code=<%= inv._id %>" class="leaderboard-item rank-<%= index + 1 %>" style="text-decoration: none;">
+                        <div class="rank-badge"><%= index + 1 %></div>
+                        <div class="leaderboard-info">
+                            <div class="leaderboard-name"><%= inv.inviter %></div>
+                            <div class="leaderboard-stats">
+                                <span>👥 <%= inv.uses %> invites</span>
+                                <span>🔗 Code: <code><%= inv._id %></code></span>
+                            </div>
                         </div>
-                        <div class="join-info">
-                            <% if (join.inviteData) { %>
-                                <span>Invited by: <%= join.inviteData.inviter %></span>
-                            <% } %>
-                            <span>Joined: <%= new Date(join.timestamp).toLocaleString() %></span>
-                        </div>
-                    </div>
+                    </a>
                 <% }); %>
             </div>
+        </div>
+        <% } %>
+        
+        <!-- Attachment Stats by Type -->
+        <% if (attachmentStats.byType && attachmentStats.byType.length > 0) { %>
+        <div class="section">
+            <h2>📎 Attachments by Type</h2>
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                <% attachmentStats.byType.forEach(type => { %>
+                    <a href="/attachments?type=<%= type._id.split('/')[0] %>" class="stat-card clickable">
+                        <div class="stat-icon">
+                            <% if (type._id.startsWith('image/')) { %>
+                                🖼️
+                            <% } else if (type._id.startsWith('video/')) { %>
+                                🎥
+                            <% } else if (type._id.startsWith('audio/')) { %>
+                                🎵
+                            <% } else { %>
+                                📄
+                            <% } %>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value"><%= type.count.toLocaleString() %></div>
+                            <div class="stat-label"><%= type._id.split('/')[0] %></div>
+                            <div class="stat-change"><%= (type.totalSize / 1024 / 1024).toFixed(2) %> MB</div>
+                        </div>
+                    </a>
+                <% }); %>
+            </div>
+        </div>
+        <% } %>
+        
+        <!-- New Account Joins (Potential Spam) -->
+        <% if (newAccounts && newAccounts.length > 0) { %>
+        <div class="section">
+            <h2>⚠️ New Account Joins (< 7 days old)</h2>
+            <div class="leaderboard">
+                <% newAccounts.slice(0, 10).forEach(acc => { %>
+                    <a href="/user/<%= acc.userId %>" class="leaderboard-item" style="text-decoration: none; border-left: 4px solid #ff9900;">
+                        <% 
+                        let userAvatar = `https://cdn.discordapp.com/embed/avatars/${parseInt(acc.userId) % 5}.png`;
+                        if (acc.userAvatar) {
+                            userAvatar = acc.userAvatar;
+                        }
+                        %>
+                        <img src="<%= userAvatar %>" alt="Avatar" class="leaderboard-avatar">
+                        <div class="leaderboard-info">
+                            <div class="leaderboard-name"><%= acc.userName %></div>
+                            <div class="leaderboard-stats">
+                                <span>⏰ Account: <%= acc.accountAgeDays %> day(s) old</span>
+                                <span>📅 Joined: <%= new Date(acc.timestamp).toLocaleDateString() %></span>
+                            </div>
+                        </div>
+                    </a>
+                <% }); %>
+            </div>
+        </div>
+        <% } %>
+        
+        <!-- Disk Space Info -->
+        <% if (diskSpace) { %>
+        <div class="section">
+            <h2>💾 Disk Space Usage</h2>
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                <div class="stat-card">
+                    <div class="stat-icon">💿</div>
+                    <div class="stat-info">
+                        <div class="stat-value"><%= diskSpace.total %></div>
+                        <div class="stat-label">Total Space</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-info">
+                        <div class="stat-value"><%= diskSpace.used %></div>
+                        <div class="stat-label">Used Space</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-info">
+                        <div class="stat-value"><%= diskSpace.available %></div>
+                        <div class="stat-label">Free Space</div>
+                    </div>
+                </div>
+                <div class="stat-card" style="<%= parseInt(diskSpace.percentage) > 80 ? 'border-color: #ff6b6b;' : '' %>">
+                    <div class="stat-icon"><%= parseInt(diskSpace.percentage) > 80 ? '⚠️' : '📈' %></div>
+                    <div class="stat-info">
+                        <div class="stat-value" style="<%= parseInt(diskSpace.percentage) > 80 ? 'color: #ff6b6b;' : '' %>">
+                            <%= diskSpace.percentage %>
+                        </div>
+                        <div class="stat-label">Usage</div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <% } %>
         
     </div>
     
+    <!-- Chart.js Script -->
+    <% if (timeline && timeline.length > 0) { %>
     <script>
-        // Message Timeline Chart
         const ctx = document.getElementById('messageChart').getContext('2d');
-        const timeline = <%- JSON.stringify(timeline) %>;
+        const chartData = {
+            labels: <%= JSON.stringify(timeline.map(d => d._id)) %>,
+            datasets: [{
+                label: 'Messages',
+                data: <%= JSON.stringify(timeline.map(d => d.count)) %>,
+                borderColor: '#5865f2',
+                backgroundColor: 'rgba(88, 101, 242, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        };
         
         new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: timeline.map(t => t._id),
-                datasets: [{
-                    label: 'Messages',
-                    data: timeline.map(t => t.count),
-                    borderColor: '#5865f2',
-                    backgroundColor: 'rgba(88, 101, 242, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    borderWidth: 3,
-                    pointBackgroundColor: '#5865f2',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }]
-            },
+            data: chartData,
             options: {
                 responsive: true,
                 maintainAspectRatio: true,
                 plugins: {
                     legend: {
-                        labels: { 
-                            color: '#e0e0e0',
-                            font: {
-                                size: 14,
-                                weight: '600'
-                            }
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(30, 33, 40, 0.95)',
-                        titleColor: '#fff',
-                        bodyColor: '#e0e0e0',
-                        borderColor: 'rgba(88, 101, 242, 0.5)',
-                        borderWidth: 1,
-                        padding: 12,
-                        displayColors: false,
-                        callbacks: {
-                            label: function(context) {
-                                return context.parsed.y.toLocaleString() + ' messages';
-                            }
-                        }
+                        display: false
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        ticks: { 
-                            color: '#e0e0e0',
-                            font: {
-                                size: 12
-                            },
-                            callback: function(value) {
-                                return value.toLocaleString();
-                            }
+                        ticks: {
+                            color: '#b9bbbe'
                         },
-                        grid: { 
-                            color: 'rgba(255, 255, 255, 0.05)',
-                            drawBorder: false
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
                         }
                     },
                     x: {
-                        ticks: { 
-                            color: '#e0e0e0',
-                            font: {
-                                size: 12
-                            }
+                        ticks: {
+                            color: '#b9bbbe'
                         },
-                        grid: { 
-                            color: 'rgba(255, 255, 255, 0.05)',
-                            drawBorder: false
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
                         }
                     }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
                 }
             }
         });
     </script>
+    <% } %>
 </body>
 </html>
