@@ -2392,6 +2392,52 @@ this.commands.set('resetcustom', {
     }
 
     // ========== HELPER METHODS ==========
+    // Helper method to get user from mention or ID
+    async getTargetMember(message, args) {
+        // Check for mention first
+        let target = message.mentions.members.first();
+        
+        // If no mention, check if first arg is a user ID
+        if (!target && args[0]) {
+            const userId = args[0].replace(/[<@!>]/g, ''); // Remove mention characters if present
+            if (/^\d{17,19}$/.test(userId)) { // Validate Discord ID format
+                try {
+                    target = await message.guild.members.fetch(userId);
+                } catch (error) {
+                    console.error('Failed to fetch user:', error);
+                }
+            }
+        }
+        
+        return target;
+    }
+
+    // Helper method to get user object (not member) from mention or ID
+    async getTargetUser(message, args) {
+        // Check for mention first
+        let target = message.mentions.users.first();
+        
+        // If no mention, check if first arg is a user ID
+        if (!target && args[0]) {
+            const userId = args[0].replace(/[<@!>]/g, '');
+            if (/^\d{17,19}$/.test(userId)) {
+                try {
+                    target = await this.client.users.fetch(userId);
+                } catch (error) {
+                    console.error('Failed to fetch user:', error);
+                }
+            }
+        }
+        
+        return target;
+    }
+
+    // Helper to determine reason start index
+    getReasonStartIndex(message, args) {
+        if (message.mentions.members.size > 0) return 1;
+        if (args[0] && /^\d{17,19}$/.test(args[0].replace(/[<@!>]/g, ''))) return 1;
+        return 0;
+    }
 
     loadWarnings() {
         try {
