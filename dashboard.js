@@ -165,24 +165,25 @@ class Dashboard {
     console.log('✅ Registered: GET /submit-appeal');
     
     // POST: Create Appeal (PUBLIC - NO AUTH REQUIRED)
-    const ip = req.ip || req.connection.remoteAddress;
-const now = Date.now();
-const lastSubmission = appealSubmissions.get(ip);
 
-if (lastSubmission && (now - lastSubmission) < 300000) { // 5 minutes
-    return res.status(429).json({ 
-        success: false, 
-        error: 'Please wait 5 minutes before submitting another appeal' 
-    });
-}
-
-appealSubmissions.set(ip, now);
     this.app.post('/appeals/create', async (req, res) => {
         console.log('🎯 POST /appeals/create HIT!');
         console.log('📦 Body:', req.body);
         console.log('📦 Headers:', req.headers);
         
         try {
+            const ip = req.ip || req.connection.remoteAddress;
+        const now = Date.now();
+        const lastSubmission = appealSubmissions.get(ip);
+
+         if (lastSubmission && (now - lastSubmission) < 300000) { // 5 minutes
+    return res.status(429).json({ 
+        success: false, 
+        error: 'Please wait 5 minutes before submitting another appeal' 
+    });
+     }
+
+    appealSubmissions.set(ip, now);
             const { userId, userName, appealType, reason, evidence } = req.body;
             
             if (!userId || !userName || !appealType || !reason) {
