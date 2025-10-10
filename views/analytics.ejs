@@ -653,6 +653,8 @@
         </div>
     </nav>
 
+    <body>
+    
     <div class="container-fluid">
         <h1>📊 Server Analytics</h1>
         <p class="page-subtitle">Comprehensive insights and statistics</p>
@@ -722,7 +724,7 @@
             </a>
         </div>
         
-        <!-- Message Timeline Chart -->
+        <!-- Message Timeline Chart - RESTORED ORIGINAL FORMAT -->
         <% if (timeline && timeline.length > 0) { %>
         <div class="section">
             <h2>📈 Message Activity Timeline (14 Days)</h2>
@@ -736,34 +738,41 @@
             <!-- Top Active Users -->
             <div class="section">
                 <h2>🔥 Most Active Users (7 Days)</h2>
-                <div class="leaderboard">
-                    <% topUsers.slice(0, 10).forEach((user, index) => { %>
-                        <a href="/user/<%= user.userId %>" class="leaderboard-item rank-<%= index + 1 %>" style="text-decoration: none;">
-                            <div class="rank-badge"><%= index + 1 %></div>
-                            <% 
-                            let userAvatar = `https://cdn.discordapp.com/embed/avatars/${parseInt(user.userId) % 5}.png`;
-                            if (user.userAvatar) {
-                                userAvatar = user.userAvatar;
-                            }
-                            %>
-                            <img src="<%= userAvatar %>" alt="Avatar" class="leaderboard-avatar">
-                            <div class="leaderboard-info">
-                                <div class="leaderboard-name"><%= user.userName %></div>
-                                <div class="leaderboard-stats">
-                                    <span>💬 <%= user.messageCount.toLocaleString() %> messages</span>
-                                    <span>📢 <%= user.channelCount %> channels</span>
+                <% if (topUsers && topUsers.length > 0) { %>
+                    <div class="leaderboard">
+                        <% topUsers.slice(0, 10).forEach((user, index) => { %>
+                            <a href="/user/<%= user.userId %>" class="leaderboard-item rank-<%= index + 1 %>" style="text-decoration: none;">
+                                <div class="rank-badge"><%= index + 1 %></div>
+                                <% 
+                                let userAvatar = `https://cdn.discordapp.com/embed/avatars/${parseInt(user.userId) % 5}.png`;
+                                if (user.userAvatar) {
+                                    userAvatar = user.userAvatar;
+                                }
+                                %>
+                                <img src="<%= userAvatar %>" alt="Avatar" class="leaderboard-avatar">
+                                <div class="leaderboard-info">
+                                    <div class="leaderboard-name"><%= user.userName %></div>
+                                    <div class="leaderboard-stats">
+                                        <span>💬 <%= user.messageCount.toLocaleString() %> messages</span>
+                                        <span>📢 <%= user.channelCount %> channels</span>
+                                    </div>
                                 </div>
-                            </div>
-                        </a>
-                    <% }); %>
-                </div>
+                            </a>
+                        <% }); %>
+                    </div>
+                <% } else { %>
+                    <div class="empty-state">
+                        <div class="empty-icon">👥</div>
+                        <p>No active users in the last 7 days</p>
+                    </div>
+                <% } %>
             </div>
             
             <!-- Top Channels -->
             <div class="section">
                 <h2>📊 Most Active Channels (7 Days)</h2>
-                <div class="leaderboard">
-                    <% if (analytics.channels && analytics.channels.topChannels) { %>
+                <% if (analytics.channels && analytics.channels.topChannels && analytics.channels.topChannels.length > 0) { %>
+                    <div class="leaderboard">
                         <% analytics.channels.topChannels.slice(0, 10).forEach((ch, index) => { %>
                             <a href="/messages?channel=<%= ch._id %>" class="leaderboard-item" style="text-decoration: none;">
                                 <div class="rank-badge"><%= index + 1 %></div>
@@ -775,8 +784,13 @@
                                 </div>
                             </a>
                         <% }); %>
-                    <% } %>
-                </div>
+                    </div>
+                <% } else { %>
+                    <div class="empty-state">
+                        <div class="empty-icon">📢</div>
+                        <p>No channel activity in the last 7 days</p>
+                    </div>
+                <% } %>
             </div>
         </div>
         
@@ -807,13 +821,13 @@
             <h2>📎 Attachments by Type</h2>
             <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                 <% attachmentStats.byType.forEach(type => { %>
-                    <a href="/attachments?type=<%= type._id.split('/')[0] %>" class="stat-card clickable">
+                    <a href="/attachments?type=<%= type._id ? type._id.split('/')[0] : 'other' %>" class="stat-card clickable">
                         <div class="stat-icon">
-                            <% if (type._id.startsWith('image/')) { %>
+                            <% if (type._id && type._id.startsWith('image/')) { %>
                                 🖼️
-                            <% } else if (type._id.startsWith('video/')) { %>
+                            <% } else if (type._id && type._id.startsWith('video/')) { %>
                                 🎥
-                            <% } else if (type._id.startsWith('audio/')) { %>
+                            <% } else if (type._id && type._id.startsWith('audio/')) { %>
                                 🎵
                             <% } else { %>
                                 📄
@@ -821,7 +835,7 @@
                         </div>
                         <div class="stat-info">
                             <div class="stat-value"><%= type.count.toLocaleString() %></div>
-                            <div class="stat-label"><%= type._id.split('/')[0] %></div>
+                            <div class="stat-label"><%= type._id ? type._id.split('/')[0] : 'unknown' %></div>
                             <div class="stat-change"><%= (type.totalSize / 1024 / 1024).toFixed(2) %> MB</div>
                         </div>
                     </a>
@@ -898,7 +912,7 @@
         
     </div>
     
-    <!-- Chart.js Script -->
+    <!-- Chart.js Script - RESTORED ORIGINAL -->
     <% if (timeline && timeline.length > 0) { %>
     <script>
         const ctx = document.getElementById('messageChart').getContext('2d');
