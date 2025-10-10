@@ -155,6 +155,7 @@ class Dashboard {
         });
     });
 this.app.post('/appeals/create', async (req, res) => {
+    console.log('✅ Registered POST /appeals/create route');
     try {
         console.log('📝 Appeal submission received:', req.body);
         
