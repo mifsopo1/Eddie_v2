@@ -1532,6 +1532,8 @@ client.on('channelDelete', async channel => {
 
 // Ban Event
 client.on('guildBanAdd', async ban => {
+    const dedupKey = `ban_${ban.user.id}_${Date.now()}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) return;
     if (!logChannels.moderation) return;
     
     try {
@@ -1570,6 +1572,8 @@ client.on('guildBanAdd', async ban => {
 
 // Unban Event
 client.on('guildBanRemove', async ban => {
+    const dedupKey = `unban_${ban.user.id}_${Date.now()}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) return;
     if (!logChannels.moderation) return;
     
     try {
@@ -1804,6 +1808,8 @@ client.on('guildMemberRemove', async member => {
 // Button interaction handler for spam review AND appeals
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
+    const dedupKey = `mute_${newMember.id}_${Date.now()}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) return;
     
     // Handle spam review buttons
     if (interaction.customId.startsWith('ban_') || interaction.customId.startsWith('unmute_')) {
