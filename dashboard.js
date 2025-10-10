@@ -2056,7 +2056,109 @@ this.app.get('/appeals', async (req, res) => {
         res.redirect('/');
     }
 });
+// View individual appeal details (Admin)
+this.app.get('/appeals/:appealId', this.requireAuth.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const appealId = req.params.appealId;
+        
+        // Fetch the appeal
+        const appeal = await this.mongoLogger.db.collection('appeals')
+            .findOne({ _id: new ObjectId(appealId) });
+        
+        if (!appeal) {
+            req.flash('error', 'Appeal not found');
+            return res.redirect('/appeals');
+        }
+        
+        // Try to fetch the user from Discord
+        let discordUser = null;
+        try {
+            discordUser = await this.client.users.fetch(appeal.userId);
+        } catch (e) {
+            console.log('Could not fetch user from Discord');
+        }
+        
+        // Fetch related moderation actions
+        const moderationHistory = await this.mongoLogger.db.collection('moderation')
+            .find({ targetUserId: appeal.userId })
+            .sort({ timestamp: -1 })
+            .limit(10)
+            .toArray();
+        
+        res.render('appeal-detail', {
+            client: this.client,
+            appeal,
+            discordUser,
+            moderationHistory,
+            page: 'appeals'
+        });
+    } catch (error) {
+        console.error('Appeal detail error:', error);
+        req.flash('error', 'Error loading appeal');
+        res.redirect('/appeals');
+    }
+});
 
+// Update appeal status (Admin action)
+this.app.post('/appeals/:appealId/update', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { ObjectId } = require('mongodb');
+        const { status, response } = req.body;
+        const appealId = req.params.appealId;
+        
+        const updateData = {
+            status: status,
+            'response.message': response,
+            'response.respondedAt': new Date(),
+            'response.respondedBy': req.user?.username || 'Admin'
+        };
+        
+        // Add to history
+        const historyEntry = {
+            action: status,
+            by: req.user?.username || 'Admin',
+            message: response,
+            timestamp: new Date()
+        };
+        
+        await this.mongoLogger.db.collection('appeals').updateOne(
+            { _id: new ObjectId(appealId) },
+            { 
+                $set: updateData,
+                $push: { history: historyEntry }
+            }
+        );
+        
+        // Try to DM the user about the decision
+        const appeal = await this.mongoLogger.db.collection('appeals')
+            .findOne({ _id: new ObjectId(appealId) });
+        
+        if (appeal) {
+            try {
+                const user = await this.client.users.fetch(appeal.userId);
+                
+                const embed = new EmbedBuilder()
+                    .setColor(status === 'approved' ? '#43b581' : '#ed4245')
+                    .setTitle(`Appeal ${status.charAt(0).toUpperCase() + status.slice(1)}`)
+                    .setDescription(`Your appeal has been ${status}.`)
+                    .addFields({ name: 'Response', value: response || 'No additional comments.' })
+                    .setTimestamp();
+                
+                await user.send({ embeds: [embed] });
+            } catch (e) {
+                console.log('Could not DM user about appeal decision:', e.message);
+            }
+        }
+        
+        req.flash('success', `Appeal ${status}!`);
+        res.redirect('/appeals');
+    } catch (error) {
+        console.error('Update appeal error:', error);
+        req.flash('error', 'Error updating appeal');
+        res.redirect('/appeals');
+    }
+});
 // Check appeal status by User ID (Public)
 this.app.get('/appeals/status', async (req, res) => {
     try {

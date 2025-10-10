@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appeal Details - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('partials/header') %>
+    
+    <div class="container">
+        <h1>📋 Appeal Details</h1>
+        
+        <div class="appeal-detail-container">
+            <!-- User Info -->
+            <div class="section">
+                <h2>👤 User Information</h2>
+                <div class="user-info-grid">
+                    <% if (discordUser) { %>
+                        <img src="<%= discordUser.displayAvatarURL({ size: 128 }) %>" alt="Avatar" class="user-avatar">
+                        <div>
+                            <p><strong>Username:</strong> <%= discordUser.tag %></p>
+                            <p><strong>User ID:</strong> <code><%= appeal.userId %></code></p>
+                            <p><strong>Account Created:</strong> <%= discordUser.createdAt.toLocaleString() %></p>
+                        </div>
+                    <% } else { %>
+                        <p><strong>User ID:</strong> <code><%= appeal.userId %></code></p>
+                        <p class="text-muted">User not in cache</p>
+                    <% } %>
+                </div>
+            </div>
+            
+            <!-- Appeal Info -->
+            <div class="section">
+                <h2>📝 Appeal Information</h2>
+                <div class="appeal-info">
+                    <p><strong>Appeal ID:</strong> <code><%= appeal._id %></code></p>
+                    <p><strong>Type:</strong> <span class="badge <%= appeal.appealType %>"><%= appeal.appealType.toUpperCase() %></span></p>
+                    <p><strong>Status:</strong> <span class="badge badge-<%= appeal.status %>"><%= appeal.status.toUpperCase() %></span></p>
+                    <p><strong>Submitted:</strong> <%= new Date(appeal.appeal.submittedAt).toLocaleString() %></p>
+                    
+                    <div class="appeal-content">
+                        <h3>Reason for Appeal:</h3>
+                        <p><%= appeal.appeal.reason %></p>
+                    </div>
+                    
+                    <% if (appeal.appeal.evidence) { %>
+                        <div class="appeal-evidence">
+                            <h3>Evidence Provided:</h3>
+                            <p><%= appeal.appeal.evidence %></p>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+            
+            <!-- Original Action -->
+            <% if (appeal.originalAction) { %>
+            <div class="section">
+                <h2>⚖️ Original Moderation Action</h2>
+                <div class="mod-action">
+                    <p><strong>Action Type:</strong> <%= appeal.originalAction.actionType %></p>
+                    <p><strong>Date:</strong> <%= new Date(appeal.originalAction.timestamp).toLocaleString() %></p>
+                    <% if (appeal.originalAction.reason) { %>
+                        <p><strong>Reason:</strong> <%= appeal.originalAction.reason %></p>
+                    <% } %>
+                    <% if (appeal.originalAction.moderatorName) { %>
+                        <p><strong>Moderator:</strong> <%= appeal.originalAction.moderatorName %></p>
+                    <% } %>
+                </div>
+            </div>
+            <% } %>
+            
+            <!-- Response Form (if pending) -->
+            <% if (appeal.status === 'pending' || appeal.status === 'reviewing') { %>
+            <div class="section">
+                <h2>✍️ Respond to Appeal</h2>
+                <form action="/appeals/<%= appeal._id %>/update" method="POST" class="appeal-response-form">
+                    <div class="form-group">
+                        <label>Decision:</label>
+                        <select name="status" required>
+                            <option value="reviewing">Mark as Reviewing</option>
+                            <option value="approved">Approve Appeal</option>
+                            <option value="denied">Deny Appeal</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Response Message:</label>
+                        <textarea name="response" rows="6" placeholder="Explain your decision..." required></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Submit Response</button>
+                </form>
+            </div>
+            <% } %>
+            
+            <!-- Response (if answered) -->
+            <% if (appeal.response && appeal.response.message) { %>
+            <div class="section">
+                <h2>💬 Staff Response</h2>
+                <div class="staff-response">
+                    <p><strong>Responded by:</strong> <%= appeal.response.respondedBy %></p>
+                    <p><strong>Date:</strong> <%= new Date(appeal.response.respondedAt).toLocaleString() %></p>
+                    <div class="response-message">
+                        <%= appeal.response.message %>
+                    </div>
+                </div>
+            </div>
+            <% } %>
+            
+            <!-- Appeal History -->
+            <% if (appeal.history && appeal.history.length > 0) { %>
+            <div class="section">
+                <h2>📜 Appeal History</h2>
+                <div class="history-timeline">
+                    <% appeal.history.forEach(entry => { %>
+                        <div class="history-entry">
+                            <span class="history-date"><%= new Date(entry.timestamp).toLocaleString() %></span>
+                            <span class="history-action"><%= entry.action %></span>
+                            <span class="history-by">by <%= entry.by %></span>
+                            <% if (entry.message) { %>
+                                <p class="history-message"><%= entry.message %></p>
+                            <% } %>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+            <% } %>
+            
+            <!-- User Moderation History -->
+            <% if (moderationHistory.length > 0) { %>
+            <div class="section">
+                <h2>🔨 User Moderation History</h2>
+                <div class="mod-actions">
+                    <% moderationHistory.forEach(action => { %>
+                        <div class="mod-action <%= action.actionType %>">
+                            <div class="mod-header">
+                                <span class="mod-type"><%= action.actionType.toUpperCase() %></span>
+                                <span class="mod-time"><%= new Date(action.timestamp).toLocaleString() %></span>
+                            </div>
+                            <% if (action.reason) { %>
+                                <p><strong>Reason:</strong> <%= action.reason %></p>
+                            <% } %>
+                            <% if (action.moderatorName) { %>
+                                <p><strong>Moderator:</strong> <%= action.moderatorName %></p>
+                            <% } %>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+            <% } %>
+        </div>
+        
+        <div style="margin-top: 2rem;">
+            <a href="/appeals" class="btn btn-secondary">← Back to Appeals</a>
+        </div>
+    </div>
+</body>
+</html>
