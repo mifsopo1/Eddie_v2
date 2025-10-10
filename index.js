@@ -1801,193 +1801,401 @@ client.on('guildMemberRemove', async member => {
     }
 });
 
-// Button interaction handler for spam review
+// Button interaction handler for spam review AND appeals
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
     
-    const [action, userId] = interaction.customId.split('_');
+    // Handle spam review buttons
+    if (interaction.customId.startsWith('ban_') || interaction.customId.startsWith('unmute_')) {
+        const [action, userId] = interaction.customId.split('_');
+        
+        if (action === 'ban' || action === 'unmute') {
+            try {
+                await interaction.deferReply({ ephemeral: true });
+                
+                const targetUser = await client.users.fetch(userId).catch(() => null);
+                const guild = interaction.guild;
+                const member = await guild.members.fetch(userId).catch(() => null);
+                
+                const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+                
+                if (action === 'ban') {
+                    if (!member) {
+                        await interaction.editReply({
+                            content: '❌ User is no longer in the server. Cannot ban.',
+                        });
+                        return;
+                    }
+                    
+                    try {
+                        if (targetUser) {
+                            try {
+                                await targetUser.send({
+                                    embeds: [new EmbedBuilder()
+                                        .setColor('#ff0000')
+                                        .setTitle('🔨 You have been banned')
+                                        .setDescription(`You have been banned from **${guild.name}** for spam.`)
+                                        .addFields(
+                                            { name: 'Reason', value: 'Cross-channel spam (Confirmed by moderator)', inline: false },
+                                            { name: 'Reviewed By', value: interaction.user.tag, inline: false }
+                                        )
+                                        .addFields({
+                                            name: 'Appeal',
+                                            value: 'You can submit an appeal here:\n[Click to submit appeal form](https://drugdealersim.com/submit-appeal)',
+                                            inline: false
+                                        })
+                                        .setTimestamp()
+                                    ]
+                                });
+                            } catch (dmError) {
+                                console.log(`Could not DM ${targetUser.tag} about ban`);
+                            }
+                        }
+                        
+                        await member.ban({
+                            reason: `Confirmed spam by ${interaction.user.tag} - Cross-channel posting`,
+                            deleteMessageSeconds: 60 * 60 * 24
+                        });
+                        
+                        if (mongoLogger && mongoLogger.connected) {
+                            await mongoLogger.logBan({ 
+                                user: targetUser || { id: userId, tag: 'Unknown' },
+                                guild: guild 
+                            }, `Confirmed spam by ${interaction.user.tag}`);
+                        }
+                        
+                        originalEmbed.setColor('#8b0000');
+                        originalEmbed.setTitle('🔨 Spam Review - USER BANNED');
+                        
+                        const actionFieldIndex = originalEmbed.data.fields.findIndex(f => f.name === '⚠️ Action Required');
+                        if (actionFieldIndex !== -1) {
+                            originalEmbed.data.fields[actionFieldIndex] = {
+                                name: '🔨 Resolution',
+                                value: `Reviewed by ${interaction.user.tag}\n**Action: BANNED**\nReason: Confirmed spam`,
+                                inline: false
+                            };
+                        }
+                        
+                        originalEmbed.setFooter({ 
+                            text: `Banned by ${interaction.user.tag} (${interaction.user.id}) at ${new Date().toLocaleString()}` 
+                        });
+                        originalEmbed.setTimestamp();
+                        
+                        await interaction.editReply({
+                            content: `🔨 **${targetUser?.tag || 'User'}** has been **BANNED** by ${interaction.user}.`,
+                        });
+                        
+                    } catch (banError) {
+                        console.error('Error banning user:', banError);
+                        await interaction.editReply({
+                            content: `❌ Failed to ban user: ${banError.message}`,
+                        });
+                        return;
+                    }
+                    
+                } else if (action === 'unmute') {
+                    if (!member) {
+                        await interaction.editReply({
+                            content: '❌ User is no longer in the server.',
+                        });
+                        return;
+                    }
+                    
+                    try {
+                        const mutedRole = guild.roles.cache.find(r => r.name === 'Muted');
+                        if (mutedRole && member.roles.cache.has(mutedRole.id)) {
+                            await member.roles.remove(mutedRole);
+                            console.log(`🔊 Unmuted ${member.user.tag}`);
+                        }
+                        
+                        if (mongoLogger && mongoLogger.connected) {
+                            await mongoLogger.logModerationAction({
+                                type: 'unmute',
+                                targetUserId: userId,
+                                targetUserName: member.user.tag,
+                                targetUserAvatar: member.user.displayAvatarURL(),
+                                moderatorId: interaction.user.id,
+                                moderatorName: interaction.user.tag,
+                                reason: 'Not spam - False positive',
+                                guildId: guild.id,
+                                guildName: guild.name
+                            });
+                        }
+                        
+                        originalEmbed.setColor('#00ff00');
+                        originalEmbed.setTitle('✅ Spam Review - Not Spam (Unmuted)');
+                        
+                        const actionFieldIndex = originalEmbed.data.fields.findIndex(f => f.name === '⚠️ Action Required');
+                        if (actionFieldIndex !== -1) {
+                            originalEmbed.data.fields[actionFieldIndex] = {
+                                name: '✅ Resolution',
+                                value: `Reviewed by ${interaction.user.tag}\n**Action: UNMUTED - Not spam**\nUser has been notified.`,
+                                inline: false
+                            };
+                        }
+                        
+                        originalEmbed.setFooter({ 
+                            text: `Unmuted by ${interaction.user.tag} (${interaction.user.id}) at ${new Date().toLocaleString()}` 
+                        });
+                        originalEmbed.setTimestamp();
+                        
+                        if (targetUser) {
+                            try {
+                                await targetUser.send({
+                                    embeds: [new EmbedBuilder()
+                                        .setColor('#00ff00')
+                                        .setTitle('✅ You have been unmuted')
+                                        .setDescription(`Your mute in **${guild.name}** has been lifted.`)
+                                        .addFields(
+                                            { name: 'Result', value: 'Not spam - False positive', inline: false },
+                                            { name: 'Reviewed By', value: interaction.user.tag, inline: false },
+                                            { name: 'Status', value: '✅ You can now post again', inline: false }
+                                        )
+                                        .addFields({
+                                            name: '💡 Note',
+                                            value: 'Please avoid posting the same content in multiple channels to prevent future automatic actions.',
+                                            inline: false
+                                        })
+                                        .setTimestamp()
+                                    ]
+                                });
+                            } catch (error) {
+                                console.log(`Could not DM ${targetUser.tag} about unmute`);
+                            }
+                        }
+                        
+                        await interaction.editReply({
+                            content: `✅ **${targetUser?.tag || 'User'}** has been **UNMUTED** by ${interaction.user}. Marked as not spam.`,
+                        });
+                        
+                    } catch (unmuteError) {
+                        console.error('Error unmuting user:', unmuteError);
+                        await interaction.editReply({
+                            content: `❌ Failed to unmute user: ${unmuteError.message}`,
+                        });
+                        return;
+                    }
+                }
+                
+                await interaction.message.edit({
+                    content: `~~<@&1425260355420160100> Cross-channel spam detected - User has been **muted**. Please review:~~ **RESOLVED**`,
+                    embeds: [originalEmbed],
+                    components: []
+                });
+                
+            } catch (error) {
+                console.error('Error handling spam review button:', error);
+                await interaction.editReply({
+                    content: `❌ Error processing action: ${error.message}`,
+                });
+            }
+        }
+        return; // Important - exit here
+    }
     
-    if (action === 'ban' || action === 'unmute') {
+    // Handle appeal buttons
+    if (interaction.customId.startsWith('appeal_')) {
         try {
             await interaction.deferReply({ ephemeral: true });
             
-            const targetUser = await client.users.fetch(userId).catch(() => null);
-            const guild = interaction.guild;
-            const member = await guild.members.fetch(userId).catch(() => null);
+            const [, action, appealId] = interaction.customId.split('_');
+            const { ObjectId } = require('mongodb');
             
-            const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+            console.log('🎫 Appeal button clicked:', action, 'for', appealId);
             
-            if (action === 'ban') {
-                if (!member) {
-                    await interaction.editReply({
-                        content: '❌ User is no longer in the server. Cannot ban.',
-                    });
-                    return;
-                }
-                
-                try {
-                    if (targetUser) {
-                        try {
-                            await targetUser.send({
-                                embeds: [new EmbedBuilder()
-                                    .setColor('#ff0000')
-                                    .setTitle('🔨 You have been banned')
-                                    .setDescription(`You have been banned from **${guild.name}** for spam.`)
-                                    .addFields(
-                                        { name: 'Reason', value: 'Cross-channel spam (Confirmed by moderator)', inline: false },
-                                        { name: 'Reviewed By', value: interaction.user.tag, inline: false }
-                                    )
-                                    .addFields({
-                                        name: 'Appeal',
-                                        value: 'You can submit an appeal here:\n[Click to submit appeal form](https://drugdealersim.com/submit-appeal)',
-                                        inline: false
-                                    })
-                                    .setTimestamp()
-                                ]
-                            });
-                        } catch (dmError) {
-                            console.log(`Could not DM ${targetUser.tag} about ban`);
-                        }
-                    }
-                    
-                    await member.ban({
-                        reason: `Confirmed spam by ${interaction.user.tag} - Cross-channel posting`,
-                        deleteMessageSeconds: 60 * 60 * 24
-                    });
-                    
-                    // Log to MongoDB
-                    if (mongoLogger && mongoLogger.connected) {
-                        await mongoLogger.logBan({ 
-                            user: targetUser || { id: userId, tag: 'Unknown' },
-                            guild: guild 
-                        }, `Confirmed spam by ${interaction.user.tag}`);
-                    }
-                    
-                    originalEmbed.setColor('#8b0000');
-                    originalEmbed.setTitle('🔨 Spam Review - USER BANNED');
-                    
-                    const actionFieldIndex = originalEmbed.data.fields.findIndex(f => f.name === '⚠️ Action Required');
-                    if (actionFieldIndex !== -1) {
-                        originalEmbed.data.fields[actionFieldIndex] = {
-                            name: '🔨 Resolution',
-                            value: `Reviewed by ${interaction.user.tag}\n**Action: BANNED**\nReason: Confirmed spam`,
-                            inline: false
-                        };
-                    }
-                    
-                    originalEmbed.setFooter({ 
-                        text: `Banned by ${interaction.user.tag} (${interaction.user.id}) at ${new Date().toLocaleString()}` 
-                    });
-                    originalEmbed.setTimestamp();
-                    
-                    await interaction.editReply({
-                        content: `🔨 **${targetUser?.tag || 'User'}** has been **BANNED** by ${interaction.user}.`,
-                    });
-                    
-                } catch (banError) {
-                    console.error('Error banning user:', banError);
-                    await interaction.editReply({
-                        content: `❌ Failed to ban user: ${banError.message}`,
-                    });
-                    return;
-                }
-                
-            } else if (action === 'unmute') {
-                if (!member) {
-                    await interaction.editReply({
-                        content: '❌ User is no longer in the server.',
-                    });
-                    return;
-                }
-                
-                try {
-                    const mutedRole = guild.roles.cache.find(r => r.name === 'Muted');
-                    if (mutedRole && member.roles.cache.has(mutedRole.id)) {
-                        await member.roles.remove(mutedRole);
-                        console.log(`🔊 Unmuted ${member.user.tag}`);
-                    }
-                    
-                    // Log to MongoDB
-                    if (mongoLogger && mongoLogger.connected) {
-                        await mongoLogger.logModerationAction({
-                            type: 'unmute',
-                            targetUserId: userId,
-                            targetUserName: member.user.tag,
-                            targetUserAvatar: member.user.displayAvatarURL(),
-                            moderatorId: interaction.user.id,
-                            moderatorName: interaction.user.tag,
-                            reason: 'Not spam - False positive',
-                            guildId: guild.id,
-                            guildName: guild.name
-                        });
-                    }
-                    
-                    originalEmbed.setColor('#00ff00');
-                    originalEmbed.setTitle('✅ Spam Review - Not Spam (Unmuted)');
-                    
-                    const actionFieldIndex = originalEmbed.data.fields.findIndex(f => f.name === '⚠️ Action Required');
-                    if (actionFieldIndex !== -1) {
-                        originalEmbed.data.fields[actionFieldIndex] = {
-                            name: '✅ Resolution',
-                            value: `Reviewed by ${interaction.user.tag}\n**Action: UNMUTED - Not spam**\nUser has been notified.`,
-                            inline: false
-                        };
-                    }
-                    
-                    originalEmbed.setFooter({ 
-                        text: `Unmuted by ${interaction.user.tag} (${interaction.user.id}) at ${new Date().toLocaleString()}` 
-                    });
-                    originalEmbed.setTimestamp();
-                    
-                    if (targetUser) {
-                        try {
-                            await targetUser.send({
-                                embeds: [new EmbedBuilder()
-                                    .setColor('#00ff00')
-                                    .setTitle('✅ You have been unmuted')
-                                    .setDescription(`Your mute in **${guild.name}** has been lifted.`)
-                                    .addFields(
-                                        { name: 'Result', value: 'Not spam - False positive', inline: false },
-                                        { name: 'Reviewed By', value: interaction.user.tag, inline: false },
-                                        { name: 'Status', value: '✅ You can now post again', inline: false }
-                                    )
-                                    .addFields({
-                                        name: '💡 Note',
-                                        value: 'Please avoid posting the same content in multiple channels to prevent future automatic actions.',
-                                        inline: false
-                                    })
-                                    .setTimestamp()
-                                ]
-                            });
-                        } catch (error) {
-                            console.log(`Could not DM ${targetUser.tag} about unmute`);
-                        }
-                    }
-                    
-                    await interaction.editReply({
-                        content: `✅ **${targetUser?.tag || 'User'}** has been **UNMUTED** by ${interaction.user}. Marked as not spam.`,
-                    });
-                    
-                } catch (unmuteError) {
-                    console.error('Error unmuting user:', unmuteError);
-                    await interaction.editReply({
-                        content: `❌ Failed to unmute user: ${unmuteError.message}`,
-                    });
-                    return;
-                }
+            const appeal = await mongoLogger.db.collection('appeals')
+                .findOne({ _id: new ObjectId(appealId) });
+            
+            if (!appeal) {
+                console.log('❌ Appeal not found:', appealId);
+                return await interaction.editReply({
+                    content: '❌ Appeal not found.',
+                });
             }
             
-            await interaction.message.edit({
-                content: `~~<@&1425260355420160100> Cross-channel spam detected - User has been **muted**. Please review:~~ **RESOLVED**`,
-                embeds: [originalEmbed],
-                components: []
-            });
+            console.log('✅ Appeal found for user:', appeal.userName);
+            
+            if (action === 'approve') {
+                console.log('✅ Approving appeal...');
+                
+                await mongoLogger.db.collection('appeals').updateOne(
+                    { _id: new ObjectId(appealId) },
+                    {
+                        $set: {
+                            status: 'approved',
+                            response: {
+                                moderator: interaction.user.tag,
+                                message: 'Your appeal has been approved.',
+                                timestamp: new Date()
+                            }
+                        },
+                        $push: {
+                            history: {
+                                action: 'approved',
+                                by: interaction.user.tag,
+                                timestamp: new Date()
+                            }
+                        }
+                    }
+                );
+                
+                const guild = interaction.guild;
+                try {
+                    if (appeal.appealType === 'ban') {
+                        await guild.members.unban(appeal.userId, `Appeal approved by ${interaction.user.tag}`);
+                        console.log(`✅ Unbanned ${appeal.userName}`);
+                    } else if (appeal.appealType === 'mute' || appeal.appealType === 'timeout') {
+                        const member = await guild.members.fetch(appeal.userId).catch(() => null);
+                        if (member) {
+                            await member.timeout(null, `Appeal approved by ${interaction.user.tag}`);
+                            console.log(`✅ Unmuted ${appeal.userName}`);
+                        }
+                    }
+                } catch (e) {
+                    console.error('⚠️ Error removing punishment:', e.message);
+                }
+                
+                try {
+                    const user = await client.users.fetch(appeal.userId);
+                    await user.send({
+                        embeds: [new EmbedBuilder()
+                            .setColor('#43b581')
+                            .setTitle('✅ Appeal Approved')
+                            .setDescription(`Your **${appeal.appealType}** appeal has been approved!`)
+                            .addFields(
+                                { name: 'Status', value: 'Your punishment has been removed. Welcome back!', inline: false },
+                                { name: 'Reviewed By', value: interaction.user.tag, inline: false }
+                            )
+                            .setTimestamp()
+                        ]
+                    });
+                    console.log('✅ Approval DM sent');
+                } catch (e) {
+                    console.log('⚠️ Could not DM user:', e.message);
+                }
+                
+                const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+                originalEmbed.setColor('#43b581');
+                originalEmbed.setTitle('✅ Appeal Approved');
+                originalEmbed.data.fields = originalEmbed.data.fields.filter(f => f.name !== 'Status');
+                originalEmbed.addFields({
+                    name: '✅ Resolution',
+                    value: `Approved by ${interaction.user.tag}\nUser unbanned/unmuted.`,
+                    inline: false
+                });
+                
+                await interaction.message.edit({
+                    content: `~~<@&1425260355420160100> New appeal submitted~~ **APPROVED**`,
+                    embeds: [originalEmbed],
+                    components: []
+                });
+                
+                await interaction.editReply({
+                    content: `✅ Appeal approved and user unbanned/unmuted.`,
+                });
+                
+            } else if (action === 'deny') {
+                console.log('❌ Denying appeal...');
+                
+                await mongoLogger.db.collection('appeals').updateOne(
+                    { _id: new ObjectId(appealId) },
+                    {
+                        $set: {
+                            status: 'denied',
+                            response: {
+                                moderator: interaction.user.tag,
+                                message: 'Your appeal has been denied.',
+                                timestamp: new Date()
+                            }
+                        },
+                        $push: {
+                            history: {
+                                action: 'denied',
+                                by: interaction.user.tag,
+                                timestamp: new Date()
+                            }
+                        }
+                    }
+                );
+                
+                try {
+                    const user = await client.users.fetch(appeal.userId);
+                    await user.send({
+                        embeds: [new EmbedBuilder()
+                            .setColor('#ed4245')
+                            .setTitle('❌ Appeal Denied')
+                            .setDescription(`Your **${appeal.appealType}** appeal has been denied.`)
+                            .addFields({ name: 'Reviewed By', value: interaction.user.tag, inline: false })
+                            .setTimestamp()
+                        ]
+                    });
+                    console.log('✅ Denial DM sent');
+                } catch (e) {
+                    console.log('⚠️ Could not DM user:', e.message);
+                }
+                
+                const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+                originalEmbed.setColor('#ed4245');
+                originalEmbed.setTitle('❌ Appeal Denied');
+                originalEmbed.data.fields = originalEmbed.data.fields.filter(f => f.name !== 'Status');
+                originalEmbed.addFields({
+                    name: '❌ Resolution',
+                    value: `Denied by ${interaction.user.tag}`,
+                    inline: false
+                });
+                
+                await interaction.message.edit({
+                    content: `~~<@&1425260355420160100> New appeal submitted~~ **DENIED**`,
+                    embeds: [originalEmbed],
+                    components: []
+                });
+                
+                await interaction.editReply({
+                    content: `❌ Appeal denied and user notified.`,
+                });
+                
+            } else if (action === 'review') {
+                console.log('👀 Marking as reviewing...');
+                
+                await mongoLogger.db.collection('appeals').updateOne(
+                    { _id: new ObjectId(appealId) },
+                    {
+                        $set: { status: 'reviewing' },
+                        $push: {
+                            history: {
+                                action: 'marked_reviewing',
+                                by: interaction.user.tag,
+                                timestamp: new Date()
+                            }
+                        }
+                    }
+                );
+                
+                const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0]);
+                originalEmbed.setColor('#faa61a');
+                originalEmbed.data.fields = originalEmbed.data.fields.map(f => {
+                    if (f.name === 'Status') {
+                        return { name: 'Status', value: `👀 Under Review by ${interaction.user.tag}`, inline: true };
+                    }
+                    return f;
+                });
+                
+                await interaction.message.edit({
+                    embeds: [originalEmbed]
+                });
+                
+                await interaction.editReply({
+                    content: `👀 Marked as under review.`,
+                });
+            }
             
         } catch (error) {
-            console.error('Error handling spam review button:', error);
-            await interaction.editReply({
-                content: `❌ Error processing action: ${error.message}`,
-            });
+            console.error('❌ Error handling appeal button:', error);
+            try {
+                await interaction.editReply({ content: `❌ Error: ${error.message}` });
+            } catch (e) {
+                console.error('Failed to send error:', e);
+            }
         }
     }
 });

@@ -2076,464 +2076,244 @@ this.app.get('/appeals/:id', this.requireAdmin.bind(this), async (req, res) => {
     }
 });
 
-// Post to appeals channel
-try {
-    const config = require('./config.json');
-    const appealsChannelId = config.logChannels.appeals || '1425740337430663291';
-    
-    console.log('🔍 Attempting to fetch appeals channel:', appealsChannelId);
-    
-    const appealsChannel = await this.client.channels.fetch(appealsChannelId).catch(err => {
-        console.error('❌ Failed to fetch channel:', err.message);
-        return null;
-    });
-    
-    if (!appealsChannel) {
-        console.error('❌ Appeals channel not found or bot lacks access!');
-        console.error('   Channel ID:', appealsChannelId);
-        console.error('   Bot user:', this.client.user?.tag);
+// Create Appeal (Public - anyone can submit)
+this.app.post('/appeals/create', async (req, res) => {
+    try {
+        console.log('📨 Appeal submission received:', req.body);
         
-        // Still return success to user, but log the error
-        return res.json({ 
+        const { userId, userName, appealType, reason, evidence, discordTag } = req.body;
+        
+        if (!userId || !userName || !appealType || !reason) {
+            console.log('❌ Missing required fields');
+            return res.json({ success: false, error: 'Missing required fields' });
+        }
+        
+        if (!this.mongoLogger || !this.mongoLogger.connected) {
+            console.error('❌ MongoDB not connected');
+            return res.json({ success: false, error: 'Database connection error' });
+        }
+        
+        const existingAppeal = await this.mongoLogger.db.collection('appeals')
+            .findOne({ 
+                userId: userId,
+                status: { $in: ['pending', 'reviewing'] }
+            });
+        
+        if (existingAppeal) {
+            console.log('⚠️ User already has pending appeal:', userId);
+            return res.json({ 
+                success: false, 
+                error: 'You already have a pending appeal. Please wait for staff to review it.' 
+            });
+        }
+        
+        const originalAction = await this.mongoLogger.db.collection('moderation')
+            .findOne({ 
+                targetUserId: userId,
+                actionType: appealType
+            }, 
+            { sort: { timestamp: -1 } });
+        
+        console.log('🔍 Original action found:', !!originalAction);
+        
+        const appeal = {
+            userId: userId,
+            userName: userName,
+            discordTag: discordTag || userName,
+            appealType: appealType,
+            originalAction: originalAction || null,
+            appeal: {
+                reason: reason,
+                evidence: evidence || '',
+                submittedAt: new Date()
+            },
+            status: 'pending',
+            response: null,
+            history: [
+                {
+                    action: 'submitted',
+                    by: userName,
+                    timestamp: new Date()
+                }
+            ]
+        };
+
+        const result = await this.mongoLogger.db.collection('appeals').insertOne(appeal);
+        console.log('✅ Appeal created with ID:', result.insertedId);
+        
+        // Send DM to user
+        try {
+            const user = await this.client.users.fetch(userId);
+            if (user) {
+                await user.send({
+                    embeds: [{
+                        color: 0x5865f2,
+                        title: '📨 Appeal Submitted',
+                        description: `Your ${appealType} appeal has been submitted and is pending review.`,
+                        fields: [
+                            { name: 'Appeal ID', value: result.insertedId.toString(), inline: true },
+                            { name: 'Status', value: 'Pending Review', inline: true }
+                        ],
+                        footer: { text: 'You will receive a DM when your appeal is reviewed.' },
+                        timestamp: new Date()
+                    }]
+                });
+                console.log('✅ DM sent to user:', userId);
+            }
+        } catch (dmError) {
+            console.log('⚠️ Could not send DM to user:', dmError.message);
+        }
+
+        // Post to appeals channel
+        try {
+            const config = require('./config.json');
+            const appealsChannelId = config.logChannels.appeals || '1425740337430663291';
+            
+            console.log('🔍 Attempting to fetch appeals channel:', appealsChannelId);
+            console.log('   Available guilds:', this.client.guilds.cache.size);
+            
+            const guild = this.client.guilds.cache.first();
+            if (!guild) {
+                console.error('❌ No guild found!');
+            } else {
+                console.log('   Guild:', guild.name, '(', guild.id, ')');
+                
+                await guild.channels.fetch();
+                const appealsChannel = guild.channels.cache.get(appealsChannelId);
+                
+                if (!appealsChannel) {
+                    console.error('❌ Appeals channel not found in guild!');
+                    console.error('   Searched for ID:', appealsChannelId);
+                    console.error('   Available channels:', guild.channels.cache.size);
+                    
+                    console.log('   Text channels available:');
+                    guild.channels.cache
+                        .filter(c => c.isTextBased())
+                        .first(5)
+                        .forEach(c => console.log('     -', c.name, '→', c.id));
+                } else {
+                    console.log('✅ Appeals channel found:', appealsChannel.name);
+                    
+                    const botPermissions = appealsChannel.permissionsFor(this.client.user);
+                    if (!botPermissions.has('SendMessages')) {
+                        console.error('❌ Bot lacks SendMessages permission in', appealsChannel.name);
+                    } else {
+                        const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+                        
+                        const embed = new EmbedBuilder()
+                            .setColor('#faa61a')
+                            .setTitle('🎫 New Appeal Submitted')
+                            .setDescription(`**User:** ${userName} (\`${userId}\`)\n**Type:** ${appealType}`)
+                            .addFields(
+                                { name: 'Reason', value: reason.substring(0, 1024) },
+                                { name: 'Appeal ID', value: result.insertedId.toString(), inline: true },
+                                { name: 'Status', value: '⏳ Pending', inline: true }
+                            )
+                            .setTimestamp();
+                        
+                        if (evidence) {
+                            embed.addFields({ name: 'Evidence', value: evidence.substring(0, 1024) });
+                        }
+                        
+                        if (originalAction) {
+                            let actionInfo = `**Action Type:** ${originalAction.actionType}\n`;                            actionInfo += `**Date:** <t:${Math.floor(new Date(originalAction.timestamp).getTime() / 1000)}:R>\n`;
+                            if (originalAction.reason) actionInfo += `**Reason:** ${originalAction.reason}\n`;
+                            if (originalAction.moderatorName) actionInfo += `**Moderator:** ${originalAction.moderatorName}`;
+                            
+                            embed.addFields({ name: '📋 Original Action', value: actionInfo });                        }
+                        
+                        const approveButton = new ButtonBuilder()
+                            .setCustomId(`appeal_approve_${result.insertedId}`)
+                            .setLabel('Approve Appeal')
+                            .setStyle(ButtonStyle.Success)
+                            .setEmoji('✅');
+                        
+                        const denyButton = new ButtonBuilder()
+                            .setCustomId(`appeal_deny_${result.insertedId}`)
+                            .setLabel('Deny Appeal')
+                            .setStyle(ButtonStyle.Danger)
+                            .setEmoji('❌');
+                        
+                        const reviewButton = new ButtonBuilder()
+                            .setCustomId(`appeal_review_${result.insertedId}`)
+                            .setLabel('Mark as Reviewing')
+                            .setStyle(ButtonStyle.Primary)
+                            .setEmoji('👀');
+                        
+                        const row = new ActionRowBuilder()
+                            .addComponents(approveButton, denyButton, reviewButton);
+                        
+                        await appealsChannel.send({ 
+                            content: `<@&1425260355420160100> New appeal submitted`,
+                            embeds: [embed],
+                            components: [row]
+                        });
+                        
+                        console.log('✅ Appeal posted to channel:', appealsChannel.name);
+                    }
+                }
+            }
+        } catch (channelError) {
+            console.error('❌ Error posting to appeals channel:', channelError);
+            console.error('   Stack:', channelError.stack);
+        }
+
+        res.json({ 
             success: true, 
             message: 'Appeal submitted successfully! You will receive a DM when it is reviewed.',
             appealId: result.insertedId.toString()
         });
-    }
-    
-    console.log('✅ Appeals channel found:', appealsChannel.name, 'in', appealsChannel.guild.name);
-    
-    const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
-    
-    const embed = new EmbedBuilder()
-        .setColor('#faa61a')
-        .setTitle('🎫 New Appeal Submitted')
-        .setDescription(`**User:** ${userName} (\`${userId}\`)\n**Type:** ${appealType}`)
-        .addFields(
-            { name: 'Reason', value: reason.substring(0, 1024) },
-            { name: 'Appeal ID', value: result.insertedId.toString(), inline: true },
-            { name: 'Status', value: '⏳ Pending', inline: true }
-        )
-        .setTimestamp();
-    
-    if (evidence) {
-        embed.addFields({ name: 'Evidence', value: evidence.substring(0, 1024) });
-    }
-    
-    if (originalAction) {
-        let actionInfo = `**Action Type:** ${originalAction.actionType}\n`;
-        actionInfo += `**Date:** <t:${Math.floor(new Date(originalAction.timestamp).getTime() / 1000)}:R>\n`;
-        if (originalAction.reason) actionInfo += `**Reason:** ${originalAction.reason}\n`;
-        if (originalAction.moderatorName) actionInfo += `**Moderator:** ${originalAction.moderatorName}`;
         
-        embed.addFields({ name: '📋 Original Action', value: actionInfo });
-    }
-    
-    const approveButton = new ButtonBuilder()
-        .setCustomId(`appeal_approve_${result.insertedId}`)
-        .setLabel('Approve Appeal')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('✅');
-    
-    const denyButton = new ButtonBuilder()
-        .setCustomId(`appeal_deny_${result.insertedId}`)
-        .setLabel('Deny Appeal')
-        .setStyle(ButtonStyle.Danger)
-        .setEmoji('❌');
-    
-    const reviewButton = new ButtonBuilder()
-        .setCustomId(`appeal_review_${result.insertedId}`)
-        .setLabel('Mark as Reviewing')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('👀');
-    
-    const row = new ActionRowBuilder()
-        .addComponents(approveButton, denyButton, reviewButton);
-    
-    await appealsChannel.send({ 
-        content: `<@&1425260355420160100> New appeal submitted`,
-        embeds: [embed],
-        components: [row]
-    }).catch(err => {
-        console.error('❌ Failed to send message to appeals channel:', err.message);
-        throw err;
-    });
-    
-    console.log('✅ Appeal posted to channel:', appealsChannel.name);
-    
-} catch (channelError) {
-    console.error('❌ Error posting to appeals channel:', channelError);
-    console.error('   Error details:', channelError.stack);
-    
-    // Still return success to user - appeal is saved in DB
-    // Just means the channel notification failed
-}
-
-// Respond to Appeal
-this.app.post('/appeals/:id/respond', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const { ObjectId } = require('mongodb');
-        const { message, status } = req.body;
-        
-        const update = {
-            $set: {
-                response: {
-                    moderator: req.user?.username || 'Admin',
-                    message: message,
-                    timestamp: new Date()
-                },
-                status: status || 'reviewing'
-            },
-            $push: {
-                history: {
-                    action: 'responded',
-                    by: req.user?.username || 'Admin',
-                    message: message,
-                    timestamp: new Date()
-                }
-            }
-        };
-        
-        const appeal = await this.mongoLogger.db.collection('appeals')
-            .findOneAndUpdate(
-                { _id: new ObjectId(req.params.id) },
-                update,
-                { returnDocument: 'after' }
-            );
-        
-        // DM the user
-        try {
-            const user = await this.client.users.fetch(appeal.userId);
-            const embed = new EmbedBuilder()
-                .setColor('#5865f2')
-                .setTitle('📬 Appeal Update')
-                .setDescription(`Your **${appeal.appealType}** appeal has been updated.`)
-                .addFields(
-                    { name: 'Status', value: status || 'Under Review', inline: true },
-                    { name: 'Response from Staff', value: message }
-                )
-                .setTimestamp();
-            
-            await user.send({ embeds: [embed] });
-        } catch (e) {
-            console.log('Could not DM user about appeal update');
-        }
-        
-        req.flash('success', 'Response sent to user');
-        res.redirect(`/appeals/${req.params.id}`);
     } catch (error) {
-        console.error('Respond to appeal error:', error);
-        req.flash('error', 'Error responding to appeal');
-        res.redirect(`/appeals/${req.params.id}`);
-    }
-});
-
-// Approve Appeal
-this.app.post('/appeals/:id/approve', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const { ObjectId } = require('mongodb');
-        const { message } = req.body;
-        
-        const appeal = await this.mongoLogger.db.collection('appeals')
-            .findOne({ _id: new ObjectId(req.params.id) });
-        
-        if (!appeal) {
-            return res.json({ success: false, error: 'Appeal not found' });
-        }
-        
-        // Update appeal status
-        await this.mongoLogger.db.collection('appeals').updateOne(
-            { _id: new ObjectId(req.params.id) },
-            {
-                $set: {
-                    status: 'approved',
-                    response: {
-                        moderator: req.user?.username || 'Admin',
-                        message: message || 'Your appeal has been approved.',
-                        timestamp: new Date()
-                    }
-                },
-                $push: {
-                    history: {
-                        action: 'approved',
-                        by: req.user?.username || 'Admin',
-                        timestamp: new Date()
-                    }
-                }
-            }
-        );
-        
-        // Try to unban/unmute the user
-        const guild = this.client.guilds.cache.first();
-        if (guild) {
-            try {
-                if (appeal.appealType === 'ban') {
-                    await guild.members.unban(appeal.userId, 'Appeal approved');
-                } else if (appeal.appealType === 'mute') {
-                    const member = await guild.members.fetch(appeal.userId).catch(() => null);
-                    if (member) {
-                        await member.timeout(null, 'Appeal approved');
-                    }
-                }
-            } catch (e) {
-                console.error('Error removing punishment:', e);
-            }
-        }
-        
-        // DM the user
-        try {
-            const user = await this.client.users.fetch(appeal.userId);
-            const embed = new EmbedBuilder()
-                .setColor('#43b581')
-                .setTitle('✅ Appeal Approved')
-                .setDescription(`Your **${appeal.appealType}** appeal has been approved!`)
-                .addFields(
-                    { name: 'Response from Staff', value: message || 'Your appeal has been approved. Welcome back!' }
-                )
-                .setTimestamp();
-            
-            await user.send({ embeds: [embed] });
-        } catch (e) {
-            console.log('Could not DM user about approval');
-        }
-        
-        req.flash('success', 'Appeal approved and user unbanned/unmuted');
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Approve appeal error:', error);
-        res.json({ success: false, error: error.message });
-    }
-});
-
-
-// Deny Appeal
-this.app.post('/appeals/:id/deny', this.requireAdmin.bind(this), async (req, res) => {
-    try {
-        const { ObjectId } = require('mongodb');
-        const { message } = req.body;
-        
-        const appeal = await this.mongoLogger.db.collection('appeals')
-            .findOne({ _id: new ObjectId(req.params.id) });
-        
-        if (!appeal) {
-            return res.json({ success: false, error: 'Appeal not found' });
-        }
-        
-        await this.mongoLogger.db.collection('appeals').updateOne(
-            { _id: new ObjectId(req.params.id) },
-            {
-                $set: {
-                    status: 'denied',
-                    response: {
-                        moderator: req.user?.username || 'Admin',
-                        message: message || 'Your appeal has been denied.',
-                        timestamp: new Date()
-                    }
-                },
-                $push: {
-                    history: {
-                        action: 'denied',
-                        by: req.user?.username || 'Admin',
-                        timestamp: new Date()
-                    }
-                }
-            }
-        );
-        
-        // DM the user
-        try {
-            const user = await this.client.users.fetch(appeal.userId);
-            const { EmbedBuilder } = require('discord.js');
-            const embed = new EmbedBuilder()
-                .setColor('#ed4245')
-                .setTitle('❌ Appeal Denied')
-                .setDescription(`Your **${appeal.appealType}** appeal has been denied.`)
-                .addFields(
-                    { name: 'Response from Staff', value: message || 'Your appeal has been denied.' }
-                )
-                .setTimestamp();
-            
-            await user.send({ embeds: [embed] });
-            console.log('Denial DM sent to user:', appeal.userId);
-        } catch (e) {
-            console.error('Could not DM user about denial:', e.message);
-        }
-        
-        req.flash('success', 'Appeal denied and user notified');
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Deny appeal error:', error);
-        res.json({ success: false, error: error.message });
-    }
-});
-
-    } // Close setupRoutes() method
-
-    // Helper method - OUTSIDE of setupRoutes()
-    async getAppealsStats() {
-        try {
-            const [pending, approved, denied, reviewing] = await Promise.all([
-                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'pending' }),
-                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'approved' }),
-                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'denied' }),
-                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'reviewing' })
-            ]);
-            
-            return { 
-                pending, 
-                approved, 
-                denied, 
-                reviewing, 
-                total: pending + approved + denied + reviewing 
-            };
-        } catch (error) {
-            console.error('Error getting appeals stats:', error);
-            return { pending: 0, approved: 0, denied: 0, reviewing: 0, total: 0 };
-        }
-    }
-    async getInviteLeaderboard() {
-        try {
-            return await this.mongoLogger.db.collection('members')
-                .aggregate([
-                    {
-                        $match: {
-                            eventType: 'join',
-                            'inviteData.code': { $exists: true }
-                        }
-                    },
-                    {
-                        $group: {
-                            _id: '$inviteData.code',
-                            inviter: { $first: '$inviteData.inviter' },
-                            uses: { $sum: 1 }
-                        }
-                    },
-                    {
-                        $sort: { uses: -1 }
-                    },
-                    {
-                        $limit: 20
-                    }
-                ]).toArray();
-        } catch (error) {
-            console.error('Error getting invite leaderboard:', error);
-            return [];
-        }
-    }
-    async getRecentInvites(limit = 50) {
-        try {
-            return await this.mongoLogger.db.collection('members')
-                .find({ 
-                    eventType: 'join',
-                    'inviteData.code': { $exists: true }
-                })
-                .sort({ timestamp: -1 })
-                .limit(limit)
-                .toArray();
-        } catch (error) {
-            console.error('Error getting recent invites:', error);
-            return [];
-        }
-    }
-
-    async getModerationStats() {
-        try {
-            const last7Days = new Date(Date.now() - 7 * 86400000);
-            
-            const [totalBans, totalMutes, recentActions] = await Promise.all([
-                this.mongoLogger.db.collection('moderation').countDocuments({ actionType: 'ban' }),
-                this.mongoLogger.db.collection('moderation').countDocuments({ 
-                    actionType: { $in: ['mute', 'timeout'] } 
-                }),
-                this.mongoLogger.db.collection('moderation').countDocuments({ 
-                    timestamp: { $gte: last7Days } 
-                })
-            ]);
-            
-            return { totalBans, totalMutes, recentActions };
-        } catch (error) {
-            console.error('Error getting moderation stats:', error);
-            return { totalBans: 0, totalMutes: 0, recentActions: 0 };
-        }
-    }
-
-    async getAttachmentStats() {
-    try {
-        console.log('📎 Fetching attachment stats...');
-        
-        // Get total count
-        const totalAttachments = await this.mongoLogger.db.collection('attachments').countDocuments();
-        console.log('   Total attachments:', totalAttachments);
-        
-        // Get total size
-        const sizeResult = await this.mongoLogger.db.collection('attachments').aggregate([
-            {
-                $group: {
-                    _id: null,
-                    totalSize: { $sum: '$size' }
-                }
-            }
-        ]).toArray();
-        
-        const totalSize = sizeResult.length > 0 ? sizeResult[0].totalSize : 0;
-        console.log('   Total size:', (totalSize / 1024 / 1024).toFixed(2), 'MB');
-        
-        // Get count by type
-        const byType = await this.mongoLogger.db.collection('attachments').aggregate([
-            {
-                $group: {
-                    _id: '$contentType',
-                    count: { $sum: 1 },
-                    totalSize: { $sum: '$size' }
-                }
-            },
-            { $sort: { count: -1 } },
-            { $limit: 10 }
-        ]).toArray();
-        
-        console.log('   Types:', byType.length);
-        
-        // Get top uploaders
-        const topUploaders = await this.mongoLogger.db.collection('attachments').aggregate([
-            {
-                $group: {
-                    _id: '$userId',
-                    userName: { $first: '$userName' },
-                    count: { $sum: 1 },
-                    totalSize: { $sum: '$size' }
-                }
-            },
-            { $sort: { count: -1 } },
-            { $limit: 10 }
-        ]).toArray();
-        
-        console.log('   Top uploaders:', topUploaders.length);
-        
-        return {
-            total: totalAttachments,
-            totalSize: totalSize,
-            byType: byType,
-            topUploaders: topUploaders
-        };
-    } catch (error) {
-        console.error('❌ Error getting attachment stats:', error);
-        return {
-            total: 0,
-            totalSize: 0,
-            byType: [],
-            topUploaders: []
-        };
-    }
-}
-
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🌐 Dashboard running at http://localhost:${this.port}`);
-            if (this.config.dashboard.oauth?.enabled) {
-                console.log(`🔐 Discord OAuth enabled`);
-            }
+        console.error('❌ Error creating appeal:', error);
+        res.json({ 
+            success: false, 
+            error: 'Failed to submit appeal. Please try again later.' 
         });
     }
-}
+});
+    }
+    async getAttachmentStats() {
+            try {
+                const totalAttachments = await this.mongoLogger.db.collection('attachments').countDocuments();
+                const sizeResult = await this.mongoLogger.db.collection('attachments').aggregate([
+                    { $group: { _id: null, totalSize: { $sum: '$size' } } }
+                ]).toArray();
+                const totalSize = sizeResult.length > 0 ? sizeResult[0].totalSize : 0;
+                const byType = await this.mongoLogger.db.collection('attachments').aggregate([
+                    { $group: { _id: '$contentType', count: { $sum: 1 }, totalSize: { $sum: '$size' } } },
+                    { $sort: { count: -1 } },
+                    { $limit: 10 }
+                ]).toArray();
+                const imageCount = await this.mongoLogger.db.collection('attachments').countDocuments({ contentType: /^image\// });
+                return { total: totalAttachments, totalSize: totalSize, byType: byType, imageCount: imageCount };
+            } catch (error) {
+                return { total: 0, totalSize: 0, byType: [], imageCount: 0 };
+            }
+        }
+
+        async getModerationStats() {
+            try {
+                const last7Days = new Date(Date.now() - 7 * 86400000);
+                const [totalBans, totalMutes, recentActions] = await Promise.all([
+                    this.mongoLogger.db.collection('moderation').countDocuments({ actionType: 'ban' }),
+                    this.mongoLogger.db.collection('moderation').countDocuments({ actionType: { $in: ['mute', 'timeout'] } }),
+                    this.mongoLogger.db.collection('moderation').countDocuments({ timestamp: { $gte: last7Days } })
+                ]);
+                return { totalBans, totalMutes, recentActions };
+            } catch (error) {
+                return { totalBans: 0, totalMutes: 0, recentActions: 0 };
+            }
+        }
+
+        start() {
+            this.app.listen(this.port, () => {
+                console.log(`🌐 Dashboard running at http://localhost:${this.port}`);
+                if (this.config.dashboard.oauth?.enabled) {
+                    console.log(`🔐 Discord OAuth enabled`);
+                }
+            });
+        }
+    }
 
 module.exports = Dashboard;
