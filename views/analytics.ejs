@@ -581,77 +581,461 @@
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">
-            <img src="<%= client.user.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
-            <div class="bot-info">
-                <h2>Drug Dealer Simulator | Eddie</h2>
-                <span class="bot-status">Online • Monitoring</span>
+    <!-- Paste this AFTER <body> tag in EACH file -->
+<style>
+    /* Navbar Styles */
+    .navbar {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 0.75rem 1.5rem;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .nav-brand { 
+        display: flex; 
+        align-items: center; 
+        gap: 0.75rem; 
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .nav-brand:hover {
+        transform: translateY(-1px);
+    }
+    
+    .bot-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(88, 101, 242, 0.5); box-shadow: 0 0 12px rgba(88, 101, 242, 0.3); }
+    .bot-info { display: flex; flex-direction: column; gap: 0.15rem; }
+    .bot-info h2 { 
+        color: #fff; 
+        font-size: 1.1rem; 
+        margin: 0; 
+        font-weight: 600; 
+        line-height: 1;
+        transition: color 0.2s ease;
+    }
+    
+    .nav-brand:hover .bot-info h2 {
+        color: #5865f2;
+    }
+    
+    .bot-status { color: #43b581; font-size: 0.7rem; font-weight: 500; line-height: 1; }
+    .nav-center { flex: 1; display: flex; justify-content: center; overflow-x: auto; }
+    .nav-links { display: flex; gap: 0.35rem; flex-wrap: nowrap; justify-content: center; }
+    .nav-links a { color: var(--text-secondary); text-decoration: none; padding: 0.5rem 0.85rem; border-radius: 6px; transition: all 0.2s ease; font-weight: 500; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+    .nav-icon { font-size: 0.95rem; }
+    .nav-links a:hover { background: rgba(255, 255, 255, 0.1); color: #fff; transform: translateY(-1px); }
+    .nav-links a.active { background: rgba(88, 101, 242, 0.25); color: var(--primary); box-shadow: 0 2px 8px rgba(88, 101, 242, 0.3); }
+    .nav-user { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+    
+    .user-profile { 
+        display: flex; 
+        align-items: center; 
+        gap: 0.6rem; 
+        background: rgba(0, 0, 0, 0.3); 
+        padding: 0.4rem 0.8rem; 
+        border-radius: 8px; 
+        border: 1px solid rgba(255, 255, 255, 0.1); 
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .user-profile:hover { 
+        background: rgba(0, 0, 0, 0.4); 
+        border-color: rgba(88, 101, 242, 0.5);
+        transform: translateY(-1px);
+    }
+    
+    .user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.2); }
+    .user-avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: rgba(88, 101, 242, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; border: 2px solid rgba(255, 255, 255, 0.2); }
+    .user-details { display: flex; flex-direction: column; gap: 0.15rem; }
+    .user-name { color: #fff; font-weight: 600; font-size: 0.85rem; line-height: 1; }
+    .user-badge { font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px; width: fit-content; line-height: 1; }
+    .user-badge.admin { background: rgba(88, 101, 242, 0.3); color: #5865f2; }
+    .user-badge.password { background: rgba(250, 166, 26, 0.3); color: #faa61a; }
+    .logout-btn { background: rgba(237, 66, 69, 0.2); color: var(--danger); padding: 0.5rem; border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; text-decoration: none; border: 1px solid rgba(237, 66, 69, 0.3); width: 36px; height: 36px; }
+    .logout-btn:hover { background: rgba(237, 66, 69, 0.3); transform: scale(1.08); }
+
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal.active {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: linear-gradient(135deg, rgba(30, 33, 40, 0.98) 0%, rgba(20, 23, 28, 0.98) 100%);
+        border: 1px solid rgba(88, 101, 242, 0.4);
+        border-radius: 12px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        animation: modalSlideIn 0.3s ease;
+    }
+    
+    @keyframes modalSlideIn {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .modal-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .modal-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: 3px solid rgba(88, 101, 242, 0.5);
+        box-shadow: 0 0 16px rgba(88, 101, 242, 0.3);
+    }
+    
+    .modal-title {
+        flex: 1;
+    }
+    
+    .modal-title h2 {
+        color: #fff;
+        font-size: 1.3rem;
+        margin: 0 0 0.25rem 0;
+    }
+    
+    .modal-title p {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.85rem;
+        margin: 0;
+    }
+    
+    .modal-close {
+        background: rgba(237, 66, 69, 0.2);
+        border: 1px solid rgba(237, 66, 69, 0.3);
+        color: #ed4245;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        transition: all 0.2s ease;
+    }
+    
+    .modal-close:hover {
+        background: rgba(237, 66, 69, 0.3);
+        transform: scale(1.1);
+    }
+    
+    .info-field {
+        margin-bottom: 1.25rem;
+    }
+    
+    .info-label {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .info-value-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 0.75rem;
+    }
+    
+    .info-value {
+        flex: 1;
+        color: #fff;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        word-break: break-all;
+    }
+    
+    .copy-btn {
+        background: rgba(88, 101, 242, 0.2);
+        border: 1px solid rgba(88, 101, 242, 0.3);
+        color: #5865f2;
+        padding: 0.4rem 0.75rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+    
+    .copy-btn:hover {
+        background: rgba(88, 101, 242, 0.3);
+        transform: scale(1.05);
+    }
+    
+    .copy-btn.copied {
+        background: rgba(67, 181, 129, 0.2);
+        border-color: rgba(67, 181, 129, 0.3);
+        color: #43b581;
+    }
+
+    @media (max-width: 1400px) {
+        .nav-links a span:not(.nav-icon) { display: none; }
+        .nav-links a { padding: 0.5rem 0.6rem; }
+    }
+    
+    @media (max-width: 1024px) {
+        .navbar { flex-wrap: wrap; padding: 0.75rem 1rem; }
+        .nav-center { order: 3; width: 100%; margin-top: 0.75rem; justify-content: flex-start; }
+        .nav-links { justify-content: flex-start; }
+        .bot-status { display: none; }
+    }
+    
+    @media (max-width: 768px) {
+        .navbar { padding: 0.6rem 0.8rem; }
+        .bot-avatar { width: 36px; height: 36px; }
+        .bot-info h2 { font-size: 1rem; }
+        .user-details { display: none; }
+        .user-avatar, .user-avatar-placeholder { width: 36px; height: 36px; }
+        .nav-center { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .nav-center::-webkit-scrollbar { display: none; }
+        .nav-links { gap: 0.25rem; }
+        .nav-links a { padding: 0.45rem 0.55rem; font-size: 0.8rem; }
+        .modal-content { padding: 1.5rem; }
+    }
+</style>
+
+<nav class="navbar">
+    <div class="nav-brand" onclick="openBotModal()">
+        <img src="<%= client.user.displayAvatarURL({ size: 64 }) %>" alt="Bot Avatar" class="bot-avatar">
+        <div class="bot-info">
+            <h2>Drug Dealer Simulator | Eddie</h2>
+            <span class="bot-status">Online • Monitoring</span>
+        </div>
+    </div>
+    
+    <div class="nav-center">
+        <div class="nav-links">
+            <a href="/" class="<%= typeof page !== 'undefined' && page === 'dashboard' ? 'active' : '' %>">
+                <span class="nav-icon">📊</span> <span>Dashboard</span>
+            </a>
+            <a href="/messages" class="<%= typeof page !== 'undefined' && page === 'messages' ? 'active' : '' %>">
+                <span class="nav-icon">💬</span> <span>Messages</span>
+            </a>
+            <a href="/deleted" class="<%= typeof page !== 'undefined' && page === 'deleted' ? 'active' : '' %>">
+                <span class="nav-icon">🗑️</span> <span>Deleted</span>
+            </a>
+            <a href="/members" class="<%= typeof page !== 'undefined' && page === 'members' ? 'active' : '' %>">
+                <span class="nav-icon">👥</span> <span>Members</span>
+            </a>
+            <a href="/moderation" class="<%= typeof page !== 'undefined' && page === 'moderation' ? 'active' : '' %>">
+                <span class="nav-icon">🔨</span> <span>Moderation</span>
+            </a>
+            <a href="/attachments" class="<%= typeof page !== 'undefined' && page === 'attachments' ? 'active' : '' %>">
+                <span class="nav-icon">📎</span> <span>Attachments</span>
+            </a>
+            <a href="/voice" class="<%= typeof page !== 'undefined' && page === 'voice' ? 'active' : '' %>">
+                <span class="nav-icon">🔊</span> <span>Voice</span>
+            </a>
+            <a href="/invites" class="<%= typeof page !== 'undefined' && page === 'invites' ? 'active' : '' %>">
+                <span class="nav-icon">🎫</span> <span>Invites</span>
+            </a>
+            <a href="/commands" class="<%= typeof page !== 'undefined' && page === 'commands' ? 'active' : '' %>">
+                <span class="nav-icon">⚙️</span> <span>Commands</span>
+            </a>
+            <a href="/analytics" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
+                <span class="nav-icon">📈</span> <span>Analytics</span>
+            </a>
+            <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
+                <span class="nav-icon">🎫</span> <span>Appeals</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="nav-user">
+        <% if (user) { %>
+            <div class="user-profile" onclick="openUserModal()">
+                <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
+                <div class="user-details">
+                    <span class="user-name"><%= user.username %></span>
+                    <span class="user-badge admin">Admin</span>
+                </div>
+            </div>
+        <% } else { %>
+            <div class="user-profile" onclick="openUserModal()">
+                <div class="user-avatar-placeholder">👤</div>
+                <div class="user-details">
+                    <span class="user-name">Admin</span>
+                    <span class="user-badge password">Password Auth</span>
+                </div>
+            </div>
+        <% } %>
+        
+        <a href="/logout" class="logout-btn" title="Logout">
+            <span class="nav-icon">🚪</span>
+        </a>
+    </div>
+</nav>
+
+<!-- Bot Info Modal -->
+<div id="botModal" class="modal" onclick="closeModal('botModal')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <img src="<%= client.user.displayAvatarURL({ size: 128 }) %>" alt="Bot Avatar" class="modal-avatar">
+            <div class="modal-title">
+                <h2><%= client.user.username %></h2>
+                <p>Bot Information</p>
+            </div>
+            <button class="modal-close" onclick="closeModal('botModal')">×</button>
+        </div>
+        
+        <div class="info-field">
+            <div class="info-label">Bot ID</div>
+            <div class="info-value-container">
+                <div class="info-value" id="botId"><%= client.user.id %></div>
+                <button class="copy-btn" onclick="copyToClipboard('botId', this)">Copy</button>
             </div>
         </div>
         
-        <div class="nav-center">
-            <div class="nav-links">
-                <a href="/" class="<%= typeof page !== 'undefined' && page === 'dashboard' ? 'active' : '' %>">
-                    <span class="nav-icon">📊</span> <span>Dashboard</span>
-                </a>
-                <a href="/messages" class="<%= typeof page !== 'undefined' && page === 'messages' ? 'active' : '' %>">
-                    <span class="nav-icon">💬</span> <span>Messages</span>
-                </a>
-                <a href="/deleted" class="<%= typeof page !== 'undefined' && page === 'deleted' ? 'active' : '' %>">
-                    <span class="nav-icon">🗑️</span> <span>Deleted</span>
-                </a>
-                <a href="/members" class="<%= typeof page !== 'undefined' && page === 'members' ? 'active' : '' %>">
-                    <span class="nav-icon">👥</span> <span>Members</span>
-                </a>
-                <a href="/moderation" class="<%= typeof page !== 'undefined' && page === 'moderation' ? 'active' : '' %>">
-                    <span class="nav-icon">🔨</span> <span>Moderation</span>
-                </a>
-                <a href="/attachments" class="<%= typeof page !== 'undefined' && page === 'attachments' ? 'active' : '' %>">
-                    <span class="nav-icon">📎</span> <span>Attachments</span>
-                </a>
-                <a href="/voice" class="<%= typeof page !== 'undefined' && page === 'voice' ? 'active' : '' %>">
-                    <span class="nav-icon">🔊</span> <span>Voice</span>
-                </a>
-                <a href="/invites" class="<%= typeof page !== 'undefined' && page === 'invites' ? 'active' : '' %>">
-                    <span class="nav-icon">🎫</span> <span>Invites</span>
-                </a>
-                <a href="/commands" class="<%= typeof page !== 'undefined' && page === 'commands' ? 'active' : '' %>">
-                    <span class="nav-icon">⚙️</span> <span>Commands</span>
-                </a>
-                <a href="/analytics" class="<%= typeof page !== 'undefined' && page === 'analytics' ? 'active' : '' %>">
-                    <span class="nav-icon">📈</span> <span>Analytics</span>
-                </a>
-                <a href="/appeals" class="<%= page === 'appeals' ? 'active' : '' %>">
-                <span class="nav-icon">🎫</span> <span>Appeals</span>
-                </a>
+        <div class="info-field">
+            <div class="info-label">Username</div>
+            <div class="info-value-container">
+                <div class="info-value" id="botUsername"><%= client.user.username %></div>
+                <button class="copy-btn" onclick="copyToClipboard('botUsername', this)">Copy</button>
             </div>
         </div>
-
-        <div class="nav-user">
-            <% if (user) { %>
-                <div class="user-profile">
-                    <img src="<%= user.avatar %>" alt="<%= user.username %>" class="user-avatar">
-                    <div class="user-details">
-                        <span class="user-name"><%= user.username %></span>
-                        <span class="user-badge admin">Admin</span>
-                    </div>
-                </div>
-            <% } else { %>
-                <div class="user-profile">
-                    <div class="user-avatar-placeholder">👤</div>
-                    <div class="user-details">
-                        <span class="user-name">Admin</span>
-                        <span class="user-badge password">Password Auth</span>
-                    </div>
-                </div>
-            <% } %>
-            
-            <a href="/logout" class="logout-btn" title="Logout">
-                <span class="nav-icon">🚪</span>
-            </a>
+        
+        <div class="info-field">
+            <div class="info-label">Tag</div>
+            <div class="info-value-container">
+                <div class="info-value" id="botTag"><%= client.user.tag %></div>
+                <button class="copy-btn" onclick="copyToClipboard('botTag', this)">Copy</button>
+            </div>
         </div>
-    </nav>
+    </div>
+</div>
+
+<!-- User Info Modal -->
+<div id="userModal" class="modal" onclick="closeModal('userModal')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <% if (user) { %>
+                <img src="<%= user.avatar %>" alt="<%= user.username %>" class="modal-avatar">
+            <% } else { %>
+                <div class="modal-avatar" style="display: flex; align-items: center; justify-content: center; background: rgba(88, 101, 242, 0.3); font-size: 2rem;">👤</div>
+            <% } %>
+            <div class="modal-title">
+                <h2><%= user ? user.username : 'Admin' %></h2>
+                <p>User Information</p>
+            </div>
+            <button class="modal-close" onclick="closeModal('userModal')">×</button>
+        </div>
+        
+        <% if (user) { %>
+            <div class="info-field">
+                <div class="info-label">User ID</div>
+                <div class="info-value-container">
+                    <div class="info-value" id="userId"><%= user.id %></div>
+                    <button class="copy-btn" onclick="copyToClipboard('userId', this)">Copy</button>
+                </div>
+            </div>
+            
+            <div class="info-field">
+                <div class="info-label">Username</div>
+                <div class="info-value-container">
+                    <div class="info-value" id="username"><%= user.username %></div>
+                    <button class="copy-btn" onclick="copyToClipboard('username', this)">Copy</button>
+                </div>
+            </div>
+            
+            <div class="info-field">
+                <div class="info-label">Discriminator</div>
+                <div class="info-value-container">
+                    <div class="info-value" id="discriminator"><%= user.discriminator || '0' %></div>
+                    <button class="copy-btn" onclick="copyToClipboard('discriminator', this)">Copy</button>
+                </div>
+            </div>
+        <% } else { %>
+            <div class="info-field">
+                <div class="info-label">Authentication</div>
+                <div class="info-value-container">
+                    <div class="info-value">Password Authentication</div>
+                </div>
+            </div>
+            <div class="info-field">
+                <div class="info-label">Role</div>
+                <div class="info-value-container">
+                    <div class="info-value">Administrator</div>
+                </div>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<script>
+    function openBotModal() {
+        document.getElementById('botModal').classList.add('active');
+    }
+
+    function openUserModal() {
+        document.getElementById('userModal').classList.add('active');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
+    }
+
+    function copyToClipboard(elementId, button) {
+        const text = document.getElementById(elementId).textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = button.textContent;
+            button.textContent = '✓ Copied';
+            button.classList.add('copied');
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('copied');
+            }, 2000);
+        });
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.classList.remove('active');
+            });
+        }
+    });
+</script>
 
     <body>
     

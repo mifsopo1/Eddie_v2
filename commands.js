@@ -20,6 +20,44 @@ class CommandHandler {
         
         console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
     }
+    async getTargetMember(message, args) {
+    // Check for mention first
+    let target = message.mentions.members.first();
+    
+    // If no mention, check if first arg is a user ID
+    if (!target && args[0]) {
+        const userId = args[0].replace(/[<@!>]/g, ''); // Remove mention characters if present
+        if (/^\d{17,19}$/.test(userId)) { // Validate Discord ID format
+            try {
+                target = await message.guild.members.fetch(userId);
+            } catch (error) {
+                console.error('Failed to fetch user:', error);
+            }
+        }
+    }
+    
+    return target;
+}
+
+// Helper method to get user object (not member) from mention or ID
+async getTargetUser(message, args) {
+    // Check for mention first
+    let target = message.mentions.users.first();
+    
+    // If no mention, check if first arg is a user ID
+    if (!target && args[0]) {
+        const userId = args[0].replace(/[<@!>]/g, '');
+        if (/^\d{17,19}$/.test(userId)) {
+            try {
+                target = await this.client.users.fetch(userId);
+            } catch (error) {
+                console.error('Failed to fetch user:', error);
+            }
+        }
+    }
+    
+    return target;
+}
 
     // Add this method AFTER the constructor
     checkRolePermissions(member, command) {
@@ -245,11 +283,11 @@ class CommandHandler {
         this.commands.set('userinfo', {
             name: 'userinfo',
             description: 'Display user information',
-            usage: '!userinfo [@user]',
+            usage: '!userinfo [@user|userID]',
             aliases: ['ui', 'user', 'whois', 'memberinfo'],
             category: 'Information',
             execute: async (message, args) => {
-                const target = message.mentions.members.first() || message.member;
+                const target = await this.getTargetMember(message, args) || message.member;
                 const user = target.user;
                 
                 let inviteInfo = '';
@@ -628,7 +666,7 @@ class CommandHandler {
         this.commands.set('kick', {
             name: 'kick',
             description: 'Kick a member from the server',
-            usage: '!kick @user [reason]',
+            usage: '!kick @user|userID [reason]',
             aliases: ['yeet'],
             category: 'Moderation',
             permissions: ['KickMembers'],
@@ -637,16 +675,16 @@ class CommandHandler {
                     return message.reply(this.getCommandMessage('kick', 'noPermission', '❌ You need **Kick Members** permission!'));
                 }
                 
-                const target = message.mentions.members.first();
+                const target = await this.getTargetMember(message, args);
                 if (!target) {
-                    return message.reply(this.getCommandMessage('kick', 'noTarget', '❌ Please mention a user to kick!'));
+                    return message.reply(this.getCommandMessage('kick', 'noTarget', '❌ Please mention a user or provide a valid user ID to kick!'));
                 }
                 
                 if (!target.kickable) {
                     return message.reply(this.getCommandMessage('kick', 'cannotKick', '❌ I cannot kick this user!'));
                 }
                 
-                const reason = args.slice(1).join(' ') || 'No reason provided';
+                const reason = args.slice(this.getReasonStartIndex(message, args)).join(' ') || 'No reason provided';
                 
                 let inviteInfo = '';
                 try {
@@ -709,7 +747,7 @@ class CommandHandler {
         this.commands.set('ban', {
             name: 'ban',
             description: 'Ban a member from the server',
-            usage: '!ban @user [reason]',
+            usage: '!ban @user|userID [reason]',
             aliases: ['hammer'],
             category: 'Moderation',
             permissions: ['BanMembers'],
@@ -718,16 +756,16 @@ class CommandHandler {
                     return message.reply(this.getCommandMessage('ban', 'noPermission', '❌ You need **Ban Members** permission!'));
                 }
                 
-                const target = message.mentions.members.first();
+                const target = await this.getTargetMember(message, args);
                 if (!target) {
-                    return message.reply(this.getCommandMessage('ban', 'noTarget', '❌ Please mention a user to ban!'));
+                    return message.reply(this.getCommandMessage('ban', 'noTarget', '❌ Please mention a user or provide a valid user ID to ban!'));
                 }
                 
                 if (!target.bannable) {
                     return message.reply(this.getCommandMessage('ban', 'cannotBan', '❌ I cannot ban this user!'));
                 }
                 
-                const reason = args.slice(1).join(' ') || 'No reason provided';
+                const reason = args.slice(this.getReasonStartIndex(message, args)).join(' ') || 'No reason provided';
                 
                 let inviteInfo = '';
                 try {
@@ -855,7 +893,7 @@ class CommandHandler {
         this.commands.set('mute', {
             name: 'mute',
             description: 'Mute a member',
-            usage: '!mute @user [duration] [reason]',
+            usage: '!mute @user|userID [duration] [reason]',
             aliases: ['silence', 'shush'],
             category: 'Moderation',
             permissions: ['ModerateMembers'],
@@ -864,9 +902,9 @@ class CommandHandler {
                     return message.reply('❌ You need **Moderate Members** permission!');
                 }
                 
-                const target = message.mentions.members.first();
+                const target = await this.getTargetMember(message, args);
                 if (!target) {
-                    return message.reply('❌ Please mention a user to mute!');
+                    return message.reply('❌ Please mention a user or provide a valid user ID to mute!');
                 }
                 
                 let duration = null;
@@ -974,7 +1012,7 @@ class CommandHandler {
         this.commands.set('unmute', {
             name: 'unmute',
             description: 'Unmute a member',
-            usage: '!unmute @user [reason]',
+            usage: '!unmute @user|userID [reason]',
             aliases: ['unsilence'],
             category: 'Moderation',
             permissions: ['ModerateMembers'],
@@ -983,9 +1021,9 @@ class CommandHandler {
                     return message.reply('❌ You need **Moderate Members** permission!');
                 }
                 
-                const target = message.mentions.members.first();
+                const target = await this.getTargetMember(message, args);
                 if (!target) {
-                    return message.reply('❌ Please mention a user to unmute!');
+                    return message.reply('❌ Please mention a user or provide a valid user ID to unmute!');
                 }
                 
                 const mutedRole = message.guild.roles.cache.find(r => r.name === 'Muted');
@@ -1036,7 +1074,7 @@ class CommandHandler {
         this.commands.set('warn', {
             name: 'warn',
             description: 'Warn a member',
-            usage: '!warn @user <reason>',
+            usage: '!warn @user|userID <reason>',
             aliases: ['warning'],
             category: 'Moderation',
             permissions: ['ModerateMembers'],
@@ -1045,12 +1083,12 @@ class CommandHandler {
                     return message.reply('❌ You need **Moderate Members** permission!');
                 }
                 
-                const target = message.mentions.members.first();
+                const target = await this.getTargetMember(message, args);
                 if (!target) {
-                    return message.reply('❌ Please mention a user to warn!');
+                    return message.reply('❌ Please mention a user or provide a valid user ID to warn!');
                 }
                 
-                const reason = args.slice(1).join(' ');
+                const reason = args.slice(this.getReasonStartIndex(message, args)).join(' ');
                 if (!reason) {
                     return message.reply('❌ Please provide a reason for the warning!');
                 }
@@ -1106,7 +1144,7 @@ class CommandHandler {
         this.commands.set('warnings', {
             name: 'warnings',
             description: 'View user warnings',
-            usage: '!warnings @user',
+            usage: '!warnings @user|userID',
             aliases: ['warns', 'infractions'],
             category: 'Moderation',
             permissions: ['ModerateMembers'],
@@ -1115,9 +1153,9 @@ class CommandHandler {
                     return message.reply('❌ You need **Moderate Members** permission!');
                 }
                 
-                const target = message.mentions.members.first();
+                const target = await this.getTargetMember(message, args);
                 if (!target) {
-                    return message.reply('❌ Please mention a user to check warnings!');
+                    return message.reply('❌ Please mention a user or provide a valid user ID to check warnings!');
                 }
                 
                 const userWarnings = this.warnings.get(target.id) || [];
@@ -1149,7 +1187,7 @@ class CommandHandler {
         this.commands.set('clearwarns', {
             name: 'clearwarns',
             description: 'Clear all warnings for a user',
-            usage: '!clearwarns @user',
+            usage: '!clearwarns @user|userID',
             aliases: ['clearwarnings', 'resetwarns'],
             category: 'Moderation',
             permissions: ['Administrator'],
@@ -1158,9 +1196,9 @@ class CommandHandler {
                     return message.reply('❌ You need **Administrator** permission!');
                 }
                 
-                const target = message.mentions.members.first();
+                const target = await this.getTargetMember(message, args);
                 if (!target) {
-                    return message.reply('❌ Please mention a user to clear warnings!');
+                    return message.reply('❌ Please mention a user or provide a valid user ID to clear warnings!');
                 }
                 
                 const userWarnings = this.warnings.get(target.id) || [];
@@ -1483,7 +1521,7 @@ class CommandHandler {
         this.commands.set('nickname', {
             name: 'nickname',
             description: 'Change user nickname',
-            usage: '!nickname @user <new_nick>',
+            usage: '!nickname @user|userID <new_nick>',
             aliases: ['nick', 'setnick'],
             category: 'Moderation',
             permissions: ['ManageNicknames'],
@@ -1492,7 +1530,7 @@ class CommandHandler {
                     return message.reply('❌ You need **Manage Nicknames** permission!');
                 }
                 
-                const target = message.mentions.members.first();
+                const target = await this.getTargetMember(message, args);
                 if (!target) {
                     return message.reply('❌ Please mention a user!');
                 }
@@ -1633,7 +1671,7 @@ this.commands.set('resetcustom', {
         this.commands.set('addrole', {
             name: 'addrole',
             description: 'Add role to user',
-            usage: '!addrole @user @role',
+            usage: '!addrole @user|userID @role',
             aliases: ['giverole'],
             category: 'Server Management',
             permissions: ['ManageRoles'],
@@ -1642,7 +1680,7 @@ this.commands.set('resetcustom', {
                     return message.reply('❌ You need **Manage Roles** permission!');
                 }
                 
-                const target = message.mentions.members.first();
+                const target = await this.getTargetMember(message, args);
                 const role = message.mentions.roles.first();
                 
                 if (!target || !role) {
@@ -1692,7 +1730,7 @@ this.commands.set('resetcustom', {
         this.commands.set('removerole', {
             name: 'removerole',
             description: 'Remove role from user',
-            usage: '!removerole @user @role',
+            usage: '!removerole @user|userID @role',
             aliases: ['takerole'],
             category: 'Server Management',
             permissions: ['ManageRoles'],
@@ -1701,7 +1739,7 @@ this.commands.set('resetcustom', {
                     return message.reply('❌ You need **Manage Roles** permission!');
                 }
                 
-                const target = message.mentions.members.first();
+                const target = await this.getTargetMember(message, args);
                 const role = message.mentions.roles.first();
                 
                 if (!target || !role) {
@@ -1868,11 +1906,11 @@ this.commands.set('resetcustom', {
         this.commands.set('avatar', {
             name: 'avatar',
             description: 'Display user avatar',
-            usage: '!avatar [@user]',
+            usage: '!avatar [@user|userID]',
             aliases: ['av', 'pfp', 'icon'],
             category: 'Utility',
             execute: async (message) => {
-                const target = message.mentions.users.first() || message.author;
+                const target = await this.getTargetUser(message, args) || message.author;
                 
                 const embed = new EmbedBuilder()
                     .setColor('#3498db')
@@ -1889,11 +1927,11 @@ this.commands.set('resetcustom', {
         this.commands.set('banner', {
             name: 'banner',
             description: 'Display user banner',
-            usage: '!banner [@user]',
+            usage: '!banner [@user|userID]',
             aliases: ['userbanner'],
             category: 'Utility',
             execute: async (message) => {
-                const target = message.mentions.users.first() || message.author;
+                const target = await this.getTargetUser(message, args) || message.author;
                 const user = await this.client.users.fetch(target.id, { force: true });
                 
                 if (!user.banner) {
