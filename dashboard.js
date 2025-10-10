@@ -2076,110 +2076,98 @@ this.app.get('/appeals/:id', this.requireAdmin.bind(this), async (req, res) => {
     }
 });
 
-// Create Appeal (Public - anyone can submit)
-this.app.post('/appeals/create', async (req, res) => {
-    try {
-        console.log('Appeal submission received:', req.body);
+// Post to appeals channel
+try {
+    const config = require('./config.json');
+    const appealsChannelId = config.logChannels.appeals || '1425740337430663291';
+    
+    console.log('🔍 Attempting to fetch appeals channel:', appealsChannelId);
+    
+    const appealsChannel = await this.client.channels.fetch(appealsChannelId).catch(err => {
+        console.error('❌ Failed to fetch channel:', err.message);
+        return null;
+    });
+    
+    if (!appealsChannel) {
+        console.error('❌ Appeals channel not found or bot lacks access!');
+        console.error('   Channel ID:', appealsChannelId);
+        console.error('   Bot user:', this.client.user?.tag);
         
-        const { userId, userName, appealType, reason, evidence, discordTag } = req.body;
-        
-        if (!userId || !userName || !appealType || !reason) {
-            console.log('Missing required fields:', { userId, userName, appealType, reason });
-            return res.json({ success: false, error: 'Missing required fields' });
-        }
-        
-        // Check MongoDB connection
-        if (!this.mongoLogger || !this.mongoLogger.connected) {
-            console.error('MongoDB not connected');
-            return res.json({ success: false, error: 'Database connection error' });
-        }
-        
-        // Check if user already has pending appeal
-        const existingAppeal = await this.mongoLogger.db.collection('appeals')
-            .findOne({ 
-                userId: userId,
-                status: { $in: ['pending', 'reviewing'] }
-            });
-        
-        if (existingAppeal) {
-            console.log('User already has pending appeal:', userId);
-            return res.json({ 
-                success: false, 
-                error: 'You already have a pending appeal. Please wait for staff to review it.' 
-            });
-        }
-        
-        // Find the original moderation action
-        const originalAction = await this.mongoLogger.db.collection('moderation')
-            .findOne({ 
-                userId: userId,
-                actionType: appealType
-            }, 
-            { sort: { timestamp: -1 } });
-        
-        const appeal = {
-            userId: userId,
-            userName: userName,
-            discordTag: discordTag || userName,
-            appealType: appealType,
-            originalAction: originalAction || null,
-            appeal: {
-                reason: reason,
-                evidence: evidence || '',
-                submittedAt: new Date()
-            },
-            status: 'pending',
-            response: null,
-            history: [
-                {
-                    action: 'submitted',
-                    by: userName,
-                    timestamp: new Date()
-                }
-            ]
-        };
-
-        const result = await this.mongoLogger.db.collection('appeals').insertOne(appeal);
-        console.log('Appeal created successfully:', result.insertedId);
-        
-        // Send DM to user if bot can reach them
-        try {
-            const user = await this.client.users.fetch(userId);
-            if (user) {
-                await user.send({
-                    embeds: [{
-                        color: 0x5865f2,
-                        title: '📨 Appeal Submitted',
-                        description: `Your ${appealType} appeal has been submitted and is pending review.`,
-                        fields: [
-                            { name: 'Appeal ID', value: result.insertedId.toString(), inline: true },
-                            { name: 'Status', value: 'Pending Review', inline: true }
-                        ],
-                        footer: { text: 'You will receive a DM when your appeal is reviewed.' },
-                        timestamp: new Date()
-                    }]
-                });
-                console.log('DM sent to user:', userId);
-            }
-        } catch (dmError) {
-            console.log('Could not send DM to user:', dmError.message);
-            // Don't fail the appeal if DM fails
-        }
-
-        res.json({ 
+        // Still return success to user, but log the error
+        return res.json({ 
             success: true, 
             message: 'Appeal submitted successfully! You will receive a DM when it is reviewed.',
             appealId: result.insertedId.toString()
         });
-        
-    } catch (error) {
-        console.error('Error creating appeal:', error);
-        res.json({ 
-            success: false, 
-            error: 'Failed to submit appeal. Please try again later.' 
-        });
     }
-});
+    
+    console.log('✅ Appeals channel found:', appealsChannel.name, 'in', appealsChannel.guild.name);
+    
+    const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+    
+    const embed = new EmbedBuilder()
+        .setColor('#faa61a')
+        .setTitle('🎫 New Appeal Submitted')
+        .setDescription(`**User:** ${userName} (\`${userId}\`)\n**Type:** ${appealType}`)
+        .addFields(
+            { name: 'Reason', value: reason.substring(0, 1024) },
+            { name: 'Appeal ID', value: result.insertedId.toString(), inline: true },
+            { name: 'Status', value: '⏳ Pending', inline: true }
+        )
+        .setTimestamp();
+    
+    if (evidence) {
+        embed.addFields({ name: 'Evidence', value: evidence.substring(0, 1024) });
+    }
+    
+    if (originalAction) {
+        let actionInfo = `**Action Type:** ${originalAction.actionType}\n`;
+        actionInfo += `**Date:** <t:${Math.floor(new Date(originalAction.timestamp).getTime() / 1000)}:R>\n`;
+        if (originalAction.reason) actionInfo += `**Reason:** ${originalAction.reason}\n`;
+        if (originalAction.moderatorName) actionInfo += `**Moderator:** ${originalAction.moderatorName}`;
+        
+        embed.addFields({ name: '📋 Original Action', value: actionInfo });
+    }
+    
+    const approveButton = new ButtonBuilder()
+        .setCustomId(`appeal_approve_${result.insertedId}`)
+        .setLabel('Approve Appeal')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('✅');
+    
+    const denyButton = new ButtonBuilder()
+        .setCustomId(`appeal_deny_${result.insertedId}`)
+        .setLabel('Deny Appeal')
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji('❌');
+    
+    const reviewButton = new ButtonBuilder()
+        .setCustomId(`appeal_review_${result.insertedId}`)
+        .setLabel('Mark as Reviewing')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('👀');
+    
+    const row = new ActionRowBuilder()
+        .addComponents(approveButton, denyButton, reviewButton);
+    
+    await appealsChannel.send({ 
+        content: `<@&1425260355420160100> New appeal submitted`,
+        embeds: [embed],
+        components: [row]
+    }).catch(err => {
+        console.error('❌ Failed to send message to appeals channel:', err.message);
+        throw err;
+    });
+    
+    console.log('✅ Appeal posted to channel:', appealsChannel.name);
+    
+} catch (channelError) {
+    console.error('❌ Error posting to appeals channel:', channelError);
+    console.error('   Error details:', channelError.stack);
+    
+    // Still return success to user - appeal is saved in DB
+    // Just means the channel notification failed
+}
 
 // Respond to Appeal
 this.app.post('/appeals/:id/respond', this.requireAdmin.bind(this), async (req, res) => {
