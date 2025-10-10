@@ -575,8 +575,13 @@ async getTargetUser(message, args) {
             aliases: ['banlist'],
             category: 'Information',
             permissions: ['BanMembers'],
-            execute: async (message) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+            execute: async (message, args) => {
+            console.log('🔍 BAN DEBUG:');
+            console.log('  Args:', args);
+            console.log('  Mentions:', message.mentions.members.size);
+            console.log('  First mention:', message.mentions.members.first()?.id);
+    
+    if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
                     return message.reply('❌ You need **Ban Members** permission!');
                 }
                 
