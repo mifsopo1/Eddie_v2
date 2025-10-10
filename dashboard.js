@@ -2315,66 +2315,66 @@ this.app.post('/appeals/:appealId/update', this.requireAdmin.bind(this), async (
         res.redirect('/appeals');
     }
 });
-}
-
-async getAttachmentStats() {
-    try {
-        const totalAttachments = await this.mongoLogger.db.collection('attachments').countDocuments();
-        const sizeResult = await this.mongoLogger.db.collection('attachments').aggregate([
-            { $group: { _id: null, totalSize: { $sum: '$size' } } }
-        ]).toArray();
-        const totalSize = sizeResult.length > 0 ? sizeResult[0].totalSize : 0;
-        const byType = await this.mongoLogger.db.collection('attachments').aggregate([
-            { $group: { _id: '$contentType', count: { $sum: 1 }, totalSize: { $sum: '$size' } } },
-            { $sort: { count: -1 } },
-            { $limit: 10 }
-        ]).toArray();
-        const imageCount = await this.mongoLogger.db.collection('attachments').countDocuments({ contentType: /^image\// });
-        return { total: totalAttachments, totalSize: totalSize, byType: byType, imageCount: imageCount };
-    } catch (error) {
-        return { total: 0, totalSize: 0, byType: [], imageCount: 0 };
     }
-}
 
-async getAppealsStats() {
-    try {
-        const [total, pending, reviewing, approved, denied] = await Promise.all([
-            this.mongoLogger.db.collection('appeals').countDocuments(),
-            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'pending' }),
-            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'reviewing' }),
-            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'approved' }),
-            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'denied' })
-        ]);
-        
-        return { total, pending, reviewing, approved, denied };
-    } catch (error) {
-        console.error('Error getting appeals stats:', error);
-        return { total: 0, pending: 0, reviewing: 0, approved: 0, denied: 0 };
-    }
-}
-
-async getModerationStats() {
-    try {
-        const last7Days = new Date(Date.now() - 7 * 86400000);
-        const [totalBans, totalMutes, recentActions] = await Promise.all([
-            this.mongoLogger.db.collection('moderation').countDocuments({ actionType: 'ban' }),
-            this.mongoLogger.db.collection('moderation').countDocuments({ actionType: { $in: ['mute', 'timeout'] } }),
-            this.mongoLogger.db.collection('moderation').countDocuments({ timestamp: { $gte: last7Days } })
-        ]);
-        return { totalBans, totalMutes, recentActions };
-    } catch (error) {
-        return { totalBans: 0, totalMutes: 0, recentActions: 0 };
-    }
-}
-
-start() {
-    this.app.listen(this.port, () => {
-        console.log(`🌐 Dashboard running at http://localhost:${this.port}`);
-        if (this.config.dashboard.oauth?.enabled) {
-            console.log(`🔐 Discord OAuth enabled`);
+    async getAttachmentStats() {
+        try {
+            const totalAttachments = await this.mongoLogger.db.collection('attachments').countDocuments();
+            const sizeResult = await this.mongoLogger.db.collection('attachments').aggregate([
+                { $group: { _id: null, totalSize: { $sum: '$size' } } }
+            ]).toArray();
+            const totalSize = sizeResult.length > 0 ? sizeResult[0].totalSize : 0;
+            const byType = await this.mongoLogger.db.collection('attachments').aggregate([
+                { $group: { _id: '$contentType', count: { $sum: 1 }, totalSize: { $sum: '$size' } } },
+                { $sort: { count: -1 } },
+                { $limit: 10 }
+            ]).toArray();
+            const imageCount = await this.mongoLogger.db.collection('attachments').countDocuments({ contentType: /^image\// });
+            return { total: totalAttachments, totalSize: totalSize, byType: byType, imageCount: imageCount };
+        } catch (error) {
+            return { total: 0, totalSize: 0, byType: [], imageCount: 0 };
         }
-    });
-}
+    }
+
+    async getAppealsStats() {
+        try {
+            const [total, pending, reviewing, approved, denied] = await Promise.all([
+                this.mongoLogger.db.collection('appeals').countDocuments(),
+                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'pending' }),
+                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'reviewing' }),
+                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'approved' }),
+                this.mongoLogger.db.collection('appeals').countDocuments({ status: 'denied' })
+            ]);
+            
+            return { total, pending, reviewing, approved, denied };
+        } catch (error) {
+            console.error('Error getting appeals stats:', error);
+            return { total: 0, pending, reviewing: 0, approved: 0, denied: 0 };
+        }
+    }
+
+    async getModerationStats() {
+        try {
+            const last7Days = new Date(Date.now() - 7 * 86400000);
+            const [totalBans, totalMutes, recentActions] = await Promise.all([
+                this.mongoLogger.db.collection('moderation').countDocuments({ actionType: 'ban' }),
+                this.mongoLogger.db.collection('moderation').countDocuments({ actionType: { $in: ['mute', 'timeout'] } }),
+                this.mongoLogger.db.collection('moderation').countDocuments({ timestamp: { $gte: last7Days } })
+            ]);
+            return { totalBans, totalMutes, recentActions };
+        } catch (error) {
+            return { totalBans: 0, totalMutes: 0, recentActions: 0 };
+        }
+    }
+
+    start() {
+        this.app.listen(this.port, () => {
+            console.log(`🌐 Dashboard running at http://localhost:${this.port}`);
+            if (this.config.dashboard.oauth?.enabled) {
+                console.log(`🔐 Discord OAuth enabled`);
+            }
+        });
+    }
 }
 
 module.exports = Dashboard;
