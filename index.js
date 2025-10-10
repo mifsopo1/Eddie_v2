@@ -5,7 +5,7 @@ const config = require('./config.json');
 const MongoDBLogger = require('./mongodb-logger');
 const Dashboard = require('./dashboard');
 const StickyManager = require('./stickyManager');
-
+const logDeduplicator = new Map();
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
