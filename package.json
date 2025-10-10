@@ -1,33 +1,35 @@
 {
-    "name": "discord-logger-bot",
-    "version": "1.0.0",
-    "description": "Comprehensive Discord logging bot",
-    "main": "index.js",
-    "scripts": {
-        "start": "node index.js",
-        "dev": "nodemon index.js"
-    },
-    "keywords": [
-        "discord",
-        "bot",
-        "logger",
-        "audit"
-    ],
-    "author": "",
-    "license": "MIT",
-    "dependencies": {
-        "bcrypt": "^6.0.0",
-        "connect-mongo": "^5.1.0",
-        "discord.js": "^14.14.1",
-        "ejs": "^3.1.10",
-        "express": "^5.1.0",
-        "express-flash": "^0.0.2",
-        "express-session": "^1.18.2",
-        "mongodb": "^6.20.0",
-        "passport": "^0.7.0",
-        "passport-discord": "^0.1.4"
-    },
-    "devDependencies": {
-        "nodemon": "^3.0.2"
-    }
+  "name": "discord-logger-bot",
+  "version": "1.0.0",
+  "description": "Comprehensive Discord logging bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "prestart": "echo 'Starting bot...'",
+    "postinstall": "echo 'Install complete' || exit 0"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "logger",
+    "audit"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "connect-mongo": "^5.1.0",
+    "discord.js": "^14.14.1",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-flash": "^0.0.2",
+    "express-session": "^1.18.2",
+    "mongodb": "^6.20.0",
+    "passport": "^0.7.0",
+    "passport-discord": "^0.1.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
 }
