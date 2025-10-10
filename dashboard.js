@@ -140,15 +140,6 @@ class Dashboard {
     // ============================================
     // PUBLIC ROUTES (NO AUTH REQUIRED)
     // ============================================
-    
-    // Public Appeal Submission Page
-    this.app.get('/submit-appeal', async (req, res) => {
-        res.render('submit-appeal', {
-            client: this.client,
-            user: req.user || null,
-            page: 'submit-appeal'
-        });
-    });
     // Public Appeal Submission Page
 this.app.get('/submit-appeal', async (req, res) => {
     res.render('submit-appeal', {
@@ -158,7 +149,7 @@ this.app.get('/submit-appeal', async (req, res) => {
     });
 });
 // POST: Create Appeal (PUBLIC - NO AUTH REQUIRED)
-this.app.post('/appeals/create', express.json(), async (req, res) => {
+this.app.post('/appeals/create', async (req, res) => {
     try {
         console.log('📝 Appeal submission received:', req.body);
         
