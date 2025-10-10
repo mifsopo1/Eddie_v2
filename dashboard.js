@@ -149,6 +149,97 @@ class Dashboard {
             page: 'submit-appeal'
         });
     });
+    // Public Appeal Submission Page
+this.app.get('/submit-appeal', async (req, res) => {
+    res.render('submit-appeal', {
+        client: this.client,
+        user: req.user || null,
+        page: 'submit-appeal'
+    });
+});
+
+// POST: Handle Appeal Submission (PUBLIC - NO AUTH REQUIRED)
+this.app.post('/submit-appeal', express.json(), async (req, res) => {
+    try {
+        console.log('📝 Appeal submission received:', req.body);
+        
+        const { userId, reason, explanation } = req.body;
+        
+        // Validate required fields
+        if (!userId || !reason || !explanation) {
+            return res.json({ 
+                success: false, 
+                error: 'All fields are required' 
+            });
+        }
+        
+        // Check if user already has a pending appeal
+        const existingAppeal = await this.mongoLogger.db.collection('appeals')
+            .findOne({ 
+                userId: userId,
+                status: { $in: ['pending', 'reviewing'] }
+            });
+        
+        if (existingAppeal) {
+            return res.json({ 
+                success: false, 
+                error: 'You already have a pending appeal' 
+            });
+        }
+        
+        // Try to fetch user info from Discord
+        let userName = 'Unknown User';
+        let userAvatar = 'https://cdn.discordapp.com/embed/avatars/0.png';
+        
+        try {
+            const user = await this.client.users.fetch(userId);
+            userName = user.tag;
+            userAvatar = user.displayAvatarURL();
+        } catch (e) {
+            console.log('⚠️ Could not fetch user from Discord:', e.message);
+        }
+        
+        // Create the appeal
+        const appeal = {
+            userId: userId,
+            userName: userName,
+            userAvatar: userAvatar,
+            status: 'pending',
+            appeal: {
+                reason: reason,
+                explanation: explanation,
+                submittedAt: new Date()
+            },
+            response: {
+                message: null,
+                respondedAt: null,
+                respondedBy: null
+            },
+            history: [{
+                action: 'submitted',
+                by: userName,
+                message: 'Appeal submitted',
+                timestamp: new Date()
+            }]
+        };
+        
+        const result = await this.mongoLogger.db.collection('appeals').insertOne(appeal);
+        
+        console.log('✅ Appeal created with ID:', result.insertedId);
+        
+        res.json({ 
+            success: true, 
+            message: 'Appeal submitted successfully!',
+            appealId: result.insertedId.toString()
+        });
+    } catch (error) {
+        console.error('❌ Appeal submission error:', error);
+        res.json({ 
+            success: false, 
+            error: 'Failed to submit appeal. Please try again.' 
+        });
+    }
+});
         // ============================================
         // AUTH ROUTES
         // ============================================
