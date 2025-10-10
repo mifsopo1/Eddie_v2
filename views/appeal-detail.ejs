@@ -5,465 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Appeal Details - Discord Logger</title>
     <link rel="stylesheet" href="/css/style.css">
-    <style>
-        /* Inline Navbar Styles */
-        .navbar {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 0.75rem 1.5rem;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-        .nav-brand { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
-        .bot-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(88, 101, 242, 0.5); box-shadow: 0 0 12px rgba(88, 101, 242, 0.3); }
-        .bot-info { display: flex; flex-direction: column; gap: 0.15rem; }
-        .bot-info h2 { color: #fff; font-size: 1.1rem; margin: 0; font-weight: 600; line-height: 1; }
-        .bot-status { color: #43b581; font-size: 0.7rem; font-weight: 500; line-height: 1; }
-        .nav-center { flex: 1; display: flex; justify-content: center; overflow-x: auto; }
-        .nav-links { display: flex; gap: 0.35rem; flex-wrap: nowrap; justify-content: center; }
-        .nav-links a { color: var(--text-secondary); text-decoration: none; padding: 0.5rem 0.85rem; border-radius: 6px; transition: all 0.2s ease; font-weight: 500; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
-        .nav-icon { font-size: 0.95rem; }
-        .nav-links a:hover { background: rgba(255, 255, 255, 0.1); color: #fff; transform: translateY(-1px); }
-        .nav-links a.active { background: rgba(88, 101, 242, 0.25); color: var(--primary); box-shadow: 0 2px 8px rgba(88, 101, 242, 0.3); }
-        .nav-user { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
-        .user-profile { display: flex; align-items: center; gap: 0.6rem; background: rgba(0, 0, 0, 0.3); padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s ease; }
-        .user-profile:hover { background: rgba(0, 0, 0, 0.4); border-color: rgba(88, 101, 242, 0.5); }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.2); }
-        .user-avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: rgba(88, 101, 242, 0.3); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; border: 2px solid rgba(255, 255, 255, 0.2); }
-        .user-details { display: flex; flex-direction: column; gap: 0.15rem; }
-        .user-name { color: #fff; font-weight: 600; font-size: 0.85rem; line-height: 1; }
-        .user-badge { font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px; width: fit-content; line-height: 1; }
-        .user-badge.admin { background: rgba(88, 101, 242, 0.3); color: #5865f2; }
-        .user-badge.password { background: rgba(250, 166, 26, 0.3); color: #faa61a; }
-        .logout-btn { background: rgba(237, 66, 69, 0.2); color: var(--danger); padding: 0.5rem; border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; text-decoration: none; border: 1px solid rgba(237, 66, 69, 0.3); width: 36px; height: 36px; }
-        .logout-btn:hover { background: rgba(237, 66, 69, 0.3); transform: scale(1.08); }
-        @media (max-width: 1400px) {
-            .nav-links a span:not(.nav-icon) { display: none; }
-            .nav-links a { padding: 0.5rem 0.6rem; }
-        }
-        @media (max-width: 1024px) {
-            .navbar { flex-wrap: wrap; padding: 0.75rem 1rem; }
-            .nav-center { order: 3; width: 100%; margin-top: 0.75rem; justify-content: flex-start; }
-            .nav-links { justify-content: flex-start; }
-            .bot-status { display: none; }
-        }
-        @media (max-width: 768px) {
-            .navbar { padding: 0.6rem 0.8rem; }
-            .bot-avatar { width: 36px; height: 36px; }
-            .bot-info h2 { font-size: 1rem; }
-            .user-details { display: none; }
-            .user-avatar, .user-avatar-placeholder { width: 36px; height: 36px; }
-            .nav-center { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-            .nav-center::-webkit-scrollbar { display: none; }
-            .nav-links { gap: 0.25rem; }
-            .nav-links a { padding: 0.45rem 0.55rem; font-size: 0.8rem; }
-        }
-
-        
-        .appeal-detail-container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1.5rem;
-        }
-
-        .back-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: rgba(255, 255, 255, 0.7);
-            text-decoration: none;
-            margin-bottom: 1.5rem;
-            transition: color 0.2s ease;
-        }
-
-        .back-button:hover {
-            color: #fff;
-        }
-
-        .appeal-header {
-            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
-            border: 1px solid rgba(88, 101, 242, 0.3);
-            border-radius: 12px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .appeal-title {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .appeal-title h1 {
-            color: #fff;
-            font-size: 1.8rem;
-            margin: 0;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .status-badge.pending {
-            background: rgba(250, 166, 26, 0.2);
-            color: #faa61a;
-        }
-
-        .status-badge.reviewing {
-            background: rgba(88, 101, 242, 0.2);
-            color: #5865f2;
-        }
-
-        .status-badge.approved {
-            background: rgba(67, 181, 129, 0.2);
-            color: #43b581;
-        }
-
-        .status-badge.denied {
-            background: rgba(237, 66, 69, 0.2);
-            color: #ed4245;
-        }
-
-        .appeal-meta {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            padding: 1.5rem;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-        }
-
-        .meta-item {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .meta-label {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            font-weight: 600;
-        }
-
-        .meta-value {
-            color: #fff;
-            font-size: 1rem;
-        }
-
-        .content-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .content-section {
-            background: linear-gradient(135deg, rgba(30, 33, 40, 0.95) 0%, rgba(20, 23, 28, 0.95) 100%);
-            border: 1px solid rgba(88, 101, 242, 0.3);
-            border-radius: 12px;
-            padding: 1.5rem;
-        }
-
-        .section-title {
-            color: #fff;
-            font-size: 1.2rem;
-            margin: 0 0 1rem 0;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .appeal-content {
-            color: rgba(255, 255, 255, 0.8);
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-
-        .original-action {
-            background: rgba(237, 66, 69, 0.1);
-            border: 1px solid rgba(237, 66, 69, 0.3);
-            border-radius: 8px;
-            padding: 1rem;
-        }
-
-        .action-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .action-item:last-child {
-            border-bottom: none;
-        }
-
-        .action-label {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-        }
-
-        .action-value {
-            color: #fff;
-            font-weight: 600;
-        }
-
-        .mod-history {
-            grid-column: 1 / -1;
-        }
-
-        .history-item {
-            padding: 1rem;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            margin-bottom: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .history-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .history-action {
-            color: #fff;
-            font-weight: 600;
-        }
-
-        .history-details {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.85rem;
-        }
-
-        .history-date {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.85rem;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 1rem;
-            margin-top: 2rem;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 0.95rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .btn-approve {
-            background: #43b581;
-            color: white;
-        }
-
-        .btn-approve:hover {
-            background: #3ca374;
-            transform: translateY(-2px);
-        }
-
-        .btn-deny {
-            background: #ed4245;
-            color: white;
-        }
-
-        .btn-deny:hover {
-            background: #d83c3e;
-            transform: translateY(-2px);
-        }
-
-        .btn-respond {
-            background: #5865f2;
-            color: white;
-        }
-
-        .btn-respond:hover {
-            background: #4752c4;
-            transform: translateY(-2px);
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 10000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(4px);
-        }
-
-        .modal-content {
-            background: linear-gradient(135deg, rgba(30, 33, 40, 0.98) 0%, rgba(20, 23, 28, 0.98) 100%);
-            margin: 5% auto;
-            padding: 0;
-            border: 1px solid rgba(88, 101, 242, 0.3);
-            border-radius: 12px;
-            max-width: 600px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-header {
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-header h2 {
-            margin: 0;
-            color: #fff;
-            font-size: 1.3rem;
-        }
-
-        .modal-close {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.3s ease;
-            line-height: 1;
-        }
-
-        .modal-close:hover {
-            color: #fff;
-        }
-
-        .modal-body {
-            padding: 2rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            color: #fff;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .form-group textarea {
-            width: 100%;
-            padding: 0.75rem;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: #fff;
-            font-family: inherit;
-            resize: vertical;
-            min-height: 120px;
-        }
-
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #5865f2;
-        }
-
-        .form-group select {
-            width: 100%;
-            padding: 0.75rem;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: #fff;
-        }
-
-        .modal-footer {
-            padding: 1.5rem 2rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            justify-content: flex-end;
-            gap: 1rem;
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .response-display {
-            background: rgba(88, 101, 242, 0.1);
-            border: 1px solid rgba(88, 101, 242, 0.3);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-top: 1rem;
-        }
-
-        .response-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .response-mod {
-            color: #5865f2;
-            font-weight: 600;
-        }
-
-        .response-date {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.85rem;
-        }
-
-        .response-text {
-            color: rgba(255, 255, 255, 0.9);
-            line-height: 1.6;
-            white-space: pre-wrap;
-        }
-
-        @media (max-width: 768px) {
-            .content-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .action-buttons {
-                flex-direction: column;
-            }
-            
-            .btn {
-                width: 100%;
-                justify-content: center;
-            }
-        }
-    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -537,302 +78,153 @@
             </a>
         </div>
     </nav>
-
-    <div class="appeal-detail-container">
-        <a href="/appeals" class="back-button">
-            ← Back to Appeals
-        </a>
-
-        <!-- Appeal Header -->
-        <div class="appeal-header">
-            <div class="appeal-title">
-                <h1>Appeal #<%= appeal._id.toString().substring(0, 8) %></h1>
-                <span class="status-badge <%= appeal.status %>">
-                    <%= appeal.status %>
-                </span>
-            </div>
-
-            <div class="appeal-meta">
-                <div class="meta-item">
-                    <span class="meta-label">User</span>
-                    <span class="meta-value"><%= appeal.userName %></span>
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Discord Tag</span>
-                    <span class="meta-value"><%= appeal.discordTag %></span>
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">User ID</span>
-                    <span class="meta-value" style="font-family: monospace;"><%= appeal.userId %></span>
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Appeal Type</span>
-                    <span class="meta-value" style="text-transform: uppercase; color: #ed4245;"><%= appeal.appealType %></span>
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Submitted</span>
-                    <span class="meta-value"><%= new Date(appeal.appeal.submittedAt).toLocaleString() %></span>
+    
+    <div class="container">
+        <h1>📋 Appeal Details</h1>
+        
+        <div class="appeal-detail-container">
+            <!-- User Info -->
+            <div class="section">
+                <h2>👤 User Information</h2>
+                <div class="user-info-grid">
+                    <% if (discordUser) { %>
+                        <img src="<%= discordUser.displayAvatarURL({ size: 128 }) %>" alt="Avatar" class="user-avatar">
+                        <div>
+                            <p><strong>Username:</strong> <%= discordUser.tag %></p>
+                            <p><strong>User ID:</strong> <code><%= appeal.userId %></code></p>
+                            <p><strong>Account Created:</strong> <%= discordUser.createdAt.toLocaleString() %></p>
+                        </div>
+                    <% } else { %>
+                        <p><strong>User ID:</strong> <code><%= appeal.userId %></code></p>
+                        <p class="text-muted">User not in cache</p>
+                    <% } %>
                 </div>
             </div>
-        </div>
-
-        <!-- Content Grid -->
-        <div class="content-grid">
-            <!-- Appeal Details -->
-            <div class="content-section">
-                <h2 class="section-title">📝 Appeal Reason</h2>
-                <div class="appeal-content">
-                    <%= appeal.appeal.reason %>
-                </div>
-
-                <% if (appeal.appeal.evidence) { %>
-                    <h2 class="section-title" style="margin-top: 1.5rem;">🔗 Evidence</h2>
+            
+            <!-- Appeal Info -->
+            <div class="section">
+                <h2>📝 Appeal Information</h2>
+                <div class="appeal-info">
+                    <p><strong>Appeal ID:</strong> <code><%= appeal._id %></code></p>
+                    <p><strong>Type:</strong> <span class="badge <%= appeal.appealType %>"><%= appeal.appealType.toUpperCase() %></span></p>
+                    <p><strong>Status:</strong> <span class="badge badge-<%= appeal.status %>"><%= appeal.status.toUpperCase() %></span></p>
+                    <p><strong>Submitted:</strong> <%= new Date(appeal.appeal.submittedAt).toLocaleString() %></p>
+                    
                     <div class="appeal-content">
-                        <%= appeal.appeal.evidence %>
+                        <h3>Reason for Appeal:</h3>
+                        <p><%= appeal.appeal.reason %></p>
                     </div>
-                <% } %>
-
-                <% if (appeal.response) { %>
-                    <div class="response-display">
-                        <div class="response-header">
-                            <span class="response-mod">Response from <%= appeal.response.moderator %></span>
-                            <span class="response-date"><%= new Date(appeal.response.timestamp).toLocaleString() %></span>
+                    
+                    <% if (appeal.appeal.evidence) { %>
+                        <div class="appeal-evidence">
+                            <h3>Evidence Provided:</h3>
+                            <p><%= appeal.appeal.evidence %></p>
                         </div>
-                        <div class="response-text">
-                            <%= appeal.response.message %>
-                        </div>
-                    </div>
-                <% } %>
+                    <% } %>
+                </div>
             </div>
-
+            
             <!-- Original Action -->
-            <div class="content-section">
-                <h2 class="section-title">⚠️ Original Action</h2>
-                <% if (appeal.originalAction) { %>
-                    <div class="original-action">
-                        <div class="action-item">
-                            <span class="action-label">Type</span>
-                            <span class="action-value" style="text-transform: uppercase;"><%= appeal.originalAction.actionType %></span>
-                        </div>
-                        <div class="action-item">
-                            <span class="action-label">Moderator</span>
-                            <span class="action-value"><%= appeal.originalAction.moderator %></span>
-                        </div>
-                        <div class="action-item">
-                            <span class="action-label">Reason</span>
-                            <span class="action-value"><%= appeal.originalAction.reason || 'No reason provided' %></span>
-                        </div>
-                        <div class="action-item">
-                            <span class="action-label">Date</span>
-                            <span class="action-value"><%= new Date(appeal.originalAction.timestamp).toLocaleString() %></span>
-                        </div>
-                    </div>
-                <% } else { %>
-                    <p style="color: rgba(255, 255, 255, 0.6);">No original action found in logs.</p>
-                <% } %>
-
-                <h2 class="section-title" style="margin-top: 1.5rem;">📋 Appeal History</h2>
-                <% appeal.history.forEach(entry => { %>
-                    <div class="history-item">
-                        <div class="history-info">
-                            <span class="history-action"><%= entry.action.charAt(0).toUpperCase() + entry.action.slice(1) %></span>
-                            <span class="history-details">by <%= entry.by %></span>
-                        </div>
-                        <span class="history-date"><%= new Date(entry.timestamp).toLocaleString() %></span>
-                    </div>
-                <% }); %>
+            <% if (appeal.originalAction) { %>
+            <div class="section">
+                <h2>⚖️ Original Moderation Action</h2>
+                <div class="mod-action">
+                    <p><strong>Action Type:</strong> <%= appeal.originalAction.actionType %></p>
+                    <p><strong>Date:</strong> <%= new Date(appeal.originalAction.timestamp).toLocaleString() %></p>
+                    <% if (appeal.originalAction.reason) { %>
+                        <p><strong>Reason:</strong> <%= appeal.originalAction.reason %></p>
+                    <% } %>
+                    <% if (appeal.originalAction.moderatorName) { %>
+                        <p><strong>Moderator:</strong> <%= appeal.originalAction.moderatorName %></p>
+                    <% } %>
+                </div>
             </div>
-
-            <!-- Moderation History -->
-            <div class="content-section mod-history">
-                <h2 class="section-title">🔨 User's Moderation History</h2>
-                <% if (modHistory.length > 0) { %>
-                    <% modHistory.forEach(mod => { %>
-                        <div class="history-item">
-                            <div class="history-info">
-                                <span class="history-action"><%= mod.actionType.toUpperCase() %></span>
-                                <span class="history-details">
-                                    by <%= mod.moderator %> • <%= mod.reason || 'No reason' %>
-                                </span>
-                            </div>
-                            <span class="history-date"><%= new Date(mod.timestamp).toLocaleString() %></span>
-                        </div>
-                    <% }); %>
-                <% } else { %>
-                    <p style="color: rgba(255, 255, 255, 0.6);">No moderation history found.</p>
-                <% } %>
-            </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <% if (appeal.status === 'pending' || appeal.status === 'reviewing') { %>
-            <div class="action-buttons">
-                <button class="btn btn-respond" onclick="showRespondModal()">
-                    💬 Respond to Appeal
-                </button>
-                <button class="btn btn-approve" onclick="showApproveModal()">
-                    ✅ Approve Appeal
-                </button>
-                <button class="btn btn-deny" onclick="showDenyModal()">
-                    ❌ Deny Appeal
-                </button>
-            </div>
-        <% } %>
-    </div>
-
-    <!-- Respond Modal -->
-    <div id="respondModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>💬 Respond to Appeal</h2>
-                <span class="modal-close" onclick="closeModal('respondModal')">&times;</span>
-            </div>
-            <form action="/appeals/<%= appeal._id %>/respond" method="POST">
-                <div class="modal-body">
+            <% } %>
+            
+            <!-- Response Form (if pending) -->
+            <% if (appeal.status === 'pending' || appeal.status === 'reviewing') { %>
+            <div class="section">
+                <h2>✍️ Respond to Appeal</h2>
+                <form action="/appeals/<%= appeal._id %>/update" method="POST" class="appeal-response-form">
                     <div class="form-group">
-                        <label>Update Status</label>
+                        <label>Decision:</label>
                         <select name="status" required>
-                            <option value="reviewing">Under Review</option>
-                            <option value="pending">Pending</option>
+                            <option value="reviewing">Mark as Reviewing</option>
+                            <option value="approved">Approve Appeal</option>
+                            <option value="denied">Deny Appeal</option>
                         </select>
                     </div>
+                    
                     <div class="form-group">
-                        <label>Message to User</label>
-                        <textarea name="message" required placeholder="We're reviewing your appeal and will get back to you soon..."></textarea>
+                        <label>Response Message:</label>
+                        <textarea name="response" rows="6" placeholder="Explain your decision..." required></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Submit Response</button>
+                </form>
+            </div>
+            <% } %>
+            
+            <!-- Response (if answered) -->
+            <% if (appeal.response && appeal.response.message) { %>
+            <div class="section">
+                <h2>💬 Staff Response</h2>
+                <div class="staff-response">
+                    <p><strong>Responded by:</strong> <%= appeal.response.respondedBy %></p>
+                    <p><strong>Date:</strong> <%= new Date(appeal.response.respondedAt).toLocaleString() %></p>
+                    <div class="response-message">
+                        <%= appeal.response.message %>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('respondModal')">Cancel</button>
-                    <button type="submit" class="btn btn-respond">Send Response</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Approve Modal -->
-    <div id="approveModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>✅ Approve Appeal</h2>
-                <span class="modal-close" onclick="closeModal('approveModal')">&times;</span>
             </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Message to User</label>
-                    <textarea id="approveMessage" placeholder="Your appeal has been approved. Welcome back!">Your appeal has been approved. Welcome back!</textarea>
-                </div>
-                <p style="color: rgba(255, 255, 255, 0.7); margin-top: 1rem;">
-                    ⚠️ This will automatically unban/unmute the user and mark the appeal as approved.
-                </p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('approveModal')">Cancel</button>
-                <button type="button" class="btn btn-approve" onclick="approveAppeal()">Approve Appeal</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Deny Modal -->
-    <div id="denyModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>❌ Deny Appeal</h2>
-                <span class="modal-close" onclick="closeModal('denyModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Message to User</label>
-                    <textarea id="denyMessage" required placeholder="Your appeal has been denied. Reason: ...">Your appeal has been denied.</textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('denyModal')">Cancel</button>
-                <button type="button" class="btn btn-deny" onclick="denyAppeal()">Deny Appeal</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function showRespondModal() {
-            document.getElementById('respondModal').style.display = 'block';
-        }
-
-        function showApproveModal() {
-            document.getElementById('approveModal').style.display = 'block';
-        }
-
-        function showDenyModal() {
-            document.getElementById('denyModal').style.display = 'block';
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
-
-        window.onclick = function(event) {
-            if (event.target.classList.contains('modal')) {
-                event.target.style.display = 'none';
-            }
-        }
-
-        async function approveAppeal() {
-            const message = document.getElementById('approveMessage').value;
+            <% } %>
             
-            if (!confirm('Are you sure you want to approve this appeal? This will unban/unmute the user.')) {
-                return;
-            }
-
-            try {
-                const response = await fetch('/appeals/<%= appeal._id %>/approve', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message })
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    alert('Appeal approved successfully!');
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Failed to approve appeal');
-            }
-        }
-
-        async function denyAppeal() {
-            const message = document.getElementById('denyMessage').value;
+            <!-- Appeal History -->
+            <% if (appeal.history && appeal.history.length > 0) { %>
+            <div class="section">
+                <h2>📜 Appeal History</h2>
+                <div class="history-timeline">
+                    <% appeal.history.forEach(entry => { %>
+                        <div class="history-entry">
+                            <span class="history-date"><%= new Date(entry.timestamp).toLocaleString() %></span>
+                            <span class="history-action"><%= entry.action %></span>
+                            <span class="history-by">by <%= entry.by %></span>
+                            <% if (entry.message) { %>
+                                <p class="history-message"><%= entry.message %></p>
+                            <% } %>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+            <% } %>
             
-            if (!message) {
-                alert('Please provide a message to the user.');
-                return;
-            }
-
-            if (!confirm('Are you sure you want to deny this appeal?')) {
-                return;
-            }
-
-            try {
-                const response = await fetch('/appeals/<%= appeal._id %>/deny', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message })
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    alert('Appeal denied successfully!');
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Failed to deny appeal');
-            }
-        }
-    </script>
+            <!-- User Moderation History -->
+            <% if (moderationHistory.length > 0) { %>
+            <div class="section">
+                <h2>🔨 User Moderation History</h2>
+                <div class="mod-actions">
+                    <% moderationHistory.forEach(action => { %>
+                        <div class="mod-action <%= action.actionType %>">
+                            <div class="mod-header">
+                                <span class="mod-type"><%= action.actionType.toUpperCase() %></span>
+                                <span class="mod-time"><%= new Date(action.timestamp).toLocaleString() %></span>
+                            </div>
+                            <% if (action.reason) { %>
+                                <p><strong>Reason:</strong> <%= action.reason %></p>
+                            <% } %>
+                            <% if (action.moderatorName) { %>
+                                <p><strong>Moderator:</strong> <%= action.moderatorName %></p>
+                            <% } %>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+            <% } %>
+        </div>
+        
+        <div style="margin-top: 2rem;">
+            <a href="/appeals" class="btn btn-secondary">← Back to Appeals</a>
+        </div>
+    </div>
 </body>
 </html>

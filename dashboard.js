@@ -2056,11 +2056,47 @@ this.app.get('/appeals', async (req, res) => {
         res.redirect('/');
     }
 });
-// View individual appeal details (Admin)
+
+// Check appeal status by User ID (Public) - MOVED BEFORE DYNAMIC ROUTE
+this.app.get('/appeals/status', async (req, res) => {
+    try {
+        const userId = req.query.userId;
+        
+        if (!userId) {
+            req.flash('error', 'User ID is required');
+            return res.redirect('/appeals');
+        }
+        
+        const appeals = await this.mongoLogger.db.collection('appeals')
+            .find({ userId: userId })
+            .sort({ 'appeal.submittedAt': -1 })
+            .toArray();
+        
+        res.render('appeal-status', {
+            client: this.client,
+            appeals,
+            userId: userId,
+            user: req.user || null,
+            page: 'appeal-status'
+        });
+    } catch (error) {
+        console.error('Appeal status error:', error);
+        req.flash('error', 'Error loading appeal status');
+        res.redirect('/appeals');
+    }
+});
+
+// View individual appeal details (Admin) - KEPT AFTER STATIC ROUTES
 this.app.get('/appeals/:appealId', this.requireAuth.bind(this), async (req, res) => {
     try {
         const { ObjectId } = require('mongodb');
         const appealId = req.params.appealId;
+        
+        // Validate ObjectId format
+        if (!ObjectId.isValid(appealId)) {
+            req.flash('error', 'Invalid appeal ID');
+            return res.redirect('/appeals');
+        }
         
         // Fetch the appeal
         const appeal = await this.mongoLogger.db.collection('appeals')
@@ -2106,6 +2142,12 @@ this.app.post('/appeals/:appealId/update', this.requireAdmin.bind(this), async (
         const { ObjectId } = require('mongodb');
         const { status, response } = req.body;
         const appealId = req.params.appealId;
+        
+        // Validate ObjectId format
+        if (!ObjectId.isValid(appealId)) {
+            req.flash('error', 'Invalid appeal ID');
+            return res.redirect('/appeals');
+        }
         
         const updateData = {
             status: status,
@@ -2159,54 +2201,28 @@ this.app.post('/appeals/:appealId/update', this.requireAdmin.bind(this), async (
         res.redirect('/appeals');
     }
 });
-// Check appeal status by User ID (Public)
-this.app.get('/appeals/status', async (req, res) => {
+}
+
+async getAttachmentStats() {
     try {
-        const userId = req.query.userId;
-        
-        if (!userId) {
-            req.flash('error', 'User ID is required');
-            return res.redirect('/appeals');
-        }
-        
-        const appeals = await this.mongoLogger.db.collection('appeals')
-            .find({ userId: userId })
-            .sort({ 'appeal.submittedAt': -1 })
-            .toArray();
-        
-        res.render('appeal-status', {
-            client: this.client,
-            appeals,
-            userId: userId,
-            user: req.user || null,
-            page: 'appeal-status'
-        });
+        const totalAttachments = await this.mongoLogger.db.collection('attachments').countDocuments();
+        const sizeResult = await this.mongoLogger.db.collection('attachments').aggregate([
+            { $group: { _id: null, totalSize: { $sum: '$size' } } }
+        ]).toArray();
+        const totalSize = sizeResult.length > 0 ? sizeResult[0].totalSize : 0;
+        const byType = await this.mongoLogger.db.collection('attachments').aggregate([
+            { $group: { _id: '$contentType', count: { $sum: 1 }, totalSize: { $sum: '$size' } } },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]).toArray();
+        const imageCount = await this.mongoLogger.db.collection('attachments').countDocuments({ contentType: /^image\// });
+        return { total: totalAttachments, totalSize: totalSize, byType: byType, imageCount: imageCount };
     } catch (error) {
-        console.error('Appeal status error:', error);
-        req.flash('error', 'Error loading appeal status');
-        res.redirect('/appeals');
+        return { total: 0, totalSize: 0, byType: [], imageCount: 0 };
     }
-});
-    }
-    async getAttachmentStats() {
-            try {
-                const totalAttachments = await this.mongoLogger.db.collection('attachments').countDocuments();
-                const sizeResult = await this.mongoLogger.db.collection('attachments').aggregate([
-                    { $group: { _id: null, totalSize: { $sum: '$size' } } }
-                ]).toArray();
-                const totalSize = sizeResult.length > 0 ? sizeResult[0].totalSize : 0;
-                const byType = await this.mongoLogger.db.collection('attachments').aggregate([
-                    { $group: { _id: '$contentType', count: { $sum: 1 }, totalSize: { $sum: '$size' } } },
-                    { $sort: { count: -1 } },
-                    { $limit: 10 }
-                ]).toArray();
-                const imageCount = await this.mongoLogger.db.collection('attachments').countDocuments({ contentType: /^image\// });
-                return { total: totalAttachments, totalSize: totalSize, byType: byType, imageCount: imageCount };
-            } catch (error) {
-                return { total: 0, totalSize: 0, byType: [], imageCount: 0 };
-            }
-        }
-        async getAppealsStats() {
+}
+
+async getAppealsStats() {
     try {
         const [total, pending, reviewing, approved, denied] = await Promise.all([
             this.mongoLogger.db.collection('appeals').countDocuments(),
@@ -2222,28 +2238,29 @@ this.app.get('/appeals/status', async (req, res) => {
         return { total: 0, pending: 0, reviewing: 0, approved: 0, denied: 0 };
     }
 }
-        async getModerationStats() {
-            try {
-                const last7Days = new Date(Date.now() - 7 * 86400000);
-                const [totalBans, totalMutes, recentActions] = await Promise.all([
-                    this.mongoLogger.db.collection('moderation').countDocuments({ actionType: 'ban' }),
-                    this.mongoLogger.db.collection('moderation').countDocuments({ actionType: { $in: ['mute', 'timeout'] } }),
-                    this.mongoLogger.db.collection('moderation').countDocuments({ timestamp: { $gte: last7Days } })
-                ]);
-                return { totalBans, totalMutes, recentActions };
-            } catch (error) {
-                return { totalBans: 0, totalMutes: 0, recentActions: 0 };
-            }
-        }
 
-        start() {
-            this.app.listen(this.port, () => {
-                console.log(`🌐 Dashboard running at http://localhost:${this.port}`);
-                if (this.config.dashboard.oauth?.enabled) {
-                    console.log(`🔐 Discord OAuth enabled`);
-                }
-            });
-        }
+async getModerationStats() {
+    try {
+        const last7Days = new Date(Date.now() - 7 * 86400000);
+        const [totalBans, totalMutes, recentActions] = await Promise.all([
+            this.mongoLogger.db.collection('moderation').countDocuments({ actionType: 'ban' }),
+            this.mongoLogger.db.collection('moderation').countDocuments({ actionType: { $in: ['mute', 'timeout'] } }),
+            this.mongoLogger.db.collection('moderation').countDocuments({ timestamp: { $gte: last7Days } })
+        ]);
+        return { totalBans, totalMutes, recentActions };
+    } catch (error) {
+        return { totalBans: 0, totalMutes: 0, recentActions: 0 };
     }
+}
+
+start() {
+    this.app.listen(this.port, () => {
+        console.log(`🌐 Dashboard running at http://localhost:${this.port}`);
+        if (this.config.dashboard.oauth?.enabled) {
+            console.log(`🔐 Discord OAuth enabled`);
+        }
+    });
+}
+}
 
 module.exports = Dashboard;
