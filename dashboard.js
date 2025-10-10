@@ -137,33 +137,41 @@ class Dashboard {
     }
 
     setupRoutes() {
-    // ============================================
-    // PUBLIC ROUTES (NO AUTH REQUIRED)
-    // ============================================
-    // Public Appeal Submission Page
-    this.app.get('/test', (req, res) => {
-        res.json({ status: 'Server is working!' });
-    });
-    
-    console.log('✅ Routes setup starting...');
-// POST: Create Appeal (PUBLIC - NO AUTH REQUIRED)
-    this.app.get('/submit-appeal', async (req, res) => {
-        res.render('submit-appeal', {
-            client: this.client,
-            user: req.user || null,
-            page: 'submit-appeal'
+        console.log('✅ Routes setup starting...');
+        
+        // ============================================
+        // PUBLIC ROUTES (NO AUTH REQUIRED)
+        // ============================================
+        
+        // Test route
+        this.app.get('/test', (req, res) => {
+            res.json({ status: 'Server is working!' });
         });
-    });
+        console.log('✅ Registered GET /test');
+        
+        // Public Appeal Submission Page
+        this.app.get('/submit-appeal', async (req, res) => {
+            res.render('submit-appeal', {
+                client: this.client,
+                user: req.user || null,
+                page: 'submit-appeal'
+            });
+        });
+        console.log('✅ Registered GET /submit-appeal');
+        
+        // POST: Create Appeal (PUBLIC - NO AUTH REQUIRED)
+        // POST: Create Appeal (PUBLIC - NO AUTH REQUIRED)
 this.app.post('/appeals/create', async (req, res) => {
-    console.log('✅ Registered POST /appeals/create route');
     try {
         console.log('📝 Appeal submission received:', req.body);
+        console.log('📝 Content-Type:', req.headers['content-type']);
         
         const { userId, userName, appealType, reason, evidence } = req.body;
         
         // Validate required fields
         if (!userId || !userName || !appealType || !reason) {
-            return res.json({ 
+            console.log('❌ Missing required fields');
+            return res.status(400).json({ 
                 success: false, 
                 error: 'All required fields must be filled' 
             });
@@ -171,7 +179,8 @@ this.app.post('/appeals/create', async (req, res) => {
         
         // Validate User ID format
         if (!/^[0-9]{17,19}$/.test(userId)) {
-            return res.json({ 
+            console.log('❌ Invalid user ID format:', userId);
+            return res.status(400).json({ 
                 success: false, 
                 error: 'Invalid Discord User ID format' 
             });
@@ -185,7 +194,8 @@ this.app.post('/appeals/create', async (req, res) => {
             });
         
         if (existingAppeal) {
-            return res.json({ 
+            console.log('❌ User already has pending appeal');
+            return res.status(400).json({ 
                 success: false, 
                 error: 'You already have a pending appeal. Please wait for it to be reviewed.' 
             });
@@ -231,19 +241,23 @@ this.app.post('/appeals/create', async (req, res) => {
         
         console.log('✅ Appeal created with ID:', result.insertedId);
         
-        res.json({ 
+        // Return JSON response
+        return res.status(200).json({ 
             success: true, 
             message: 'Appeal submitted successfully! You will receive a DM when it is reviewed.',
             appealId: result.insertedId.toString()
         });
+        
     } catch (error) {
         console.error('❌ Appeal submission error:', error);
-        res.json({ 
+        return res.status(500).json({ 
             success: false, 
             error: 'Failed to submit appeal. Please try again later.' 
         });
     }
 });
+console.log('✅ Registered POST /appeals/create');
+        
         // ============================================
         // AUTH ROUTES
         // ============================================
