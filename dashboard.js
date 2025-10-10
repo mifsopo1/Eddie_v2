@@ -141,6 +141,11 @@ class Dashboard {
     // PUBLIC ROUTES (NO AUTH REQUIRED)
     // ============================================
     // Public Appeal Submission Page
+    this.app.get('/test', (req, res) => {
+        res.json({ status: 'Server is working!' });
+    });
+    
+    console.log('✅ Routes setup starting...');
 // POST: Create Appeal (PUBLIC - NO AUTH REQUIRED)
     this.app.get('/submit-appeal', async (req, res) => {
         res.render('submit-appeal', {
