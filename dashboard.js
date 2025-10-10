@@ -1998,12 +1998,25 @@ this.app.post('/commands/edit/:id', this.requireAdmin.bind(this), async (req, re
             }
         });
 
-    // ============================================
-// APPEALS SYSTEM
+// ============================================
+// APPEALS ROUTES
 // ============================================
 
-// Appeals Dashboard (Admin)
-this.app.get('/appeals', this.requireAdmin.bind(this), async (req, res) => {
+// Public landing page for appeals
+this.app.get('/appeals', async (req, res) => {
+    // Check if user is admin
+    const isAdmin = req.user?.isAdmin || req.session?.passwordAuth;
+    
+    if (!isAdmin) {
+        // Show public landing page for non-admins
+        return res.render('appeals-public', {
+            client: this.client,
+            user: req.user || null,
+            page: 'appeals'
+        });
+    }
+    
+    // Admin dashboard for reviewing appeals
     try {
         const status = req.query.status || 'all';
         const page = parseInt(req.query.page) || 1;
@@ -2044,232 +2057,32 @@ this.app.get('/appeals', this.requireAdmin.bind(this), async (req, res) => {
     }
 });
 
-// Single Appeal View
-this.app.get('/appeals/:id', this.requireAdmin.bind(this), async (req, res) => {
+// Check appeal status by User ID (Public)
+this.app.get('/appeals/status', async (req, res) => {
     try {
-        const { ObjectId } = require('mongodb');
-        const appeal = await this.mongoLogger.db.collection('appeals')
-            .findOne({ _id: new ObjectId(req.params.id) });
+        const userId = req.query.userId;
         
-        if (!appeal) {
-            req.flash('error', 'Appeal not found');
+        if (!userId) {
+            req.flash('error', 'User ID is required');
             return res.redirect('/appeals');
         }
         
-        // Get user's moderation history
-        const modHistory = await this.mongoLogger.db.collection('moderation')
-            .find({ userId: appeal.userId })
-            .sort({ timestamp: -1 })
-            .limit(10)
+        const appeals = await this.mongoLogger.db.collection('appeals')
+            .find({ userId: userId })
+            .sort({ 'appeal.submittedAt': -1 })
             .toArray();
         
-        res.render('appeal-detail', {
+        res.render('appeal-status', {
             client: this.client,
-            appeal,
-            modHistory,
-            page: 'appeals'
-        });
-    } catch (error) {
-        console.error('Appeal detail error:', error);
-        req.flash('error', 'Error loading appeal');
-        res.redirect('/appeals');
-    }
-});
-
-// Create Appeal (Public - anyone can submit)
-this.app.post('/appeals/create', async (req, res) => {
-    try {
-        console.log('📨 Appeal submission received:', req.body);
-        
-        const { userId, userName, appealType, reason, evidence, discordTag } = req.body;
-        
-        if (!userId || !userName || !appealType || !reason) {
-            console.log('❌ Missing required fields');
-            return res.json({ success: false, error: 'Missing required fields' });
-        }
-        
-        if (!this.mongoLogger || !this.mongoLogger.connected) {
-            console.error('❌ MongoDB not connected');
-            return res.json({ success: false, error: 'Database connection error' });
-        }
-        
-        const existingAppeal = await this.mongoLogger.db.collection('appeals')
-            .findOne({ 
-                userId: userId,
-                status: { $in: ['pending', 'reviewing'] }
-            });
-        
-        if (existingAppeal) {
-            console.log('⚠️ User already has pending appeal:', userId);
-            return res.json({ 
-                success: false, 
-                error: 'You already have a pending appeal. Please wait for staff to review it.' 
-            });
-        }
-        
-        const originalAction = await this.mongoLogger.db.collection('moderation')
-            .findOne({ 
-                targetUserId: userId,
-                actionType: appealType
-            }, 
-            { sort: { timestamp: -1 } });
-        
-        console.log('🔍 Original action found:', !!originalAction);
-        
-        const appeal = {
+            appeals,
             userId: userId,
-            userName: userName,
-            discordTag: discordTag || userName,
-            appealType: appealType,
-            originalAction: originalAction || null,
-            appeal: {
-                reason: reason,
-                evidence: evidence || '',
-                submittedAt: new Date()
-            },
-            status: 'pending',
-            response: null,
-            history: [
-                {
-                    action: 'submitted',
-                    by: userName,
-                    timestamp: new Date()
-                }
-            ]
-        };
-
-        const result = await this.mongoLogger.db.collection('appeals').insertOne(appeal);
-        console.log('✅ Appeal created with ID:', result.insertedId);
-        
-        // Send DM to user
-        try {
-            const user = await this.client.users.fetch(userId);
-            if (user) {
-                await user.send({
-                    embeds: [{
-                        color: 0x5865f2,
-                        title: '📨 Appeal Submitted',
-                        description: `Your ${appealType} appeal has been submitted and is pending review.`,
-                        fields: [
-                            { name: 'Appeal ID', value: result.insertedId.toString(), inline: true },
-                            { name: 'Status', value: 'Pending Review', inline: true }
-                        ],
-                        footer: { text: 'You will receive a DM when your appeal is reviewed.' },
-                        timestamp: new Date()
-                    }]
-                });
-                console.log('✅ DM sent to user:', userId);
-            }
-        } catch (dmError) {
-            console.log('⚠️ Could not send DM to user:', dmError.message);
-        }
-
-        // Post to appeals channel
-        try {
-            const config = require('./config.json');
-            const appealsChannelId = config.logChannels.appeals || '1425740337430663291';
-            
-            console.log('🔍 Attempting to fetch appeals channel:', appealsChannelId);
-            console.log('   Available guilds:', this.client.guilds.cache.size);
-            
-            const guild = this.client.guilds.cache.first();
-            if (!guild) {
-                console.error('❌ No guild found!');
-            } else {
-                console.log('   Guild:', guild.name, '(', guild.id, ')');
-                
-                await guild.channels.fetch();
-                const appealsChannel = guild.channels.cache.get(appealsChannelId);
-                
-                if (!appealsChannel) {
-                    console.error('❌ Appeals channel not found in guild!');
-                    console.error('   Searched for ID:', appealsChannelId);
-                    console.error('   Available channels:', guild.channels.cache.size);
-                    
-                    console.log('   Text channels available:');
-                    guild.channels.cache
-                        .filter(c => c.isTextBased())
-                        .first(5)
-                        .forEach(c => console.log('     -', c.name, '→', c.id));
-                } else {
-                    console.log('✅ Appeals channel found:', appealsChannel.name);
-                    
-                    const botPermissions = appealsChannel.permissionsFor(this.client.user);
-                    if (!botPermissions.has('SendMessages')) {
-                        console.error('❌ Bot lacks SendMessages permission in', appealsChannel.name);
-                    } else {
-                        const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
-                        
-                        const embed = new EmbedBuilder()
-                            .setColor('#faa61a')
-                            .setTitle('🎫 New Appeal Submitted')
-                            .setDescription(`**User:** ${userName} (\`${userId}\`)\n**Type:** ${appealType}`)
-                            .addFields(
-                                { name: 'Reason', value: reason.substring(0, 1024) },
-                                { name: 'Appeal ID', value: result.insertedId.toString(), inline: true },
-                                { name: 'Status', value: '⏳ Pending', inline: true }
-                            )
-                            .setTimestamp();
-                        
-                        if (evidence) {
-                            embed.addFields({ name: 'Evidence', value: evidence.substring(0, 1024) });
-                        }
-                        
-                        if (originalAction) {
-                            let actionInfo = `**Action Type:** ${originalAction.actionType}\n`;                            actionInfo += `**Date:** <t:${Math.floor(new Date(originalAction.timestamp).getTime() / 1000)}:R>\n`;
-                            if (originalAction.reason) actionInfo += `**Reason:** ${originalAction.reason}\n`;
-                            if (originalAction.moderatorName) actionInfo += `**Moderator:** ${originalAction.moderatorName}`;
-                            
-                            embed.addFields({ name: '📋 Original Action', value: actionInfo });                        }
-                        
-                        const approveButton = new ButtonBuilder()
-                            .setCustomId(`appeal_approve_${result.insertedId}`)
-                            .setLabel('Approve Appeal')
-                            .setStyle(ButtonStyle.Success)
-                            .setEmoji('✅');
-                        
-                        const denyButton = new ButtonBuilder()
-                            .setCustomId(`appeal_deny_${result.insertedId}`)
-                            .setLabel('Deny Appeal')
-                            .setStyle(ButtonStyle.Danger)
-                            .setEmoji('❌');
-                        
-                        const reviewButton = new ButtonBuilder()
-                            .setCustomId(`appeal_review_${result.insertedId}`)
-                            .setLabel('Mark as Reviewing')
-                            .setStyle(ButtonStyle.Primary)
-                            .setEmoji('👀');
-                        
-                        const row = new ActionRowBuilder()
-                            .addComponents(approveButton, denyButton, reviewButton);
-                        
-                        await appealsChannel.send({ 
-                            content: `<@&1425260355420160100> New appeal submitted`,
-                            embeds: [embed],
-                            components: [row]
-                        });
-                        
-                        console.log('✅ Appeal posted to channel:', appealsChannel.name);
-                    }
-                }
-            }
-        } catch (channelError) {
-            console.error('❌ Error posting to appeals channel:', channelError);
-            console.error('   Stack:', channelError.stack);
-        }
-
-        res.json({ 
-            success: true, 
-            message: 'Appeal submitted successfully! You will receive a DM when it is reviewed.',
-            appealId: result.insertedId.toString()
+            user: req.user || null,
+            page: 'appeal-status'
         });
-        
     } catch (error) {
-        console.error('❌ Error creating appeal:', error);
-        res.json({ 
-            success: false, 
-            error: 'Failed to submit appeal. Please try again later.' 
-        });
+        console.error('Appeal status error:', error);
+        req.flash('error', 'Error loading appeal status');
+        res.redirect('/appeals');
     }
 });
     }
@@ -2291,7 +2104,22 @@ this.app.post('/appeals/create', async (req, res) => {
                 return { total: 0, totalSize: 0, byType: [], imageCount: 0 };
             }
         }
-
+        async getAppealsStats() {
+    try {
+        const [total, pending, reviewing, approved, denied] = await Promise.all([
+            this.mongoLogger.db.collection('appeals').countDocuments(),
+            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'pending' }),
+            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'reviewing' }),
+            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'approved' }),
+            this.mongoLogger.db.collection('appeals').countDocuments({ status: 'denied' })
+        ]);
+        
+        return { total, pending, reviewing, approved, denied };
+    } catch (error) {
+        console.error('Error getting appeals stats:', error);
+        return { total: 0, pending: 0, reviewing: 0, approved: 0, denied: 0 };
+    }
+}
         async getModerationStats() {
             try {
                 const last7Days = new Date(Date.now() - 7 * 86400000);

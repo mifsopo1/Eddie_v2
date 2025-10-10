@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appeal Status - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .appeal-status-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .appeal-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .appeal-card.approved {
+            border-left: 4px solid var(--success);
+        }
+
+        .appeal-card.denied {
+            border-left: 4px solid var(--danger);
+        }
+
+        .appeal-card.reviewing {
+            border-left: 4px solid var(--primary);
+        }
+
+        .appeal-card.pending {
+            border-left: 4px solid var(--warning);
+        }
+
+        .appeal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .appeal-type {
+            background: rgba(88, 101, 242, 0.2);
+            color: var(--primary);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .appeal-status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .appeal-status-badge.pending {
+            background: rgba(250, 166, 26, 0.2);
+            color: var(--warning);
+        }
+
+        .appeal-status-badge.approved {
+            background: rgba(67, 181, 129, 0.2);
+            color: var(--success);
+        }
+
+        .appeal-status-badge.denied {
+            background: rgba(237, 66, 69, 0.2);
+            color: var(--danger);
+        }
+
+        .appeal-status-badge.reviewing {
+            background: rgba(88, 101, 242, 0.2);
+            color: var(--primary);
+        }
+
+        .appeal-body {
+            color: var(--text-secondary);
+        }
+
+        .appeal-body p {
+            margin: 1rem 0;
+            line-height: 1.6;
+        }
+
+        .appeal-body strong {
+            color: var(--text-primary);
+        }
+
+        .appeal-reason {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 3px solid var(--primary);
+        }
+
+        .appeal-response {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 1.5rem;
+        }
+
+        .appeal-response.approved {
+            border-left: 4px solid var(--success);
+            background: rgba(67, 181, 129, 0.1);
+        }
+
+        .appeal-response.denied {
+            border-left: 4px solid var(--danger);
+            background: rgba(237, 66, 69, 0.1);
+        }
+
+        .appeal-id {
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .empty-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .actions {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+    <div class="appeal-status-container">
+        <h1>📋 Appeal Status for User <%= userId %></h1>
+        <p class="page-subtitle">Below are all appeals submitted by this user</p>
+        
+        <% if (appeals.length === 0) { %>
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <h2>No Appeals Found</h2>
+                <p style="color: var(--text-secondary); margin: 1rem 0;">
+                    No appeals have been submitted for this user ID.
+                </p>
+                <a href="/submit-appeal" class="btn btn-primary">Submit New Appeal</a>
+            </div>
+        <% } else { %>
+            <div class="appeals-list">
+                <% appeals.forEach(appeal => { %>
+                    <div class="appeal-card <%= appeal.status %>">
+                        <div class="appeal-header">
+                            <div>
+                                <span class="appeal-type"><%= appeal.appealType.toUpperCase() %> APPEAL</span>
+                                <span class="appeal-id" style="margin-left: 1rem;">
+                                    ID: <%= appeal._id.toString() %>
+                                </span>
+                            </div>
+                            <span class="appeal-status-badge <%= appeal.status %>">
+                                <% if (appeal.status === 'pending') { %>
+                                    ⏳ PENDING
+                                <% } else if (appeal.status === 'reviewing') { %>
+                                    👀 REVIEWING
+                                <% } else if (appeal.status === 'approved') { %>
+                                    ✅ APPROVED
+                                <% } else if (appeal.status === 'denied') { %>
+                                    ❌ DENIED
+                                <% } else { %>
+                                    <%= appeal.status.toUpperCase() %>
+                                <% } %>
+                            </span>
+                        </div>
+                        
+                        <div class="appeal-body">
+                            <p><strong>Submitted:</strong> <%= new Date(appeal.appeal.submittedAt).toLocaleString() %></p>
+                            
+                            <div class="appeal-reason">
+                                <strong>Your Reason:</strong>
+                                <p style="margin-top: 0.5rem;"><%= appeal.appeal.reason %></p>
+                                
+                                <% if (appeal.appeal.evidence) { %>
+                                    <p style="margin-top: 1rem;">
+                                        <strong>Evidence:</strong> <%= appeal.appeal.evidence %>
+                                    </p>
+                                <% } %>
+                            </div>
+                            
+                            <% if (appeal.response) { %>
+                                <div class="appeal-response <%= appeal.status %>">
+                                    <h3 style="margin-bottom: 0.5rem; color: #fff;">
+                                        <% if (appeal.status === 'approved') { %>
+                                            ✅ Appeal Approved
+                                        <% } else if (appeal.status === 'denied') { %>
+                                            ❌ Appeal Denied
+                                        <% } else { %>
+                                            📝 Staff Response
+                                        <% } %>
+                                    </h3>
+                                    <p style="margin: 1rem 0;"><strong>Message:</strong> <%= appeal.response.message %></p>
+                                    <p class="text-muted" style="font-size: 0.9rem;">
+                                        Reviewed by <strong><%= appeal.response.reviewedBy %></strong> 
+                                        on <%= new Date(appeal.response.reviewedAt).toLocaleString() %>
+                                    </p>
+                                </div>
+                            <% } else { %>
+                                <p style="margin-top: 1rem; color: var(--text-muted);">
+                                    <em>Waiting for staff review... You will receive a DM when your appeal is processed.</em>
+                                </p>
+                            <% } %>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } %>
+        
+        <div class="actions">
+            <a href="/appeals" class="btn btn-secondary">← Back to Appeals</a>
+            <% if (appeals.length > 0 && !appeals.some(a => a.status === 'pending' || a.status === 'reviewing')) { %>
+                <a href="/submit-appeal" class="btn btn-primary">Submit Another Appeal</a>
+            <% } %>
+        </div>
+    </div>
+</body>
+</html>

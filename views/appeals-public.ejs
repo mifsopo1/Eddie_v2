@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appeals - Discord Logger</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .appeals-landing {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .hero-section {
+            text-align: center;
+            padding: 3rem 2rem;
+            background: linear-gradient(135deg, rgba(88, 101, 242, 0.1) 0%, rgba(88, 101, 242, 0.05) 100%);
+            border-radius: 15px;
+            margin-bottom: 3rem;
+        }
+
+        .hero-section h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+
+        .hero-section p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .option-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .option-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(88, 101, 242, 0.2);
+            border-color: rgba(88, 101, 242, 0.5);
+        }
+
+        .option-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .option-card h3 {
+            color: #fff;
+            margin-bottom: 1rem;
+        }
+
+        .option-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .info-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .info-section h2 {
+            color: #fff;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .info-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-list li {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .info-list li:last-child {
+            border-bottom: none;
+        }
+
+        .info-list li::before {
+            content: '✓';
+            color: var(--success);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .status-badge.pending {
+            background: rgba(250, 166, 26, 0.2);
+            color: var(--warning);
+        }
+
+        .status-badge.approved {
+            background: rgba(67, 181, 129, 0.2);
+            color: var(--success);
+        }
+
+        .status-badge.denied {
+            background: rgba(237, 66, 69, 0.2);
+            color: var(--danger);
+        }
+
+        .status-badge.reviewing {
+            background: rgba(88, 101, 242, 0.2);
+            color: var(--primary);
+        }
+
+        .user-lookup-form {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .user-lookup-form input {
+            flex: 1;
+        }
+
+        .warning-box {
+            background: rgba(250, 166, 26, 0.1);
+            border: 1px solid rgba(250, 166, 26, 0.3);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .warning-box h3 {
+            color: var(--warning);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .warning-box ul {
+            margin-left: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .warning-box li {
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="appeals-landing">
+        <div class="hero-section">
+            <h1>🎫 Appeals System</h1>
+            <p>Submit an appeal for a ban, mute, or warning. Our staff will review your case and respond within 24-48 hours.</p>
+        </div>
+
+        <div class="options-grid">
+            <div class="option-card">
+                <div class="option-icon">📝</div>
+                <h3>Submit New Appeal</h3>
+                <p>Have you been banned, muted, or warned? Submit an appeal to have your case reviewed by our staff.</p>
+                <a href="/submit-appeal" class="btn btn-primary btn-large">Submit Appeal</a>
+            </div>
+
+            <div class="option-card">
+                <div class="option-icon">🔍</div>
+                <h3>Check Appeal Status</h3>
+                <p>Already submitted an appeal? Check its current status and view any staff responses.</p>
+                <form class="user-lookup-form" action="/appeals/status" method="GET">
+                    <input type="text" name="userId" placeholder="Enter your Discord User ID" required>
+                    <button type="submit" class="btn btn-primary">Check</button>
+                </form>
+                <p style="margin-top: 1rem; font-size: 0.85rem;">
+                    <a href="#how-to-find-id" style="color: var(--primary);">How do I find my User ID?</a>
+                </p>
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <h3>⚠️ Before Submitting an Appeal</h3>
+            <ul>
+                <li>You can only have <strong>one active appeal</strong> at a time</li>
+                <li>Be honest and respectful in your appeal</li>
+                <li>Provide any relevant evidence or context</li>
+                <li>False appeals may result in a permanent ban</li>
+                <li>Staff responses are final - resubmitting the same appeal won't help</li>
+            </ul>
+        </div>
+
+        <div class="info-section">
+            <h2>ℹ️ How It Works</h2>
+            <ul class="info-list">
+                <li>Submit your appeal with a detailed explanation</li>
+                <li>Staff will review your case within 24-48 hours</li>
+                <li>You'll receive a DM when your appeal is reviewed</li>
+                <li>Check back here for updates on your appeal status</li>
+                <li>Appeals are handled fairly and reviewed by multiple staff members</li>
+            </ul>
+        </div>
+
+        <div class="info-section">
+            <h2>📊 Appeal Status Guide</h2>
+            <div style="display: grid; gap: 1rem; margin-top: 1rem;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span class="status-badge pending">PENDING</span>
+                    <span style="color: var(--text-secondary);">Your appeal is waiting for staff review</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span class="status-badge reviewing">REVIEWING</span>
+                    <span style="color: var(--text-secondary);">Staff is actively reviewing your case</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span class="status-badge approved">APPROVED</span>
+                    <span style="color: var(--text-secondary);">Your appeal was accepted - action reversed</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span class="status-badge denied">DENIED</span>
+                    <span style="color: var(--text-secondary);">Your appeal was denied - action remains</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section" id="how-to-find-id">
+            <h2>🔍 How to Find Your Discord User ID</h2>
+            <ul class="info-list">
+                <li>Open Discord and go to User Settings (gear icon)</li>
+                <li>Click on "Advanced" in the left sidebar</li>
+                <li>Enable "Developer Mode"</li>
+                <li>Right-click your username anywhere and select "Copy User ID"</li>
+                <li>Paste the ID (it's a long number like: 123456789012345678)</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+            <p style="color: var(--text-muted);">
+                Need help? Contact a staff member in the server or open a support ticket.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
