@@ -3,10 +3,10 @@
     "enabled": true
   },
   "massMention": {
-    "maxMentions": 3
+    "enabled": true
   },
   "linkProtection": {
-    "allowDiscordInvites": false
+    "enabled": true
   },
   "capsProtection": {
     "enabled": true

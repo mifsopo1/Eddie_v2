@@ -36,6 +36,9 @@ const serverInvites = new Map();
 const memberInvites = new Map();
 const memberInvitesFile = 'member-invites.json';
 
+// Store role change tracking (add this near line 30 with other Maps)
+const roleChangeTracking = new Map();
+
 // Store cooldowns in memory for custom commands
 const customCommandCooldowns = {
     user: new Map(),
@@ -1100,16 +1103,77 @@ async function executeRuleAction(message, action, rulesetName) {
         console.error(`Error executing AutoMod action ${action.type}:`, error);
     }
 }
-// Message Create Event (continues below)
+        // ============================================
+// MAIN MESSAGE HANDLER (combined)
+// ============================================
 client.on('messageCreate', async message => {
-    // Ignore bot messages - FIRST
+    // Ignore bots FIRST
     if (message.author.bot) return;
     if (!message.guild) return;
+    
+    // 1. Check AutoMod rules
     await checkAutoModRules(message);
-    // Command handler - handle custom commands
-    await commandHandler.handleCommand(message);
+    
+    // 2. Handle built-in commands (from CommandHandler)
+    if (commandHandler) {
+        await commandHandler.handleCommand(message);
+    }
+    
+    // 3. Handle custom commands (if enabled)
+    if (config.customCommands?.enabled && mongoLogger?.connected) {
+        try {
+            const commands = await mongoLogger.db.collection('customCommands')
+                .find({ enabled: true })
+                .toArray();
+            
+            if (commands && commands.length > 0) {
+                for (const command of commands) {
+                    const triggered = checkTrigger(message, command);
+                    if (!triggered) continue;
+                    
+                    if (!checkChannelRestrictions(message, command)) continue;
+                    if (!checkRoleRestrictions(message, command)) continue;
+                    
+                    const cooldownCheck = checkCooldowns(message, command);
+                    if (!cooldownCheck.allowed) {
+                        if (cooldownCheck.message) {
+                            const reply = await message.reply(cooldownCheck.message);
+                            setTimeout(() => reply.delete().catch(() => {}), 5000);
+                        }
+                        continue;
+                    }
+                    
+                    if (command.usageLimit > 0 && command.uses >= command.usageLimit) {
+                        await mongoLogger.db.collection('customCommands')
+                            .updateOne({ _id: command._id }, { $set: { enabled: false } });
+                        continue;
+                    }
+                    
+                    if (command.deleteTrigger) {
+                        try {
+                            await message.delete();
+                        } catch (error) {
+                            console.log('Could not delete trigger message');
+                        }
+                    }
+                    
+                    await executeCustomCommand(message, command);
+                    
+                    await mongoLogger.db.collection('customCommands').updateOne(
+                        { _id: command._id },
+                        { $inc: { uses: 1 } }
+                    );
+                    
+                    setCooldowns(message, command);
+                    break; // Only trigger one command
+                }
+            }
+        } catch (error) {
+            console.error('Error executing custom command:', error);
+        }
+    }
 
-    // Save attachments when posted
+    // 4. Save attachments when posted
     if (message.attachments.size > 0) {
         console.log(`📎 Message has ${message.attachments.size} attachment(s) - saving...`);
         for (const attachment of message.attachments.values()) {
@@ -1117,12 +1181,12 @@ client.on('messageCreate', async message => {
         }
     }
 
-    // Log to MongoDB
+    // 5. Log to MongoDB
     if (mongoLogger && mongoLogger.connected) {
         await mongoLogger.logMessageCreate(message);
     }
 
-    // Log attachments to dedicated channel (batched)
+    // 6. Log attachments to dedicated channel (batched)
     if (message.attachments.size > 0 && logChannels.attachments) {
         const userId = message.author.id;
         
@@ -1270,7 +1334,7 @@ client.on('messageCreate', async message => {
         }, 3000);
     }
 
-    // Check for spam if anti-spam is enabled
+    // 7. Check for spam if anti-spam is enabled
     if (config.antiSpam && config.antiSpam.enabled) {
         if (message.member && config.antiSpam.exemptRoles) {
             const hasExemptRole = message.member.roles.cache.some(role => 
@@ -1513,7 +1577,8 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     }
 });
 
-// Role Update Events
+// Role change tracking
+
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
     if (!logChannels.role) return;
     
@@ -1521,103 +1586,154 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
         const oldRoles = oldMember.roles.cache;
         const newRoles = newMember.roles.cache;
         
+        // Check if roles changed
         const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
-        if (addedRoles.size > 0) {
-            const dedupKey = `roleadd-${newMember.guild.id}-${newMember.id}-${Date.now().toString().slice(0, -3)}`;
-            if (logDeduplicator.isDuplicate(dedupKey)) {
-                console.log('⏭️ Skipping duplicate role add log');
-                return;
-            }
-            
-            // Wait for audit log
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Check if bot added the role
-            const auditLogs = await newMember.guild.fetchAuditLogs({
-                type: AuditLogEvent.MemberRoleUpdate,
-                limit: 1
+        const removedRoles = oldRoles.filter(role => !newRoles.has(role.id));
+        
+        // If no role changes, skip
+        if (addedRoles.size === 0 && removedRoles.size === 0) return;
+        
+        const userId = newMember.id;
+        const guildId = newMember.guild.id;
+        const trackingKey = `${guildId}-${userId}`;
+        
+        // Get or create tracking object
+        if (!roleChangeTracking.has(trackingKey)) {
+            roleChangeTracking.set(trackingKey, {
+                addedRoles: new Map(),
+                removedRoles: new Map(),
+                timeout: null,
+                member: newMember
             });
-            
-            const roleLog = auditLogs.entries.first();
-            
-            // Skip if bot added the role via command
-            if (roleLog && roleLog.target.id === newMember.id && roleLog.executor.id === client.user.id) {
-                console.log('⏭️ Skipping bot-initiated role add (already logged by command)');
-                return;
-            }
-            
-            // Log to MongoDB
-            if (mongoLogger && mongoLogger.connected) {
-                await mongoLogger.logRoleUpdate(oldMember, newMember, 'add', addedRoles);
-            }
-            
-            const embed = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle('➕ Role Added')
-                .addFields(
-                    { name: 'User', value: `${newMember.user.tag}\n<@${newMember.id}>`, inline: true },
-                    { name: 'Roles Added', value: addedRoles.map(r => r.name).join(', '), inline: true }
-                );
-            
-            if (roleLog && roleLog.executor) {
-                embed.addFields({ name: 'Added By', value: roleLog.executor.tag, inline: true });
-            }
-            
-            embed.setTimestamp();
-            
-            await logChannels.role.send({ embeds: [embed] });
         }
         
-        const removedRoles = oldRoles.filter(role => !newRoles.has(role.id));
-        if (removedRoles.size > 0) {
-            const dedupKey = `roleremove-${newMember.guild.id}-${newMember.id}-${Date.now().toString().slice(0, -3)}`;
-            if (logDeduplicator.isDuplicate(dedupKey)) {
-                console.log('⏭️ Skipping duplicate role remove log');
-                return;
-            }
-            
-            // Wait for audit log
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Check if bot removed the role
-            const auditLogs = await newMember.guild.fetchAuditLogs({
-                type: AuditLogEvent.MemberRoleUpdate,
-                limit: 1
-            });
-            
-            const roleLog = auditLogs.entries.first();
-            
-            // Skip if bot removed the role via command
-            if (roleLog && roleLog.target.id === newMember.id && roleLog.executor.id === client.user.id) {
-                console.log('⏭️ Skipping bot-initiated role remove (already logged by command)');
-                return;
-            }
-            
-            // Log to MongoDB
-            if (mongoLogger && mongoLogger.connected) {
-                await mongoLogger.logRoleUpdate(oldMember, newMember, 'remove', removedRoles);
-            }
-            
-            const embed = new EmbedBuilder()
-                .setColor('#ff0000')
-                .setTitle('➖ Role Removed')
-                .addFields(
-                    { name: 'User', value: `${newMember.user.tag}\n<@${newMember.id}>`, inline: true },
-                    { name: 'Roles Removed', value: removedRoles.map(r => r.name).join(', '), inline: true }
-                );
-            
-            if (roleLog && roleLog.executor) {
-                embed.addFields({ name: 'Removed By', value: roleLog.executor.tag, inline: true });
-            }
-            
-            embed.setTimestamp();
-            
-            await logChannels.role.send({ embeds: [embed] });
+        const tracking = roleChangeTracking.get(trackingKey);
+        
+        // Add new role changes
+        addedRoles.forEach(role => tracking.addedRoles.set(role.id, role));
+        removedRoles.forEach(role => tracking.removedRoles.set(role.id, role));
+        
+        // Clear existing timeout
+        if (tracking.timeout) {
+            clearTimeout(tracking.timeout);
         }
+        
+        // Set new timeout to log after 10 seconds
+        tracking.timeout = setTimeout(async () => {
+            try {
+                await logBatchedRoleChanges(trackingKey, tracking);
+                roleChangeTracking.delete(trackingKey);
+            } catch (error) {
+                console.error('Error logging batched role changes:', error);
+                roleChangeTracking.delete(trackingKey);
+            }
+        }, 10000); // 10 seconds
+        
+        console.log(`🔄 Batching role changes for ${newMember.user.tag} - will log in 10 seconds`);
+        
     } catch (error) {
-        console.error('Error logging role update:', error);
+        console.error('Error tracking role update:', error);
     }
 });
+
+// Log batched role changes
+async function logBatchedRoleChanges(trackingKey, tracking) {
+    const { addedRoles, removedRoles, member } = tracking;
+    
+    // Deduplication check
+    const dedupKey = `rolebatch-${trackingKey}-${Date.now().toString().slice(0, -3)}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) {
+        console.log('⏭️ Skipping duplicate role batch log');
+        return;
+    }
+    
+    // Wait for audit log
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Get audit log
+    const auditLogs = await member.guild.fetchAuditLogs({
+        type: AuditLogEvent.MemberRoleUpdate,
+        limit: 5
+    });
+    
+    const roleLog = auditLogs.entries.first();
+    
+    // Skip if bot made the changes via command
+    if (roleLog && roleLog.target.id === member.id && 
+        roleLog.executor.id === client.user.id &&
+        Date.now() - roleLog.createdTimestamp < 15000) {
+        console.log('⏭️ Skipping bot-initiated role changes (already logged by command)');
+        return;
+    }
+    
+    const addedArray = Array.from(addedRoles.values());
+    const removedArray = Array.from(removedRoles.values());
+    
+    console.log(`📝 Logging batched changes for ${member.user.tag}:`);
+    console.log(`  Added: ${addedArray.length}, Removed: ${removedArray.length}`);
+    
+    // Log to MongoDB
+    if (mongoLogger && mongoLogger.connected) {
+        if (addedArray.length > 0) {
+            await mongoLogger.logRoleUpdate(member, member, 'add', addedArray);
+        }
+        if (removedArray.length > 0) {
+            await mongoLogger.logRoleUpdate(member, member, 'remove', removedArray);
+        }
+    }
+    
+    // Create embed
+    const embed = new EmbedBuilder()
+        .setColor(addedArray.length > removedArray.length ? '#00ff00' : '#ff0000')
+        .setTitle('🔄 Role Changes')
+        .setThumbnail(member.user.displayAvatarURL())
+        .addFields(
+            { name: 'User', value: `${member.user.tag}\n<@${member.id}>`, inline: true }
+        );
+    
+    // Add "Changed By" field
+    if (roleLog && roleLog.executor) {
+        embed.addFields({ 
+            name: 'Changed By', 
+            value: `${roleLog.executor.tag}\n<@${roleLog.executor.id}>`, 
+            inline: true 
+        });
+    }
+    
+    // Add count field
+    const totalChanges = addedArray.length + removedArray.length;
+    embed.addFields({
+        name: 'Total Changes',
+        value: `${totalChanges} role${totalChanges !== 1 ? 's' : ''}`,
+        inline: true
+    });
+    
+    // Add roles added
+    if (addedArray.length > 0) {
+        const roleText = addedArray.map(r => `➕ ${r.name}`).join('\n');
+        embed.addFields({
+            name: `✅ Roles Added (${addedArray.length})`,
+            value: roleText.slice(0, 1024),
+            inline: false
+        });
+    }
+    
+    // Add roles removed
+    if (removedArray.length > 0) {
+        const roleText = removedArray.map(r => `➖ ${r.name}`).join('\n');
+        embed.addFields({
+            name: `❌ Roles Removed (${removedArray.length})`,
+            value: roleText.slice(0, 1024),
+            inline: false
+        });
+    }
+    
+    embed.setTimestamp();
+    embed.setFooter({ text: `User ID: ${member.id}` });
+    
+    await logChannels.role.send({ embeds: [embed] });
+    console.log(`✅ Logged batched role changes for ${member.user.tag}`);
+}
 
 // Channel Create Event
 client.on('channelCreate', async channel => {
@@ -2044,7 +2160,7 @@ client.on('guildMemberRemove', async member => {
             .setColor('#ff0000')
             .setTitle('👋 Member Left')
             .setThumbnail(member.user.displayAvatarURL())
-            .addFields.addFields(
+            .addFields(
                 { name: 'User', value: `${member.user.tag}\n<@${member.id}>`, inline: true },
                 { name: 'Joined Server', value: member.joinedAt ? `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>` : 'Unknown', inline: true },
                 { name: 'Member Count', value: member.guild.memberCount.toString(), inline: true }
@@ -2499,67 +2615,6 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// ADVANCED CUSTOM COMMANDS HANDLER
-client.on('messageCreate', async message => {
-    if (message.author.bot || !message.guild) return;
-    
-    if (!config.customCommands || !config.customCommands.enabled) return;
-    
-    try {
-        const commands = await mongoLogger.db.collection('customCommands')
-            .find({ enabled: true })
-            .toArray();
-        
-        if (!commands || commands.length === 0) return;
-        
-        for (const command of commands) {
-            const triggered = checkTrigger(message, command);
-            if (!triggered) continue;
-            
-            if (!checkChannelRestrictions(message, command)) continue;
-            if (!checkRoleRestrictions(message, command)) continue;
-            
-            const cooldownCheck = checkCooldowns(message, command);
-            if (!cooldownCheck.allowed) {
-                if (cooldownCheck.message) {
-                    const reply = await message.reply(cooldownCheck.message);
-                    setTimeout(() => reply.delete().catch(() => {}), 5000);
-                }
-                continue;
-            }
-            
-            if (command.usageLimit > 0 && command.uses >= command.usageLimit) {
-                await mongoLogger.db.collection('customCommands')
-                    .updateOne(
-                        { _id: command._id },
-                        { $set: { enabled: false } }
-                    );
-                continue;
-            }
-            
-            if (command.deleteTrigger) {
-                try {
-                    await message.delete();
-                } catch (error) {
-                    console.log('Could not delete trigger message');
-                }
-            }
-            
-            await executeCustomCommand(message, command);
-            
-            await mongoLogger.db.collection('customCommands').updateOne(
-                { _id: command._id },
-                { $inc: { uses: 1 } }
-            );
-            
-            setCooldowns(message, command);
-            break;
-        }
-        
-    } catch (error) {
-        console.error('Error executing custom command:', error);
-    }
-});
 
 function checkTrigger(message, command) {
     const content = command.caseSensitive ? message.content : message.content.toLowerCase();
