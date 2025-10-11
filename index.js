@@ -1701,116 +1701,48 @@ client.on('channelDelete', async channel => {
     }
 });
 
-// Ban Event
-client.on('guildBanAdd', async ban => {
-    if (!logChannels.moderation) return;
-    
-    try {
-        // Wait for audit log to populate
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Check audit log to see who banned the user
-        const auditLogs = await ban.guild.fetchAuditLogs({
-            type: AuditLogEvent.MemberBanAdd,
-            limit: 1
-        });
-        
-        const banLog = auditLogs.entries.first();
-        
-        // If the bot banned the user, skip logging (command handler already logged it)
-        if (banLog && banLog.target.id === ban.user.id && banLog.executor.id === client.user.id) {
-            console.log('⏭️ Skipping bot-initiated ban log (already logged by command)');
-            return;
-        }
-        
-        // Add deduplication AFTER checking if bot did it
-        const dedupKey = `ban-${ban.guild.id}-${ban.user.id}-${Date.now().toString().slice(0, -3)}`;
-        if (logDeduplicator.isDuplicate(dedupKey)) {
-            console.log('⏭️ Skipping duplicate ban log');
-            return;
-        }
-        
-        const memberInviteData = memberInvites.get(ban.user.id);
-        
-        // Log to MongoDB
-        if (mongoLogger && mongoLogger.connected) {
-            await mongoLogger.logBan(ban);
-        }
-        
-        const embed = new EmbedBuilder()
-            .setColor('#8b0000')
-            .setTitle('🔨 Member Banned')
-            .setThumbnail(ban.user.displayAvatarURL())
-            .addFields(
-                { name: 'User', value: `${ban.user.tag}\n<@${ban.user.id}>`, inline: true },
-                { name: 'Moderator', value: banLog && banLog.executor ? `${banLog.executor.tag}` : 'Unknown', inline: true },
-                { name: 'Reason', value: ban.reason || 'No reason provided', inline: true }
-            );
-        
-        if (memberInviteData) {
-            embed.addFields({
-                name: 'Invite Info',
-                value: `Invited by: ${memberInviteData.inviter}\nCode: \`${memberInviteData.code}\``,
-                inline: false
-            });
-        }
-        
-        embed.setTimestamp();
-        embed.setFooter({ text: `ID: ${ban.user.id}` });
-        
-        await logChannels.moderation.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging ban:', error);
-    }
+// Ban tracking (MongoDB only - Discord posting handled by mongodb-logger.js)
+client.on('guildBanAdd', async (ban) => {
+    await mongoLogger.logBan(ban, ban.reason);
 });
 
-// Unban Event
-client.on('guildBanRemove', async ban => {
-    if (!logChannels.moderation) return;
+// Unban tracking (MongoDB only)
+client.on('guildBanRemove', async (ban) => {
+    await mongoLogger.logUnban(ban);
+});
+
+// Timeout tracking (MongoDB only)
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+    const oldTimeout = oldMember.communicationDisabledUntilTimestamp;
+    const newTimeout = newMember.communicationDisabledUntilTimestamp;
     
-    try {
-        // Wait for audit log to populate
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Check audit log to see who unbanned the user
-        const auditLogs = await ban.guild.fetchAuditLogs({
-            type: AuditLogEvent.MemberBanRemove,
-            limit: 1
+    if (!oldTimeout && newTimeout) {
+        await mongoLogger.logModerationAction({
+            type: 'timeout',
+            targetUserId: newMember.id,
+            targetUserName: newMember.user.tag,
+            targetUserAvatar: newMember.user.displayAvatarURL(),
+            moderatorId: 'Unknown',
+            moderatorName: 'Unknown',
+            reason: 'Timeout applied',
+            duration: newTimeout - Date.now(),
+            guildId: newMember.guild.id,
+            guildName: newMember.guild.name
         });
-        
-        const unbanLog = auditLogs.entries.first();
-        
-        // If the bot unbanned the user, skip logging (command handler already logged it)
-        if (unbanLog && unbanLog.target.id === ban.user.id && unbanLog.executor.id === client.user.id) {
-            console.log('⏭️ Skipping bot-initiated unban log (already logged by command)');
-            return;
-        }
-        
-        // Add deduplication AFTER checking if bot did it
-        const dedupKey = `unban-${ban.guild.id}-${ban.user.id}-${Date.now().toString().slice(0, -3)}`;
-        if (logDeduplicator.isDuplicate(dedupKey)) {
-            console.log('⏭️ Skipping duplicate unban log');
-            return;
-        }
-        
-        // Log to MongoDB
-        if (mongoLogger && mongoLogger.connected) {
-            await mongoLogger.logUnban(ban);
-        }
-        
-        const embed = new EmbedBuilder()
-            .setColor('#00ff00')
-            .setTitle('✅ Member Unbanned')
-            .setThumbnail(ban.user.displayAvatarURL())
-            .addFields(
-                { name: 'User', value: `${ban.user.tag}\n<@${ban.user.id}>`, inline: true },
-                { name: 'Moderator', value: unbanLog && unbanLog.executor ? `${unbanLog.executor.tag}` : 'Unknown', inline: true }
-            )
-            .setTimestamp();
-        
-        await logChannels.moderation.send({ embeds: [embed] });
-    } catch (error) {
-        console.error('Error logging unban:', error);
+    }
+    
+    if (oldTimeout && !newTimeout) {
+        await mongoLogger.logModerationAction({
+            type: 'untimeout',
+            targetUserId: newMember.id,
+            targetUserName: newMember.user.tag,
+            targetUserAvatar: newMember.user.displayAvatarURL(),
+            moderatorId: 'Unknown',
+            moderatorName: 'Unknown',
+            reason: 'Timeout removed',
+            guildId: newMember.guild.id,
+            guildName: newMember.guild.name
+        });
     }
 });
 
