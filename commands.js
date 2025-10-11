@@ -124,15 +124,39 @@ async getTargetUser(message, args) {
         }
     }
 
-    // Get custom message or use default
-    getCommandMessage(commandName, messageType, defaultMessage) {
-        const settings = this.commandSettings.get(commandName);
-        if (settings && settings.messages && settings.messages[messageType]) {
-            return settings.messages[messageType];
-        }
-        return defaultMessage;
+    // Get custom message or use default, with placeholder replacement
+    getCommandMessage(commandName, messageType, defaultMessage, data = {}) {
+    const settings = this.commandSettings.get(commandName);
+    let message;
+    
+    if (settings && settings.messages && settings.messages[messageType]) {
+        message = settings.messages[messageType];
+    } else {
+        message = defaultMessage;
     }
-
+    
+    // Replace placeholders if data is provided
+    if (Object.keys(data).length > 0) {
+        message = this.replaceMessagePlaceholders(message, data);
+    }
+    
+    return message;
+}
+    // Replace placeholders in messages with actual data
+    replaceMessagePlaceholders(message, data) {
+    return message
+        .replace(/\{server\}/g, data.server || 'Unknown Server')
+        .replace(/\*\*\{server\}\*\*/g, `**${data.server || 'Unknown Server'}**`)
+        .replace(/\{reason\}/g, data.reason || 'No reason provided')
+        .replace(/\*\*\{reason\}\*\*/g, `**${data.reason || 'No reason provided'}**`)
+        .replace(/\{user\.id\}/g, data.userId || 'Unknown')
+        .replace(/\{moderator\}/g, data.moderator || 'Unknown')
+        .replace(/\{warnings\}/g, data.warnings || '1')
+        .replace(/\{duration\}/g, data.duration || 'N/A')
+        .replace(/\{timestamp\}/g, data.timestamp || new Date().toLocaleString())
+        .replace(/\{date\}/g, data.date || new Date().toLocaleDateString())  // Make sure this line exists!
+        .replace(/\{user\.mention\}/g, data.userId ? `<@${data.userId}>` : 'Unknown');
+}
     // Check if DM should be sent
     shouldSendDM(commandName) {
         const settings = this.commandSettings.get(commandName);
@@ -668,167 +692,218 @@ async getTargetUser(message, args) {
         // ========== MODERATION COMMANDS ==========
 
         // Kick Command
-        this.commands.set('kick', {
-            name: 'kick',
-            description: 'Kick a member from the server',
-            usage: '!kick @user|userID [reason]',
-            aliases: ['yeet'],
-            category: 'Moderation',
-            permissions: ['KickMembers'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) {
-                    return message.reply(this.getCommandMessage('kick', 'noPermission', '❌ You need **Kick Members** permission!'));
-                }
-                
-                const target = await this.getTargetMember(message, args);
-                if (!target) {
-                    return message.reply(this.getCommandMessage('kick', 'noTarget', '❌ Please mention a user or provide a valid user ID to kick!'));
-                }
-                
-                if (!target.kickable) {
-                    return message.reply(this.getCommandMessage('kick', 'cannotKick', '❌ I cannot kick this user!'));
-                }
-                
-                const reason = args.slice(this.getReasonStartIndex(message, args)).join(' ') || 'No reason provided';
-                
-                let inviteInfo = '';
-                try {
-                    const memberInvites = JSON.parse(fs.readFileSync('member-invites.json', 'utf8'));
-                    if (memberInvites[target.id]) {
-                        const invite = memberInvites[target.id];
-                        inviteInfo = `**Invited by:** ${invite.inviter}\n**Invite Code:** \`${invite.code}\``;
-                    }
-                } catch (error) {
-                    // File doesn't exist
-                }
-                
-                try {
-                    if (this.shouldSendDM('kick')) {
-                        const dmMessage = this.getCommandMessage('kick', 'dmMessage', `You have been kicked from **${message.guild.name}**\nReason: ${reason}`);
-                        await target.send(dmMessage.replace('{server}', message.guild.name).replace('{reason}', reason)).catch(() => {});
-                    }
-                    
-                    await target.kick(reason);
-                    
-                    const confirmEmbed = new EmbedBuilder()
-                        .setColor('#ff6600')
-                        .setTitle('👢 Member Kicked')
-                        .addFields(
-                            { name: 'User', value: `${target.user.tag}`, inline: true },
-                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
-                            { name: 'Reason', value: reason, inline: false }
-                        )
-                        .setTimestamp();
-                    
-                    await message.reply({ embeds: [confirmEmbed] });
-                    
-                    const logEmbed = new EmbedBuilder()
-                        .setColor('#ff6600')
-                        .setTitle('👢 Member Kicked')
-                        .setThumbnail(target.user.displayAvatarURL())
-                        .addFields(
-                            { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
-                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
-                            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
-                            { name: 'Reason', value: reason, inline: false }
-                        )
-                        .setTimestamp()
-                        .setFooter({ text: `User ID: ${target.id}` });
-                    
-                    if (inviteInfo) {
-                        logEmbed.addFields({ name: 'Invite Info', value: inviteInfo, inline: false });
-                    }
-                    
-                    await this.logModerationAction(logEmbed);
-                    
-                } catch (error) {
-                    console.error('Error kicking user:', error);
-                    return message.reply(this.getCommandMessage('kick', 'error', '❌ Failed to kick user!'));
-                }
+        // Kick Command
+this.commands.set('kick', {
+    name: 'kick',
+    description: 'Kick a member from the server',
+    usage: '!kick @user|userID [reason]',
+    aliases: ['yeet'],
+    category: 'Moderation',
+    permissions: ['KickMembers'],
+    execute: async (message, args) => {
+        if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) {
+            return message.reply(this.getCommandMessage('kick', 'noPermission', '❌ You need **Kick Members** permission!'));
+        }
+        
+        const target = await this.getTargetMember(message, args);
+        if (!target) {
+            return message.reply(this.getCommandMessage('kick', 'noTarget', '❌ Please mention a user or provide a valid user ID to kick!'));
+        }
+        
+        if (!target.kickable) {
+            return message.reply(this.getCommandMessage('kick', 'cannotKick', '❌ I cannot kick this user!'));
+        }
+        
+        const reason = args.slice(this.getReasonStartIndex(message, args)).join(' ') || 'No reason provided';
+        
+        let inviteInfo = '';
+        try {
+            const memberInvites = JSON.parse(fs.readFileSync('member-invites.json', 'utf8'));
+            if (memberInvites[target.id]) {
+                const invite = memberInvites[target.id];
+                inviteInfo = `**Invited by:** ${invite.inviter}\n**Invite Code:** \`${invite.code}\``;
             }
-        });
+        } catch (error) {
+            // File doesn't exist
+        }
+        
+        try {
+    // Send DM before kicking
+    if (this.shouldSendDM('kick')) {
+        const dmMessage = this.getCommandMessage(
+            'kick',
+            'dmMessage',
+            `You have been kicked from **${message.guild.name}**\nReason: ${reason}`,
+            {
+                server: message.guild.name,
+                reason: reason,
+                userId: target.id,
+                moderator: message.author.tag,
+                timestamp: new Date().toLocaleString(),
+                date: new Date().toLocaleString()
+            }
+        );
+        
+        // Create embed for DM
+        const dmEmbed = new EmbedBuilder()
+            .setColor('#ff6600')
+            .setTitle('👢 You Have Been Kicked')
+            .setDescription(dmMessage)
+            .setThumbnail(message.guild.iconURL())
+            .setFooter({ text: message.guild.name })
+            .setTimestamp();
+        
+        await target.send({ embeds: [dmEmbed] }).catch(() => {});
+    }
+    
+    // Kick the user
+    await target.kick(reason);
+    // ... rest of code
+
+            
+            const confirmEmbed = new EmbedBuilder()
+                .setColor('#ff6600')
+                .setTitle('👢 Member Kicked')
+                .addFields(
+                    { name: 'User', value: `${target.user.tag}`, inline: true },
+                    { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                    { name: 'Reason', value: reason, inline: false }
+                )
+                .setTimestamp();
+            
+            await message.reply({ embeds: [confirmEmbed] });
+            
+            const logEmbed = new EmbedBuilder()
+                .setColor('#ff6600')
+                .setTitle('👢 Member Kicked')
+                .setThumbnail(target.user.displayAvatarURL())
+                .addFields(
+                    { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
+                    { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                    { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                    { name: 'Reason', value: reason, inline: false }
+                )
+                .setTimestamp()
+                .setFooter({ text: `User ID: ${target.id}` });
+            
+            if (inviteInfo) {
+                logEmbed.addFields({ name: 'Invite Info', value: inviteInfo, inline: false });
+            }
+            
+            await this.logModerationAction(logEmbed);
+            
+        } catch (error) {
+            console.error('Error kicking user:', error);
+            return message.reply(this.getCommandMessage('kick', 'error', '❌ Failed to kick user!'));
+        }
+    }
+});
 
         // Ban Command
-        this.commands.set('ban', {
-            name: 'ban',
-            description: 'Ban a member from the server',
-            usage: '!ban @user|userID [reason]',
-            aliases: ['hammer'],
-            category: 'Moderation',
-            permissions: ['BanMembers'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-                    return message.reply(this.getCommandMessage('ban', 'noPermission', '❌ You need **Ban Members** permission!'));
-                }
-                
-                const target = await this.getTargetMember(message, args);
-                if (!target) {
-                    return message.reply(this.getCommandMessage('ban', 'noTarget', '❌ Please mention a user or provide a valid user ID to ban!'));
-                }
-                
-                if (!target.bannable) {
-                    return message.reply(this.getCommandMessage('ban', 'cannotBan', '❌ I cannot ban this user!'));
-                }
-                
-                const reason = args.slice(this.getReasonStartIndex(message, args)).join(' ') || 'No reason provided';
-                
-                let inviteInfo = '';
-                try {
-                    const memberInvites = JSON.parse(fs.readFileSync('member-invites.json', 'utf8'));
-                    if (memberInvites[target.id]) {
-                        const invite = memberInvites[target.id];
-                        inviteInfo = `**Invited by:** ${invite.inviter}\n**Invite Code:** \`${invite.code}\``;
-                    }
-                } catch (error) {
-                    // File doesn't exist
-                }
-                
-                try {
-                    if (this.shouldSendDM('ban')) {
-                        const dmMessage = this.getCommandMessage('ban', 'dmMessage', `You have been banned from **${message.guild.name}**\nReason: ${reason}`);
-                        await target.send(dmMessage.replace('{server}', message.guild.name).replace('{reason}', reason)).catch(() => {});
-                    }
-                    
-                    await target.ban({ reason, deleteMessageSeconds: 86400 });
-                    
-                    const confirmEmbed = new EmbedBuilder()
-                        .setColor('#8b0000')
-                        .setTitle('🔨 Member Banned')
-                        .addFields(
-                            { name: 'User', value: `${target.user.tag}`, inline: true },
-                            { name: 'Moderator', value: `${message.author.tag}`, inline: true },
-                            { name: 'Reason', value: reason, inline: false }
-                        )
-                        .setTimestamp();
-                    
-                    await message.reply({ embeds: [confirmEmbed] });
-                    
-                    const logEmbed = new EmbedBuilder()
-                        .setColor('#8b0000')
-                        .setTitle('🔨 Member Banned')
-                        .setThumbnail(target.user.displayAvatarURL())
-                        .addFields(
-                            { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
-                            { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
-                            { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
-                            { name: 'Reason', value: reason, inline: false },
-                            { name: 'Messages Deleted', value: 'Last 24 hours', inline: true }
-                        )
-                        .setTimestamp()
-                        .setFooter({ text: `User ID: ${target.id}` });
-                    
-                    if (inviteInfo) {
-                        logEmbed.addFields({ name: 'Invite Info', value: inviteInfo, inline: false });
-                    }
-                    
-                    await this.logModerationAction(logEmbed);
-                    
-                } catch (error) {
-                    console.error('Error banning user:', error);
-                    return message.reply(this.getCommandMessage('ban', 'error', '❌ Failed to ban user!'));
-                }
+this.commands.set('ban', {
+    name: 'ban',
+    description: 'Ban a member from the server',
+    usage: '!ban @user|userID [reason]',
+    aliases: ['hammer'],
+    category: 'Moderation',
+    permissions: ['BanMembers'],
+    execute: async (message, args) => {
+        if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+            return message.reply(this.getCommandMessage('ban', 'noPermission', '❌ You need **Ban Members** permission!'));
+        }
+        
+        const target = await this.getTargetMember(message, args);
+        if (!target) {
+            return message.reply(this.getCommandMessage('ban', 'noTarget', '❌ Please mention a user or provide a valid user ID to ban!'));
+        }
+        
+        if (!target.bannable) {
+            return message.reply(this.getCommandMessage('ban', 'cannotBan', '❌ I cannot ban this user!'));
+        }
+        
+        const reason = args.slice(this.getReasonStartIndex(message, args)).join(' ') || 'No reason provided';
+        
+        let inviteInfo = '';
+        try {
+            const memberInvites = JSON.parse(fs.readFileSync('member-invites.json', 'utf8'));
+            if (memberInvites[target.id]) {
+                const invite = memberInvites[target.id];
+                inviteInfo = `**Invited by:** ${invite.inviter}\n**Invite Code:** \`${invite.code}\``;
             }
-        });
+        } catch (error) {
+            // File doesn't exist
+        }
+        
+        try {
+    // Send DM before banning
+    if (this.shouldSendDM('ban')) {
+        const dmMessage = this.getCommandMessage(
+            'ban',
+            'dmMessage',
+            `You have been banned from **${message.guild.name}**\nReason: ${reason}`,
+            {
+                server: message.guild.name,
+                reason: reason,
+                userId: target.id,
+                moderator: message.author.tag,
+                timestamp: new Date().toLocaleString(),
+                date: new Date().toLocaleString()
+            }
+        );
+        
+        // Create embed for DM
+        const dmEmbed = new EmbedBuilder()
+            .setColor('#8b0000')
+            .setTitle('🔨 You Have Been Banned')
+            .setDescription(dmMessage)
+            .setThumbnail(message.guild.iconURL())
+            .setFooter({ text: message.guild.name })
+            .setTimestamp();
+        
+        await target.send({ embeds: [dmEmbed] }).catch(() => {});
+    }
+    
+    // Ban the user
+    await target.ban({ reason, deleteMessageSeconds: 86400 });
+            
+            const confirmEmbed = new EmbedBuilder()
+                .setColor('#8b0000')
+                .setTitle('🔨 Member Banned')
+                .addFields(
+                    { name: 'User', value: `${target.user.tag}`, inline: true },
+                    { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                    { name: 'Reason', value: reason, inline: false }
+                )
+                .setTimestamp();
+            
+            await message.reply({ embeds: [confirmEmbed] });
+            
+            const logEmbed = new EmbedBuilder()
+                .setColor('#8b0000')
+                .setTitle('🔨 Member Banned')
+                .setThumbnail(target.user.displayAvatarURL())
+                .addFields(
+                    { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
+                    { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                    { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                    { name: 'Reason', value: reason, inline: false },
+                    { name: 'Messages Deleted', value: 'Last 24 hours', inline: true }
+                )
+                .setTimestamp()
+                .setFooter({ text: `User ID: ${target.id}` });
+            
+            if (inviteInfo) {
+                logEmbed.addFields({ name: 'Invite Info', value: inviteInfo, inline: false });
+            }
+            
+            await this.logModerationAction(logEmbed);
+            
+        } catch (error) {
+            console.error('Error banning user:', error);
+            return message.reply(this.getCommandMessage('ban', 'error', '❌ Failed to ban user!'));
+        }
+    }
+});
 
         // Unban Command
         this.commands.set('unban', {
@@ -1076,74 +1151,102 @@ async getTargetUser(message, args) {
         });
 
         // Warn Command
+        // Warn Command - UPDATED
         this.commands.set('warn', {
-            name: 'warn',
-            description: 'Warn a member',
-            usage: '!warn @user|userID <reason>',
-            aliases: ['warning'],
-            category: 'Moderation',
-            permissions: ['ModerateMembers'],
-            execute: async (message, args) => {
-                if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-                    return message.reply('❌ You need **Moderate Members** permission!');
-                }
-                
-                const target = await this.getTargetMember(message, args);
-                if (!target) {
-                    return message.reply('❌ Please mention a user or provide a valid user ID to warn!');
-                }
-                
-                const reason = args.slice(this.getReasonStartIndex(message, args)).join(' ');
-                if (!reason) {
-                    return message.reply('❌ Please provide a reason for the warning!');
-                }
-                
-                const userWarnings = this.warnings.get(target.id) || [];
-                userWarnings.push({
-                    moderator: message.author.id,
-                    reason: reason,
-                    timestamp: Date.now()
-                });
-                this.warnings.set(target.id, userWarnings);
-                this.saveWarnings();
-                
-                const confirmEmbed = new EmbedBuilder()
-                    .setColor('#ff9900')
-                    .setTitle('⚠️ User Warned')
-                    .addFields(
-                        { name: 'User', value: `${target.user.tag}`, inline: true },
-                        { name: 'Moderator', value: `${message.author.tag}`, inline: true },
-                        { name: 'Total Warnings', value: userWarnings.length.toString(), inline: true },
-                        { name: 'Reason', value: reason, inline: false }
-                    )
-                    .setTimestamp();
-                
-                await message.reply({ embeds: [confirmEmbed] });
-                
-                const logEmbed = new EmbedBuilder()
-                    .setColor('#ff9900')
-                    .setTitle('⚠️ User Warned')
-                    .setThumbnail(target.user.displayAvatarURL())
-                    .addFields(
-                        { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
-                        { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
-                        { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
-                        { name: 'Warning #', value: userWarnings.length.toString(), inline: true },
-                        { name: 'Total Warnings', value: userWarnings.length.toString(), inline: true },
-                        { name: 'Reason', value: reason, inline: false }
-                    )
-                    .setTimestamp()
-                    .setFooter({ text: `User ID: ${target.id}` });
-                
-                await this.logModerationAction(logEmbed);
-                
-                try {
-                    await target.send(`You have been warned in **${message.guild.name}**\nReason: ${reason}\nTotal warnings: ${userWarnings.length}`);
-                } catch (error) {
-                    console.log(`Could not DM ${target.user.tag}`);
-                }
-            }
+    name: 'warn',
+    description: 'Warn a member',
+    usage: '!warn @user|userID <reason>',
+    aliases: ['warning'],
+    category: 'Moderation',
+    permissions: ['ModerateMembers'],
+    execute: async (message, args) => {
+        if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+            return message.reply('❌ You need **Moderate Members** permission!');
+        }
+        
+        const target = await this.getTargetMember(message, args);
+        if (!target) {
+            return message.reply('❌ Please mention a user or provide a valid user ID to warn!');
+        }
+        
+        const reason = args.slice(this.getReasonStartIndex(message, args)).join(' ');
+        if (!reason) {
+            return message.reply('❌ Please provide a reason for the warning!');
+        }
+        
+        const userWarnings = this.warnings.get(target.id) || [];
+        userWarnings.push({
+            moderator: message.author.id,
+            reason: reason,
+            timestamp: Date.now()
         });
+        this.warnings.set(target.id, userWarnings);
+        this.saveWarnings();
+        
+        const confirmEmbed = new EmbedBuilder()
+            .setColor('#ff9900')
+            .setTitle('⚠️ User Warned')
+            .addFields(
+                { name: 'User', value: `${target.user.tag}`, inline: true },
+                { name: 'Moderator', value: `${message.author.tag}`, inline: true },
+                { name: 'Total Warnings', value: userWarnings.length.toString(), inline: true },
+                { name: 'Reason', value: reason, inline: false }
+            )
+            .setTimestamp();
+        
+        await message.reply({ embeds: [confirmEmbed] });
+        
+        const logEmbed = new EmbedBuilder()
+            .setColor('#ff9900')
+            .setTitle('⚠️ User Warned')
+            .setThumbnail(target.user.displayAvatarURL())
+            .addFields(
+                { name: 'User', value: `${target.user.tag}\n<@${target.id}> (${target.id})`, inline: true },
+                { name: 'Moderator', value: `${message.author.tag}\n<@${message.author.id}>`, inline: true },
+                { name: 'Channel', value: `<#${message.channel.id}>`, inline: true },
+                { name: 'Warning #', value: userWarnings.length.toString(), inline: true },
+                { name: 'Total Warnings', value: userWarnings.length.toString(), inline: true },
+                { name: 'Reason', value: reason, inline: false }
+            )
+            .setTimestamp()
+            .setFooter({ text: `User ID: ${target.id}` });
+        
+        await this.logModerationAction(logEmbed);
+        
+        // Send DM with custom message and placeholder replacement
+        try {
+    if (this.shouldSendDM('warn')) {
+        const dmMessage = this.getCommandMessage(
+            'warn',
+            'dmMessage',
+            `You have been warned in **${message.guild.name}**\nReason: ${reason}\nTotal warnings: ${userWarnings.length}`,
+            {
+                server: message.guild.name,
+                reason: reason,
+                userId: target.id,
+                moderator: message.author.tag,
+                warnings: userWarnings.length.toString(),
+                timestamp: new Date().toLocaleString(),
+                date: new Date().toLocaleString()
+            }
+        );
+        
+        // Create embed for DM
+        const dmEmbed = new EmbedBuilder()
+            .setColor('#ff9900')
+            .setTitle('⚠️ You Have Been Warned')
+            .setDescription(dmMessage)
+            .setThumbnail(message.guild.iconURL())
+            .setFooter({ text: message.guild.name })
+            .setTimestamp();
+        
+        await target.send({ embeds: [dmEmbed] });
+    }
+} catch (error) {
+    console.log(`Could not DM ${target.user.tag}`);
+}
+    }
+    });
 
         // Warnings Command
         this.commands.set('warnings', {

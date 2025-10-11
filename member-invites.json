@@ -3,9 +3,9 @@
     "code": "sgbgH5UG",
     "inviter": "mifsopo",
     "inviterId": "202666589550673930",
-    "uses": 9,
+    "uses": 10,
     "maxUses": 0,
-    "timestamp": 1760143396905,
+    "timestamp": 1760144170883,
     "guildId": "585075311209611264"
   },
   "164862413483671552": {
@@ -240,6 +240,24 @@
     "uses": 0,
     "maxUses": 0,
     "timestamp": 1760087876771,
+    "guildId": "585075311209611264"
+  },
+  "1395506178326528020": {
+    "code": "unknown",
+    "inviter": "Unknown",
+    "inviterId": "Unknown",
+    "uses": 0,
+    "maxUses": 0,
+    "timestamp": 1760147789100,
+    "guildId": "585075311209611264"
+  },
+  "1378197456470278195": {
+    "code": "unknown",
+    "inviter": "Unknown",
+    "inviterId": "Unknown",
+    "uses": 0,
+    "maxUses": 0,
+    "timestamp": 1760148614238,
     "guildId": "585075311209611264"
   }
 }

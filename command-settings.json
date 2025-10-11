@@ -1,7 +1,32 @@
 {
   "ban": {
     "messages": {
-      "dmMessage": "youhave been banned ."
+      "dmMessage": "You have been banned from **{server}** for violating server rules.\n\nReason: **{reason}**\nUser ID: `{user.id}`\nModerator: {moderator}\nDate: {date}\n\nIf you believe this was a mistake, you may submit an appeal here:\n🔗 https://drugdealersim.com/submit-appeal\n\nPlease include your Discord tag, user ID, when the incident occurred, and any relevant evidence.\nAppeals that do not follow this process will not be considered."
+    }
+  },
+  "mute": {
+    "messages": {
+      "dmMessage": "You have been muted in **{server}**.\n\nReason: **{reason}**\nUser ID: `{user.id}`\nModerator: {moderator}\nDate: {date}\n\nYou temporarily cannot send messages or speak in channels.\nPlease review the server rules to avoid further actions."
+    }
+  },
+  "unmute": {
+    "messages": {
+      "dmMessage": "You have been unmuted in **{server}**.\n\nUser ID: `{user.id}`\nModerator: {moderator}\nDate: {date}\n\nYou can now send messages and participate in chat again.\nPlease continue following all server rules."
+    }
+  },
+  "kick": {
+    "messages": {
+      "dmMessage": "You have been kicked from **{server}**.\n\nReason: **{reason}**\nUser ID: `{user.id}`\nModerator: {moderator}\nDate: {date}\n\nYou may rejoin if allowed. Please make sure to follow the rules to prevent future actions."
+    }
+  },
+  "warn": {
+    "messages": {
+      "dmMessage": "You have received a warning in **{server}**.\n\nReason: **{reason}**\nUser ID: `{user.id}`\nModerator: {moderator}\nDate: {date}\n\nRepeated warnings may lead to mutes, kicks, or bans.\nPlease take this as an opportunity to correct your behavior and follow the server guidelines."
+    }
+  },
+  "unban": {
+    "messages": {
+      "dmMessage": "You have been unbanned from **{server}**.\n\nUser ID: `{user.id}`\nModerator: {moderator}\nDate: {date}\n\nYou now have permission to rejoin if you wish.\nPlease make sure to follow all server rules to avoid future moderation actions."
     }
   }
 }
