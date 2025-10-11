@@ -1580,65 +1580,98 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 // Role change tracking
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
-    if (!logChannels.role) return;
+    if (!logChannels.role) {
+        console.log('❌ No role log channel configured');
+        return;
+    }
     
     try {
         const oldRoles = oldMember.roles.cache;
         const newRoles = newMember.roles.cache;
         
+        console.log(`👤 Role update detected for: ${newMember.user.tag}`);
+        console.log(`   Old roles: ${oldRoles.size}, New roles: ${newRoles.size}`);
+        
         // Check if roles changed
         const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
         const removedRoles = oldRoles.filter(role => !newRoles.has(role.id));
         
+        console.log(`   Added: ${addedRoles.size}, Removed: ${removedRoles.size}`);
+        
         // If no role changes, skip
-        if (addedRoles.size === 0 && removedRoles.size === 0) return;
+        if (addedRoles.size === 0 && removedRoles.size === 0) {
+            console.log('   ⏭️ No role changes, skipping');
+            return;
+        }
         
         const userId = newMember.id;
         const guildId = newMember.guild.id;
         const trackingKey = `${guildId}-${userId}`;
         
+        console.log(`   📌 Tracking key: ${trackingKey}`);
+        console.log(`   📊 Current tracking map size: ${roleChangeTracking.size}`);
+        
         // Get or create tracking object
         if (!roleChangeTracking.has(trackingKey)) {
+            console.log('   ✨ Creating new tracking entry');
             roleChangeTracking.set(trackingKey, {
                 addedRoles: new Map(),
                 removedRoles: new Map(),
                 timeout: null,
                 member: newMember
             });
+        } else {
+            console.log('   ♻️ Using existing tracking entry');
         }
         
         const tracking = roleChangeTracking.get(trackingKey);
         
         // Add new role changes
-        addedRoles.forEach(role => tracking.addedRoles.set(role.id, role));
-        removedRoles.forEach(role => tracking.removedRoles.set(role.id, role));
+        addedRoles.forEach(role => {
+            console.log(`   ➕ Adding role to batch: ${role.name}`);
+            tracking.addedRoles.set(role.id, role);
+        });
+        removedRoles.forEach(role => {
+            console.log(`   ➖ Adding removal to batch: ${role.name}`);
+            tracking.removedRoles.set(role.id, role);
+        });
+        
+        console.log(`   📦 Batch now has: ${tracking.addedRoles.size} added, ${tracking.removedRoles.size} removed`);
         
         // Clear existing timeout
         if (tracking.timeout) {
+            console.log('   ⏰ Clearing previous timeout');
             clearTimeout(tracking.timeout);
         }
         
         // Set new timeout to log after 10 seconds
+        console.log('   ⏰ Setting 10-second timeout');
         tracking.timeout = setTimeout(async () => {
+            console.log(`\n🎯 TIMEOUT FIRED for ${newMember.user.tag}!`);
             try {
                 await logBatchedRoleChanges(trackingKey, tracking);
                 roleChangeTracking.delete(trackingKey);
+                console.log('✅ Batched role changes logged and cleaned up\n');
             } catch (error) {
-                console.error('Error logging batched role changes:', error);
+                console.error('❌ Error logging batched role changes:', error);
                 roleChangeTracking.delete(trackingKey);
             }
         }, 10000); // 10 seconds
         
-        console.log(`🔄 Batching role changes for ${newMember.user.tag} - will log in 10 seconds`);
+        console.log(`🔄 Batching role changes for ${newMember.user.tag} - will log in 10 seconds\n`);
         
     } catch (error) {
-        console.error('Error tracking role update:', error);
+        console.error('❌ Error tracking role update:', error);
     }
 });
 
-// Log batched role changes
 async function logBatchedRoleChanges(trackingKey, tracking) {
+    console.log(`\n📝 logBatchedRoleChanges called for: ${trackingKey}`);
+    
     const { addedRoles, removedRoles, member } = tracking;
+    
+    console.log(`   Added roles in batch: ${addedRoles.size}`);
+    console.log(`   Removed roles in batch: ${removedRoles.size}`);
     
     // Deduplication check
     const dedupKey = `rolebatch-${trackingKey}-${Date.now().toString().slice(0, -3)}`;
@@ -1648,15 +1681,20 @@ async function logBatchedRoleChanges(trackingKey, tracking) {
     }
     
     // Wait for audit log
+    console.log('⏳ Waiting 500ms for audit log...');
     await new Promise(resolve => setTimeout(resolve, 500));
     
     // Get audit log
+    console.log('📜 Fetching audit logs...');
     const auditLogs = await member.guild.fetchAuditLogs({
         type: AuditLogEvent.MemberRoleUpdate,
         limit: 5
     });
     
     const roleLog = auditLogs.entries.first();
+    
+    console.log(`   Audit log executor: ${roleLog?.executor?.tag || 'None'}`);
+    console.log(`   Bot user ID: ${client.user.id}`);
     
     // Skip if bot made the changes via command
     if (roleLog && roleLog.target.id === member.id && 
@@ -1674,6 +1712,7 @@ async function logBatchedRoleChanges(trackingKey, tracking) {
     
     // Log to MongoDB
     if (mongoLogger && mongoLogger.connected) {
+        console.log('💾 Logging to MongoDB...');
         if (addedArray.length > 0) {
             await mongoLogger.logRoleUpdate(member, member, 'add', addedArray);
         }
@@ -1683,6 +1722,7 @@ async function logBatchedRoleChanges(trackingKey, tracking) {
     }
     
     // Create embed
+    console.log('📨 Creating embed...');
     const embed = new EmbedBuilder()
         .setColor(addedArray.length > removedArray.length ? '#00ff00' : '#ff0000')
         .setTitle('🔄 Role Changes')
@@ -1731,8 +1771,9 @@ async function logBatchedRoleChanges(trackingKey, tracking) {
     embed.setTimestamp();
     embed.setFooter({ text: `User ID: ${member.id}` });
     
+    console.log('📤 Sending embed to Discord...');
     await logChannels.role.send({ embeds: [embed] });
-    console.log(`✅ Logged batched role changes for ${member.user.tag}`);
+    console.log(`✅ Logged batched role changes for ${member.user.tag}\n`);
 }
 
 // Channel Create Event

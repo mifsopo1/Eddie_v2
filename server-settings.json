@@ -3,10 +3,10 @@
     "enabled": true
   },
   "massMention": {
-    "enabled": true
+    "enabled": false
   },
   "linkProtection": {
-    "enabled": true
+    "allowDiscordInvites": false
   },
   "capsProtection": {
     "enabled": true
