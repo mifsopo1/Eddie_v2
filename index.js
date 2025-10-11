@@ -1589,6 +1589,26 @@ client.on('guildBanAdd', async ban => {
     if (!logChannels.moderation) return;
     
     try {
+        // Wait a moment to let audit log populate
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Check audit log to see who banned the user
+        const auditLogs = await ban.guild.fetchAuditLogs({
+            type: AuditLogEvent.MemberBanAdd,
+            limit: 5
+        });
+        
+        const banLog = auditLogs.entries.find(entry => 
+            entry.target.id === ban.user.id &&
+            Date.now() - entry.createdTimestamp < 5000 // Within last 5 seconds
+        );
+        
+        // If the bot banned the user, skip logging (command handler already logged it)
+        if (banLog && banLog.executor.id === client.user.id) {
+            console.log('⏭️ Skipping bot-initiated ban log (already logged by command)');
+            return;
+        }
+        
         const memberInviteData = memberInvites.get(ban.user.id);
         
         // Log to MongoDB
@@ -1633,6 +1653,26 @@ client.on('guildBanRemove', async ban => {
     if (!logChannels.moderation) return;
     
     try {
+        // Wait a moment to let audit log populate
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Check audit log to see who unbanned the user
+        const auditLogs = await ban.guild.fetchAuditLogs({
+            type: AuditLogEvent.MemberBanRemove,
+            limit: 5
+        });
+        
+        const unbanLog = auditLogs.entries.find(entry => 
+            entry.target.id === ban.user.id &&
+            Date.now() - entry.createdTimestamp < 5000
+        );
+        
+        // If the bot unbanned the user, skip logging (command handler already logged it)
+        if (unbanLog && unbanLog.executor.id === client.user.id) {
+            console.log('⏭️ Skipping bot-initiated unban log (already logged by command)');
+            return;
+        }
+        
         // Log to MongoDB
         if (mongoLogger && mongoLogger.connected) {
             await mongoLogger.logUnban(ban);
