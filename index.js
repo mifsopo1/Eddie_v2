@@ -1309,6 +1309,13 @@ client.on('messageDelete', async message => {
     if (message.author?.bot) return;
     
     try {
+        // Check for deduplication
+        const dedupKey = `msgdelete-${message.guild?.id}-${message.id}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate message delete log');
+            return;
+        }
+        
         // Log to MongoDB
         if (mongoLogger && mongoLogger.connected) {
             await mongoLogger.logMessageDelete(message);
@@ -1353,6 +1360,12 @@ client.on('messageDeleteBulk', async messages => {
     if (!logChannels.message) return;
     
     try {
+        const dedupKey = `bulkdelete-${messages.first()?.guild?.id}-${messages.first()?.channel.id}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate bulk delete log');
+            return;
+        }
+        
         const embed = new EmbedBuilder()
             .setColor('#ff0000')
             .setTitle('🗑️ Bulk Message Delete')
@@ -1370,12 +1383,19 @@ client.on('messageDeleteBulk', async messages => {
 });
 
 // Message Edit Event
+// Message Edit Event
 client.on('messageUpdate', async (oldMessage, newMessage) => {
     if (!logChannels.message) return;
     if (newMessage.author?.bot) return;
     if (oldMessage.content === newMessage.content) return;
     
     try {
+        const dedupKey = `msgedit-${newMessage.guild?.id}-${newMessage.id}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate message edit log');
+            return;
+        }
+        
         // Log to MongoDB
         if (mongoLogger && mongoLogger.connected) {
             await mongoLogger.logMessageUpdate(oldMessage, newMessage);
@@ -1414,6 +1434,8 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
     }
 });
 
+
+
 // Voice State Update Event
 client.on('voiceStateUpdate', async (oldState, newState) => {
     if (!logChannels.voice) return;
@@ -1424,6 +1446,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         
         if (!oldState.channel && newState.channel) {
             action = 'join';
+            
+            const dedupKey = `voicejoin-${newState.guild.id}-${newState.member.id}-${newState.channel.id}-${Date.now().toString().slice(0, -3)}`;
+            if (logDeduplicator.isDuplicate(dedupKey)) {
+                console.log('⏭️ Skipping duplicate voice join log');
+                return;
+            }
+            
             embed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setTitle('🔊 Joined Voice Channel')
@@ -1435,6 +1464,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         }
         else if (oldState.channel && !newState.channel) {
             action = 'leave';
+            
+            const dedupKey = `voiceleave-${oldState.guild.id}-${oldState.member.id}-${oldState.channel.id}-${Date.now().toString().slice(0, -3)}`;
+            if (logDeduplicator.isDuplicate(dedupKey)) {
+                console.log('⏭️ Skipping duplicate voice leave log');
+                return;
+            }
+            
             embed = new EmbedBuilder()
                 .setColor('#ff0000')
                 .setTitle('🔇 Left Voice Channel')
@@ -1446,6 +1482,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         }
         else if (oldState.channel && newState.channel && oldState.channel.id !== newState.channel.id) {
             action = 'switch';
+            
+            const dedupKey = `voiceswitch-${newState.guild.id}-${newState.member.id}-${Date.now().toString().slice(0, -3)}`;
+            if (logDeduplicator.isDuplicate(dedupKey)) {
+                console.log('⏭️ Skipping duplicate voice switch log');
+                return;
+            }
+            
             embed = new EmbedBuilder()
                 .setColor('#ffd93d')
                 .setTitle('↔️ Switched Voice Channel')
@@ -1472,12 +1515,6 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 
 // Role Update Events
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
-    const dedupKey = `roleupdate-${newMember.guild.id}-${newMember.id}-${Date.now().toString().slice(0, -3)}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) {
-        console.log('⏭️ Skipping duplicate role update log');
-        return;
-    }
-    
     if (!logChannels.role) return;
     
     try {
@@ -1486,6 +1523,29 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
         
         const addedRoles = newRoles.filter(role => !oldRoles.has(role.id));
         if (addedRoles.size > 0) {
+            const dedupKey = `roleadd-${newMember.guild.id}-${newMember.id}-${Date.now().toString().slice(0, -3)}`;
+            if (logDeduplicator.isDuplicate(dedupKey)) {
+                console.log('⏭️ Skipping duplicate role add log');
+                return;
+            }
+            
+            // Wait for audit log
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Check if bot added the role
+            const auditLogs = await newMember.guild.fetchAuditLogs({
+                type: AuditLogEvent.MemberRoleUpdate,
+                limit: 1
+            });
+            
+            const roleLog = auditLogs.entries.first();
+            
+            // Skip if bot added the role via command
+            if (roleLog && roleLog.target.id === newMember.id && roleLog.executor.id === client.user.id) {
+                console.log('⏭️ Skipping bot-initiated role add (already logged by command)');
+                return;
+            }
+            
             // Log to MongoDB
             if (mongoLogger && mongoLogger.connected) {
                 await mongoLogger.logRoleUpdate(oldMember, newMember, 'add', addedRoles);
@@ -1497,14 +1557,42 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
                 .addFields(
                     { name: 'User', value: `${newMember.user.tag}\n<@${newMember.id}>`, inline: true },
                     { name: 'Roles Added', value: addedRoles.map(r => r.name).join(', '), inline: true }
-                )
-                .setTimestamp();
+                );
+            
+            if (roleLog && roleLog.executor) {
+                embed.addFields({ name: 'Added By', value: roleLog.executor.tag, inline: true });
+            }
+            
+            embed.setTimestamp();
             
             await logChannels.role.send({ embeds: [embed] });
         }
         
         const removedRoles = oldRoles.filter(role => !newRoles.has(role.id));
         if (removedRoles.size > 0) {
+            const dedupKey = `roleremove-${newMember.guild.id}-${newMember.id}-${Date.now().toString().slice(0, -3)}`;
+            if (logDeduplicator.isDuplicate(dedupKey)) {
+                console.log('⏭️ Skipping duplicate role remove log');
+                return;
+            }
+            
+            // Wait for audit log
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Check if bot removed the role
+            const auditLogs = await newMember.guild.fetchAuditLogs({
+                type: AuditLogEvent.MemberRoleUpdate,
+                limit: 1
+            });
+            
+            const roleLog = auditLogs.entries.first();
+            
+            // Skip if bot removed the role via command
+            if (roleLog && roleLog.target.id === newMember.id && roleLog.executor.id === client.user.id) {
+                console.log('⏭️ Skipping bot-initiated role remove (already logged by command)');
+                return;
+            }
+            
             // Log to MongoDB
             if (mongoLogger && mongoLogger.connected) {
                 await mongoLogger.logRoleUpdate(oldMember, newMember, 'remove', removedRoles);
@@ -1516,8 +1604,13 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
                 .addFields(
                     { name: 'User', value: `${newMember.user.tag}\n<@${newMember.id}>`, inline: true },
                     { name: 'Roles Removed', value: removedRoles.map(r => r.name).join(', '), inline: true }
-                )
-                .setTimestamp();
+                );
+            
+            if (roleLog && roleLog.executor) {
+                embed.addFields({ name: 'Removed By', value: roleLog.executor.tag, inline: true });
+            }
+            
+            embed.setTimestamp();
             
             await logChannels.role.send({ embeds: [embed] });
         }
@@ -1528,23 +1621,38 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 
 // Channel Create Event
 client.on('channelCreate', async channel => {
-    const dedupKey = `channelcreate-${channel.guild.id}-${channel.id}-${Date.now().toString().slice(0, -3)}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) {
-        console.log('⏭️ Skipping duplicate channel create log');
-        return;
-    }
-    
     if (!logChannels.channel) return;
     
     try {
+        const dedupKey = `channelcreate-${channel.guild.id}-${channel.id}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate channel create log');
+            return;
+        }
+        
+        // Wait for audit log
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const auditLogs = await channel.guild.fetchAuditLogs({
+            type: AuditLogEvent.ChannelCreate,
+            limit: 1
+        });
+        
+        const channelLog = auditLogs.entries.first();
+        
         const embed = new EmbedBuilder()
             .setColor('#00ff00')
             .setTitle('➕ Channel Created')
             .addFields(
                 { name: 'Channel', value: `${channel.name}\n<#${channel.id}>`, inline: true },
                 { name: 'Type', value: ChannelType[channel.type], inline: true }
-            )
-            .setTimestamp();
+            );
+        
+        if (channelLog && channelLog.executor) {
+            embed.addFields({ name: 'Created By', value: channelLog.executor.tag, inline: true });
+        }
+        
+        embed.setTimestamp();
         
         await logChannels.channel.send({ embeds: [embed] });
     } catch (error) {
@@ -1554,23 +1662,38 @@ client.on('channelCreate', async channel => {
 
 // Channel Delete Event
 client.on('channelDelete', async channel => {
-    const dedupKey = `channeldelete-${channel.guild.id}-${channel.id}-${Date.now().toString().slice(0, -3)}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) {
-        console.log('⏭️ Skipping duplicate channel delete log');
-        return;
-    }
-    
     if (!logChannels.channel) return;
     
     try {
+        const dedupKey = `channeldelete-${channel.guild.id}-${channel.id}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate channel delete log');
+            return;
+        }
+        
+        // Wait for audit log
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const auditLogs = await channel.guild.fetchAuditLogs({
+            type: AuditLogEvent.ChannelDelete,
+            limit: 1
+        });
+        
+        const channelLog = auditLogs.entries.first();
+        
         const embed = new EmbedBuilder()
             .setColor('#ff0000')
             .setTitle('🗑️ Channel Deleted')
             .addFields(
                 { name: 'Channel', value: channel.name, inline: true },
                 { name: 'Type', value: ChannelType[channel.type], inline: true }
-            )
-            .setTimestamp();
+            );
+        
+        if (channelLog && channelLog.executor) {
+            embed.addFields({ name: 'Deleted By', value: channelLog.executor.tag, inline: true });
+        }
+        
+        embed.setTimestamp();
         
         await logChannels.channel.send({ embeds: [embed] });
     } catch (error) {
@@ -1580,32 +1703,30 @@ client.on('channelDelete', async channel => {
 
 // Ban Event
 client.on('guildBanAdd', async ban => {
-    // Round timestamp to nearest second (remove last 3 digits)
-    const dedupKey = `ban-${ban.guild.id}-${ban.user.id}-${Date.now().toString().slice(0, -3)}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) {
-        console.log('⏭️ Skipping duplicate ban log');
-        return;
-    }
     if (!logChannels.moderation) return;
     
     try {
-        // Wait a moment to let audit log populate
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait for audit log to populate
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Check audit log to see who banned the user
         const auditLogs = await ban.guild.fetchAuditLogs({
             type: AuditLogEvent.MemberBanAdd,
-            limit: 5
+            limit: 1
         });
         
-        const banLog = auditLogs.entries.find(entry => 
-            entry.target.id === ban.user.id &&
-            Date.now() - entry.createdTimestamp < 5000 // Within last 5 seconds
-        );
+        const banLog = auditLogs.entries.first();
         
         // If the bot banned the user, skip logging (command handler already logged it)
-        if (banLog && banLog.executor.id === client.user.id) {
+        if (banLog && banLog.target.id === ban.user.id && banLog.executor.id === client.user.id) {
             console.log('⏭️ Skipping bot-initiated ban log (already logged by command)');
+            return;
+        }
+        
+        // Add deduplication AFTER checking if bot did it
+        const dedupKey = `ban-${ban.guild.id}-${ban.user.id}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate ban log');
             return;
         }
         
@@ -1622,6 +1743,7 @@ client.on('guildBanAdd', async ban => {
             .setThumbnail(ban.user.displayAvatarURL())
             .addFields(
                 { name: 'User', value: `${ban.user.tag}\n<@${ban.user.id}>`, inline: true },
+                { name: 'Moderator', value: banLog && banLog.executor ? `${banLog.executor.tag}` : 'Unknown', inline: true },
                 { name: 'Reason', value: ban.reason || 'No reason provided', inline: true }
             );
         
@@ -1644,32 +1766,30 @@ client.on('guildBanAdd', async ban => {
 
 // Unban Event
 client.on('guildBanRemove', async ban => {
-    // Round timestamp to nearest second (remove last 3 digits)
-    const dedupKey = `unban-${ban.guild.id}-${ban.user.id}-${Date.now().toString().slice(0, -3)}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) {
-        console.log('⏭️ Skipping duplicate unban log');
-        return;
-    }
     if (!logChannels.moderation) return;
     
     try {
-        // Wait a moment to let audit log populate
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait for audit log to populate
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Check audit log to see who unbanned the user
         const auditLogs = await ban.guild.fetchAuditLogs({
             type: AuditLogEvent.MemberBanRemove,
-            limit: 5
+            limit: 1
         });
         
-        const unbanLog = auditLogs.entries.find(entry => 
-            entry.target.id === ban.user.id &&
-            Date.now() - entry.createdTimestamp < 5000
-        );
+        const unbanLog = auditLogs.entries.first();
         
         // If the bot unbanned the user, skip logging (command handler already logged it)
-        if (unbanLog && unbanLog.executor.id === client.user.id) {
+        if (unbanLog && unbanLog.target.id === ban.user.id && unbanLog.executor.id === client.user.id) {
             console.log('⏭️ Skipping bot-initiated unban log (already logged by command)');
+            return;
+        }
+        
+        // Add deduplication AFTER checking if bot did it
+        const dedupKey = `unban-${ban.guild.id}-${ban.user.id}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate unban log');
             return;
         }
         
@@ -1683,7 +1803,8 @@ client.on('guildBanRemove', async ban => {
             .setTitle('✅ Member Unbanned')
             .setThumbnail(ban.user.displayAvatarURL())
             .addFields(
-                { name: 'User', value: `${ban.user.tag}\n<@${ban.user.id}>`, inline: true }
+                { name: 'User', value: `${ban.user.tag}\n<@${ban.user.id}>`, inline: true },
+                { name: 'Moderator', value: unbanLog && unbanLog.executor ? `${unbanLog.executor.tag}` : 'Unknown', inline: true }
             )
             .setTimestamp();
         
@@ -1695,15 +1816,15 @@ client.on('guildBanRemove', async ban => {
 
 // Invite Create Event
 client.on('inviteCreate', async invite => {
-    const dedupKey = `invitecreate-${invite.guild.id}-${invite.code}-${Date.now().toString().slice(0, -3)}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) {
-        console.log('⏭️ Skipping duplicate invite create log');
-        return;
-    }
-    
     if (!logChannels.invite) return;
     
     try {
+        const dedupKey = `invitecreate-${invite.guild.id}-${invite.code}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate invite create log');
+            return;
+        }
+        
         const guildInvites = serverInvites.get(invite.guild.id) || new Map();
         guildInvites.set(invite.code, invite.uses || 0);
         serverInvites.set(invite.guild.id, guildInvites);
@@ -1735,15 +1856,15 @@ client.on('inviteCreate', async invite => {
 
 // Invite Delete Event
 client.on('inviteDelete', async invite => {
-    const dedupKey = `invitedelete-${invite.guild.id}-${invite.code}-${Date.now().toString().slice(0, -3)}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) {
-        console.log('⏭️ Skipping duplicate invite delete log');
-        return;
-    }
-    
     if (!logChannels.invite) return;
     
     try {
+        const dedupKey = `invitedelete-${invite.guild.id}-${invite.code}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate invite delete log');
+            return;
+        }
+        
         const guildInvites = serverInvites.get(invite.guild.id);
         if (guildInvites) {
             guildInvites.delete(invite.code);
@@ -1766,15 +1887,15 @@ client.on('inviteDelete', async invite => {
 
 // Member Join Event
 client.on('guildMemberAdd', async member => {
-    const dedupKey = `memberjoin-${member.guild.id}-${member.id}-${Date.now().toString().slice(0, -3)}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) {
-        console.log('⏭️ Skipping duplicate member join log');
-        return;
-    }
-    
     if (!logChannels.member) return;
     
     try {
+        const dedupKey = `memberjoin-${member.guild.id}-${member.id}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate member join log');
+            return;
+        }
+        
         console.log(`👤 New member joined: ${member.user.tag} (${member.id})`);
         
         // Fetch current invites
@@ -1880,17 +2001,36 @@ client.on('guildMemberAdd', async member => {
     }
 });
 
+
 // Member Leave Event
 client.on('guildMemberRemove', async member => {
-    const dedupKey = `memberleave-${member.guild.id}-${member.id}-${Date.now().toString().slice(0, -3)}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) {
-        console.log('⏭️ Skipping duplicate member leave log');
-        return;
-    }
-    
     if (!logChannels.member) return;
     
     try {
+        const dedupKey = `memberleave-${member.guild.id}-${member.id}-${Date.now().toString().slice(0, -3)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            console.log('⏭️ Skipping duplicate member leave log');
+            return;
+        }
+        
+        // Wait a moment to check if this was a kick
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const auditLogs = await member.guild.fetchAuditLogs({
+            type: AuditLogEvent.MemberKick,
+            limit: 1
+        });
+        
+        const kickLog = auditLogs.entries.first();
+        
+        // If bot kicked them via command, skip (already logged)
+        if (kickLog && kickLog.target.id === member.id && 
+            kickLog.executor.id === client.user.id &&
+            Date.now() - kickLog.createdTimestamp < 5000) {
+            console.log('⏭️ Skipping bot-initiated kick log (already logged by command)');
+            return;
+        }
+        
         const memberInviteData = memberInvites.get(member.id);
         
         // Log to MongoDB
@@ -1902,7 +2042,7 @@ client.on('guildMemberRemove', async member => {
             .setColor('#ff0000')
             .setTitle('👋 Member Left')
             .setThumbnail(member.user.displayAvatarURL())
-            .addFields(
+            .addFields.addFields(
                 { name: 'User', value: `${member.user.tag}\n<@${member.id}>`, inline: true },
                 { name: 'Joined Server', value: member.joinedAt ? `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>` : 'Unknown', inline: true },
                 { name: 'Member Count', value: member.guild.memberCount.toString(), inline: true }
@@ -1914,6 +2054,24 @@ client.on('guildMemberRemove', async member => {
                 value: `${memberInviteData.inviter}\nCode: \`${memberInviteData.code}\``,
                 inline: false
             });
+        }
+        
+        // Check if this was a kick
+        if (kickLog && kickLog.target.id === member.id && Date.now() - kickLog.createdTimestamp < 5000) {
+            embed.setColor('#ff6600');
+            embed.setTitle('👢 Member Kicked');
+            embed.addFields({
+                name: 'Kicked By',
+                value: kickLog.executor.tag,
+                inline: true
+            });
+            if (kickLog.reason) {
+                embed.addFields({
+                    name: 'Reason',
+                    value: kickLog.reason,
+                    inline: false
+                });
+            }
         }
         
         embed.setTimestamp();
@@ -1928,12 +2086,17 @@ client.on('guildMemberRemove', async member => {
 // Button interaction handler for spam review AND appeals
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
-    const dedupKey = `mute_${newMember.id}_${Date.now()}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) return;
     
     // Handle spam review buttons
     if (interaction.customId.startsWith('ban_') || interaction.customId.startsWith('unmute_')) {
         const [action, userId] = interaction.customId.split('_');
+        
+        // Deduplication for button interactions
+        const dedupKey = `button-${action}-${userId}-${interaction.user.id}-${Date.now().toString().slice(0, -2)}`;
+        if (logDeduplicator.isDuplicate(dedupKey)) {
+            await interaction.reply({ content: '⏳ This action is already being processed...', ephemeral: true });
+            return;
+        }
         
         if (action === 'ban' || action === 'unmute') {
             try {
@@ -2122,9 +2285,17 @@ client.on('interactionCreate', async interaction => {
     // Handle appeal buttons
     if (interaction.customId.startsWith('appeal_')) {
         try {
+            const [, action, appealId] = interaction.customId.split('_');
+            
+            // Deduplication for appeal buttons
+            const dedupKey = `appeal-${action}-${appealId}-${interaction.user.id}-${Date.now().toString().slice(0, -2)}`;
+            if (logDeduplicator.isDuplicate(dedupKey)) {
+                await interaction.reply({ content: '⏳ This appeal is already being processed...', ephemeral: true });
+                return;
+            }
+            
             await interaction.deferReply({ ephemeral: true });
             
-            const [, action, appealId] = interaction.customId.split('_');
             const { ObjectId } = require('mongodb');
             
             console.log('🎫 Appeal button clicked:', action, 'for', appealId);
