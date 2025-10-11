@@ -1472,6 +1472,12 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 
 // Role Update Events
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
+    const dedupKey = `roleupdate-${newMember.guild.id}-${newMember.id}-${Date.now().toString().slice(0, -3)}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) {
+        console.log('⏭️ Skipping duplicate role update log');
+        return;
+    }
+    
     if (!logChannels.role) return;
     
     try {
@@ -1522,6 +1528,12 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 
 // Channel Create Event
 client.on('channelCreate', async channel => {
+    const dedupKey = `channelcreate-${channel.guild.id}-${channel.id}-${Date.now().toString().slice(0, -3)}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) {
+        console.log('⏭️ Skipping duplicate channel create log');
+        return;
+    }
+    
     if (!logChannels.channel) return;
     
     try {
@@ -1542,6 +1554,12 @@ client.on('channelCreate', async channel => {
 
 // Channel Delete Event
 client.on('channelDelete', async channel => {
+    const dedupKey = `channeldelete-${channel.guild.id}-${channel.id}-${Date.now().toString().slice(0, -3)}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) {
+        console.log('⏭️ Skipping duplicate channel delete log');
+        return;
+    }
+    
     if (!logChannels.channel) return;
     
     try {
@@ -1562,8 +1580,12 @@ client.on('channelDelete', async channel => {
 
 // Ban Event
 client.on('guildBanAdd', async ban => {
-    const dedupKey = `ban_${ban.user.id}_${Date.now()}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) return;
+    // Round timestamp to nearest second (remove last 3 digits)
+    const dedupKey = `ban-${ban.guild.id}-${ban.user.id}-${Date.now().toString().slice(0, -3)}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) {
+        console.log('⏭️ Skipping duplicate ban log');
+        return;
+    }
     if (!logChannels.moderation) return;
     
     try {
@@ -1602,8 +1624,12 @@ client.on('guildBanAdd', async ban => {
 
 // Unban Event
 client.on('guildBanRemove', async ban => {
-    const dedupKey = `unban_${ban.user.id}_${Date.now()}`;
-    if (logDeduplicator.isDuplicate(dedupKey)) return;
+    // Round timestamp to nearest second (remove last 3 digits)
+    const dedupKey = `unban-${ban.guild.id}-${ban.user.id}-${Date.now().toString().slice(0, -3)}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) {
+        console.log('⏭️ Skipping duplicate unban log');
+        return;
+    }
     if (!logChannels.moderation) return;
     
     try {
@@ -1629,6 +1655,12 @@ client.on('guildBanRemove', async ban => {
 
 // Invite Create Event
 client.on('inviteCreate', async invite => {
+    const dedupKey = `invitecreate-${invite.guild.id}-${invite.code}-${Date.now().toString().slice(0, -3)}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) {
+        console.log('⏭️ Skipping duplicate invite create log');
+        return;
+    }
+    
     if (!logChannels.invite) return;
     
     try {
@@ -1663,6 +1695,12 @@ client.on('inviteCreate', async invite => {
 
 // Invite Delete Event
 client.on('inviteDelete', async invite => {
+    const dedupKey = `invitedelete-${invite.guild.id}-${invite.code}-${Date.now().toString().slice(0, -3)}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) {
+        console.log('⏭️ Skipping duplicate invite delete log');
+        return;
+    }
+    
     if (!logChannels.invite) return;
     
     try {
@@ -1688,6 +1726,12 @@ client.on('inviteDelete', async invite => {
 
 // Member Join Event
 client.on('guildMemberAdd', async member => {
+    const dedupKey = `memberjoin-${member.guild.id}-${member.id}-${Date.now().toString().slice(0, -3)}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) {
+        console.log('⏭️ Skipping duplicate member join log');
+        return;
+    }
+    
     if (!logChannels.member) return;
     
     try {
@@ -1798,6 +1842,12 @@ client.on('guildMemberAdd', async member => {
 
 // Member Leave Event
 client.on('guildMemberRemove', async member => {
+    const dedupKey = `memberleave-${member.guild.id}-${member.id}-${Date.now().toString().slice(0, -3)}`;
+    if (logDeduplicator.isDuplicate(dedupKey)) {
+        console.log('⏭️ Skipping duplicate member leave log');
+        return;
+    }
+    
     if (!logChannels.member) return;
     
     try {
