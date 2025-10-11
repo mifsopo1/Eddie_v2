@@ -5,7 +5,6 @@ const config = require('./config.json');
 const MongoDBLogger = require('./mongodb-logger');
 const Dashboard = require('./dashboard');
 const StickyManager = require('./stickyManager');
-const logDeduplicator = new Map();
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -65,6 +64,37 @@ function getDiskSpace() {
         };
     }
 }
+
+// Log deduplicator to prevent duplicate event logs
+class LogDeduplicator {
+    constructor() {
+        this.recent = new Map();
+        this.timeout = 5000; // 5 seconds
+    }
+    
+    isDuplicate(key) {
+        const now = Date.now();
+        const last = this.recent.get(key);
+        
+        if (last && (now - last) < this.timeout) {
+            return true;
+        }
+        
+        this.recent.set(key, now);
+        
+        // Cleanup old entries
+        if (this.recent.size > 1000) {
+            const cutoff = now - this.timeout;
+            for (const [k, v] of this.recent.entries()) {
+                if (v < cutoff) this.recent.delete(k);
+            }
+        }
+        
+        return false;
+    }
+}
+
+const logDeduplicator = new LogDeduplicator();
 
 // Attachments directory
 const ATTACHMENTS_DIR = '/var/lib/jenkins/discord-logger-bot/saved-attachments';
