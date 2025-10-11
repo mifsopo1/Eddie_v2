@@ -280,39 +280,47 @@ class Dashboard {
 // SERVER PROTECTION SETTINGS ROUTES
 // ============================================
 
-// Get protection settings
-this.app.get('/api/protection/settings', this.requireAdmin.bind(this), async (req, res) => {
+
+    // Save protection settings
+this.app.post('/api/protection/settings', this.requireAdmin.bind(this), async (req, res) => {
+    console.log('📥 POST /api/protection/settings received');
+    console.log('📦 Request body:', req.body);
+    
     try {
-        let settings = await this.mongoLogger.db.collection('settings')
-            .findOne({ type: 'serverProtection' });
+        const { antiSpam, massMention, antiRaid } = req.body;
         
-        if (!settings) {
-            // Default settings
-            settings = {
-                type: 'serverProtection',
-                antiSpam: {
-                    enabled: false,
-                    maxMessages: 5,
-                    timeWindow: 5,
-                    action: 'delete'
-                },
-                massMention: {
-                    enabled: false,
-                    maxMentions: 5,
-                    action: 'delete'
-                },
-                antiRaid: {
-                    enabled: false,
-                    joinThreshold: 10,
-                    timeWindow: 60,
-                    action: 'kick'
-                }
-            };
+        console.log('💾 Saving protection settings...');
+        
+        const settings = {
+            type: 'serverProtection',
+            antiSpam: antiSpam || { enabled: false, maxMessages: 5, timeWindow: 5, action: 'delete' },
+            massMention: massMention || { enabled: false, maxMentions: 5, action: 'delete' },
+            antiRaid: antiRaid || { enabled: false, joinThreshold: 10, timeWindow: 60, action: 'kick' },
+            updatedAt: new Date(),
+            updatedBy: req.user?.username || 'Admin'
+        };
+        
+        console.log('💾 Settings to save:', settings);
+        
+        await this.mongoLogger.db.collection('settings')
+            .updateOne(
+                { type: 'serverProtection' },
+                { $set: settings },
+                { upsert: true }
+            );
+        
+        console.log('✅ Settings saved to MongoDB');
+        
+        // Notify command handler to reload settings
+        if (this.client.commandHandler) {
+            console.log('🔄 Reloading command handler settings...');
+            await this.client.commandHandler.loadProtectionSettings();
+            console.log('✅ Command handler settings reloaded');
         }
         
-        res.json({ success: true, settings });
+        res.json({ success: true, message: 'Settings saved successfully!' });
     } catch (error) {
-        console.error('Get protection settings error:', error);
+        console.error('❌ Save protection settings error:', error);
         res.json({ success: false, error: error.message });
     }
 });
