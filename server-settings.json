@@ -1,0 +1,14 @@
+{
+  "antiSpam": {
+    "enabled": true
+  },
+  "massMention": {
+    "action": "warn"
+  },
+  "linkProtection": {
+    "allowDiscordInvites": false
+  },
+  "capsProtection": {
+    "enabled": true
+  }
+}

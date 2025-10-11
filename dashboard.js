@@ -276,7 +276,115 @@ class Dashboard {
     // ============================================
     // REST OF YOUR ROUTES CONTINUE HERE...
     // ============================================
+         // ============================================
+// SERVER PROTECTION SETTINGS ROUTES
+// ============================================
+
+// Get protection settings
+this.app.get('/api/protection/settings', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        let settings = await this.mongoLogger.db.collection('settings')
+            .findOne({ type: 'serverProtection' });
         
+        if (!settings) {
+            // Default settings
+            settings = {
+                type: 'serverProtection',
+                antiSpam: {
+                    enabled: false,
+                    maxMessages: 5,
+                    timeWindow: 5,
+                    action: 'delete'
+                },
+                massMention: {
+                    enabled: false,
+                    maxMentions: 5,
+                    action: 'delete'
+                },
+                antiRaid: {
+                    enabled: false,
+                    joinThreshold: 10,
+                    timeWindow: 60,
+                    action: 'kick'
+                }
+            };
+        }
+        
+        res.json({ success: true, settings });
+    } catch (error) {
+        console.error('Get protection settings error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Save protection settings
+this.app.post('/api/protection/settings', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const { antiSpam, massMention, antiRaid } = req.body;
+        
+        console.log('💾 Saving protection settings:', { antiSpam, massMention, antiRaid });
+        
+        const settings = {
+            type: 'serverProtection',
+            antiSpam: antiSpam || { enabled: false, maxMessages: 5, timeWindow: 5, action: 'delete' },
+            massMention: massMention || { enabled: false, maxMentions: 5, action: 'delete' },
+            antiRaid: antiRaid || { enabled: false, joinThreshold: 10, timeWindow: 60, action: 'kick' },
+            updatedAt: new Date(),
+            updatedBy: req.user?.username || 'Admin'
+        };
+        
+        await this.mongoLogger.db.collection('settings')
+            .updateOne(
+                { type: 'serverProtection' },
+                { $set: settings },
+                { upsert: true }
+            );
+        
+        console.log('✅ Protection settings saved successfully');
+        
+        // Notify command handler to reload settings
+        if (this.client.commandHandler) {
+            await this.client.commandHandler.loadProtectionSettings();
+        }
+        
+        req.flash('success', 'Protection settings saved!');
+        res.json({ success: true, message: 'Settings saved successfully!' });
+    } catch (error) {
+        console.error('❌ Save protection settings error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Get protection logs
+this.app.get('/api/protection/logs', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        const logs = await this.mongoLogger.db.collection('protectionLogs')
+            .find({})
+            .sort({ timestamp: -1 })
+            .limit(100)
+            .toArray();
+        
+        res.json({ success: true, logs });
+    } catch (error) {
+        console.error('Get protection logs error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+    // Protection Settings Page
+this.app.get('/protection', this.requireAdmin.bind(this), async (req, res) => {
+    try {
+        res.render('protection-settings', {
+            client: this.client,
+            user: req.user,
+            page: 'protection'
+        });
+    } catch (error) {
+        console.error('Protection settings page error:', error);
+        req.flash('error', 'Error loading protection settings');
+        res.redirect('/');
+    }
+});
         // ============================================
         // AUTH ROUTES
         // ============================================

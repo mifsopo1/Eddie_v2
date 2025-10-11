@@ -259,5 +259,32 @@
     "maxUses": 0,
     "timestamp": 1760148614238,
     "guildId": "585075311209611264"
+  },
+  "1424492989669052458": {
+    "code": "unknown",
+    "inviter": "Unknown",
+    "inviterId": "Unknown",
+    "uses": 0,
+    "maxUses": 0,
+    "timestamp": 1760175430140,
+    "guildId": "585075311209611264"
+  },
+  "777262087369130016": {
+    "code": "unknown",
+    "inviter": "Unknown",
+    "inviterId": "Unknown",
+    "uses": 0,
+    "maxUses": 0,
+    "timestamp": 1760183716336,
+    "guildId": "585075311209611264"
+  },
+  "1262138544936190185": {
+    "code": "n4jRgrT",
+    "inviter": "gabe_doodles",
+    "inviterId": "111993378710827008",
+    "uses": 17119,
+    "maxUses": 0,
+    "timestamp": 1760184000850,
+    "guildId": "585075311209611264"
   }
 }

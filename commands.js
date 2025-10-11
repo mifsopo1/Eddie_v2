@@ -14,12 +14,22 @@ class CommandHandler {
         this.logChannels = {};
         this.commandSettings = new Map();
         
-        this.loadWarnings();
-        this.loadCommandSettings();
-        this.registerCommands();
-        
-        console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
-    }
+        // ADD THESE NEW PROPERTIES
+    this.protectionSettings = {
+        antiSpam: { enabled: false, maxMessages: 5, timeWindow: 5, action: 'delete' },
+        massMention: { enabled: false, maxMentions: 5, action: 'delete' },
+        antiRaid: { enabled: false, joinThreshold: 10, timeWindow: 60, action: 'kick' }
+    };
+    this.spamTracking = new Map(); // Track user messages for spam detection
+    this.joinTracking = []; // Track recent joins for raid detection
+    
+    this.loadWarnings();
+    this.loadCommandSettings();
+    this.loadProtectionSettings(); // ADD THIS
+    this.registerCommands();
+    
+    console.log(`✅ Registered ${this.commands.size} commands:`, Array.from(this.commands.keys()).join(', '));
+}
     async getTargetMember(message, args) {
     // Check for mention first
     let target = message.mentions.members.first();
@@ -89,7 +99,133 @@ async getTargetUser(message, args) {
     }
 
     // ... rest of your methods continue here
+     // Load protection settings from MongoDB
+async loadProtectionSettings() {
+    try {
+        if (!this.mongoLogger || !this.mongoLogger.db) {
+            console.log('⚠️ MongoDB not available for protection settings');
+            return;
+        }
 
+        const settings = await this.mongoLogger.db.collection('settings')
+            .findOne({ type: 'serverProtection' });
+        
+        if (settings) {
+            this.protectionSettings = {
+                antiSpam: settings.antiSpam || this.protectionSettings.antiSpam,
+                massMention: settings.massMention || this.protectionSettings.massMention,
+                antiRaid: settings.antiRaid || this.protectionSettings.antiRaid
+            };
+            console.log('✅ Loaded server protection settings');
+            console.log('  Anti-Spam:', this.protectionSettings.antiSpam.enabled ? 'ON' : 'OFF');
+            console.log('  Mass Mention:', this.protectionSettings.massMention.enabled ? 'ON' : 'OFF');
+            console.log('  Anti-Raid:', this.protectionSettings.antiRaid.enabled ? 'ON' : 'OFF');
+        }
+    } catch (error) {
+        console.error('Error loading protection settings:', error);
+    }
+}
+
+// Log protection action
+async logProtection(type, action, user, details) {
+    try {
+        await this.mongoLogger.db.collection('protectionLogs').insertOne({
+            type,
+            action,
+            userId: user.id,
+            userTag: user.tag,
+            details,
+            timestamp: new Date()
+        });
+    } catch (error) {
+        console.error('Error logging protection:', error);
+    }
+}
+
+// Check for spam
+async checkSpam(message) {
+    if (!this.protectionSettings.antiSpam.enabled) return false;
+    
+    const userId = message.author.id;
+    const now = Date.now();
+    
+    // Get user's recent messages
+    if (!this.spamTracking.has(userId)) {
+        this.spamTracking.set(userId, []);
+    }
+    
+    const userMessages = this.spamTracking.get(userId);
+    
+    // Remove messages outside time window
+    const timeWindow = this.protectionSettings.antiSpam.timeWindow * 1000;
+    const validMessages = userMessages.filter(time => now - time < timeWindow);
+    
+    // Add current message
+    validMessages.push(now);
+    this.spamTracking.set(userId, validMessages);
+    
+    // Check if exceeds threshold
+    if (validMessages.length > this.protectionSettings.antiSpam.maxMessages) {
+        console.log(`🚫 Spam detected from ${message.author.tag}`);
+        
+        await this.logProtection('spam', this.protectionSettings.antiSpam.action, message.author, {
+            messageCount: validMessages.length,
+            timeWindow: this.protectionSettings.antiSpam.timeWindow
+        });
+        
+        // Take action
+        if (this.protectionSettings.antiSpam.action === 'delete') {
+            await message.delete().catch(() => {});
+            await message.channel.send(`⚠️ ${message.author}, slow down! You're sending messages too quickly.`)
+                .then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+        } else if (this.protectionSettings.antiSpam.action === 'timeout') {
+            await message.member.timeout(60000, 'Spam detected').catch(() => {});
+            await message.channel.send(`⚠️ ${message.author} has been timed out for spam.`)
+                .then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+        } else if (this.protectionSettings.antiSpam.action === 'kick') {
+            await message.member.kick('Spam detected').catch(() => {});
+        }
+        
+        // Clear tracking
+        this.spamTracking.delete(userId);
+        
+        return true;
+    }
+    
+    return false;
+}
+
+// Check for mass mentions
+async checkMassMention(message) {
+    if (!this.protectionSettings.massMention.enabled) return false;
+    
+    const mentionCount = message.mentions.users.size + message.mentions.roles.size;
+    
+    if (mentionCount > this.protectionSettings.massMention.maxMentions) {
+        console.log(`🚫 Mass mention detected from ${message.author.tag} (${mentionCount} mentions)`);
+        
+        await this.logProtection('mass_mention', this.protectionSettings.massMention.action, message.author, {
+            mentionCount
+        });
+        
+        // Take action
+        if (this.protectionSettings.massMention.action === 'delete') {
+            await message.delete().catch(() => {});
+            await message.channel.send(`⚠️ ${message.author}, please don't mass mention!`)
+                .then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+        } else if (this.protectionSettings.massMention.action === 'timeout') {
+            await message.member.timeout(300000, 'Mass mention').catch(() => {});
+            await message.channel.send(`⚠️ ${message.author} has been timed out for mass mentioning.`)
+                .then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+        } else if (this.protectionSettings.massMention.action === 'kick') {
+            await message.member.kick('Mass mention').catch(() => {});
+        }
+        
+        return true;
+    }
+    
+    return false;
+}
     // Helper method to log moderation actions
     async logModerationAction(embed) {
         if (this.logChannels.moderation) {
@@ -2012,13 +2148,13 @@ this.commands.set('resetcustom', {
         
         // Avatar Command
         this.commands.set('avatar', {
-            name: 'avatar',
-            description: 'Display user avatar',
-            usage: '!avatar [@user|userID]',
-            aliases: ['av', 'pfp', 'icon'],
-            category: 'Utility',
-            execute: async (message) => {
-                const target = await this.getTargetUser(message, args) || message.author;
+    name: 'avatar',
+    description: 'Display user avatar',
+    usage: '!avatar [@user|userID]',
+    aliases: ['av', 'pfp', 'icon'],
+    category: 'Utility',
+    execute: async (message, args) => {  // ✅ Added args
+        const target = await this.getTargetUser(message, args) || message.author;
                 
                 const embed = new EmbedBuilder()
                     .setColor('#3498db')
@@ -2033,13 +2169,13 @@ this.commands.set('resetcustom', {
 
         // Banner Command
         this.commands.set('banner', {
-            name: 'banner',
-            description: 'Display user banner',
-            usage: '!banner [@user|userID]',
-            aliases: ['userbanner'],
-            category: 'Utility',
-            execute: async (message) => {
-                const target = await this.getTargetUser(message, args) || message.author;
+    name: 'banner',
+    description: 'Display user banner',
+    usage: '!banner [@user|userID]',
+    aliases: ['userbanner'],
+    category: 'Utility',
+    execute: async (message, args) => {  // ✅ Added args
+        const target = await this.getTargetUser(message, args) || message.author;
                 const user = await this.client.users.fetch(target.id, { force: true });
                 
                 if (!user.banner) {
@@ -2573,6 +2709,20 @@ this.commands.set('resetcustom', {
     }
 
     async handleCommand(message) {
+    // ========== PROTECTION CHECKS (FIRST) ==========
+    
+    // Check spam
+    if (await this.checkSpam(message)) {
+        return; // Stop processing if spam detected
+    }
+    
+    // Check mass mentions
+    if (await this.checkMassMention(message)) {
+        return; // Stop processing if mass mention detected
+    }
+    
+    // ========== AFK CHECKS ==========
+    
     // Check for AFK users
     if (this.afkUsers.has(message.author.id)) {
         this.afkUsers.delete(message.author.id);

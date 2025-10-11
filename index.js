@@ -1830,6 +1830,75 @@ client.on('guildMemberAdd', async member => {
         
         console.log(`👤 New member joined: ${member.user.tag} (${member.id})`);
         
+        // ============================================
+        // ANTI-RAID PROTECTION (CHECK FIRST)
+        // ============================================
+        if (commandHandler?.protectionSettings?.antiRaid?.enabled) {
+            const now = Date.now();
+            const settings = commandHandler.protectionSettings.antiRaid;
+            const timeWindow = settings.timeWindow * 1000;
+            
+            // Add to tracking
+            commandHandler.joinTracking.push(now);
+            
+            // Remove old joins outside time window
+            commandHandler.joinTracking = commandHandler.joinTracking.filter(
+                time => now - time < timeWindow
+            );
+            
+            // Check if threshold exceeded
+            if (commandHandler.joinTracking.length >= settings.joinThreshold) {
+                console.log(`🚨 RAID DETECTED! ${commandHandler.joinTracking.length} joins in ${settings.timeWindow}s`);
+                
+                // Log to moderation channel BEFORE taking action
+                if (logChannels.moderation) {
+                    const raidEmbed = new EmbedBuilder()
+                        .setColor('#ff0000')
+                        .setTitle('🚨 RAID DETECTED')
+                        .setDescription(`**${commandHandler.joinTracking.length}** members joined in **${settings.timeWindow}** seconds!`)
+                        .addFields(
+                            { name: 'Latest Member', value: `${member.user.tag}\n<@${member.id}>`, inline: true },
+                            { name: 'Action Taken', value: settings.action.toUpperCase(), inline: true },
+                            { name: 'Join Count', value: commandHandler.joinTracking.length.toString(), inline: true }
+                        )
+                        .setTimestamp();
+                    
+                    await logChannels.moderation.send({ 
+                        content: '<@&1425260355420160100> 🚨 **RAID DETECTED!**',
+                        embeds: [raidEmbed] 
+                    });
+                }
+                
+                // Take action on the member
+                try {
+                    if (settings.action === 'kick') {
+                        await member.kick('Anti-raid protection').catch(() => {});
+                        console.log(`👢 Kicked ${member.user.tag} (raid protection)`);
+                    } else if (settings.action === 'ban') {
+                        await member.ban({ reason: 'Anti-raid protection' }).catch(() => {});
+                        console.log(`🔨 Banned ${member.user.tag} (raid protection)`);
+                    }
+                } catch (error) {
+                    console.error('Error taking raid protection action:', error);
+                }
+                
+                // Log to MongoDB
+                if (commandHandler) {
+                    await commandHandler.logProtection('raid', settings.action, member.user, {
+                        joinCount: commandHandler.joinTracking.length,
+                        timeWindow: settings.timeWindow
+                    });
+                }
+                
+                // Don't continue with normal join logging for raid members
+                return;
+            }
+        }
+        
+        // ============================================
+        // NORMAL JOIN PROCESSING (if not a raid)
+        // ============================================
+        
         // Fetch current invites
         const newInvites = await member.guild.invites.fetch();
         const oldInvites = serverInvites.get(member.guild.id) || new Map();
@@ -1928,6 +1997,7 @@ client.on('guildMemberAdd', async member => {
         
         await logChannels.member.send({ embeds: [embed] });
         console.log(`✅ Logged member join to channel`);
+        
     } catch (error) {
         console.error('❌ Error logging member join:', error);
     }
